@@ -11,7 +11,6 @@ services:
   - type: web
     runtime: static
     name: kropfeet-crm
-    plan: free
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     pullRequestPreviewsEnabled: true
