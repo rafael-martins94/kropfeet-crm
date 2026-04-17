@@ -1,0 +1,58 @@
+# Blueprint do Render para o KroopFeet CRM.
+# Cria um Static Site a partir do build do Vite.
+#
+# Para usar: no Render, clique em "New +" → "Blueprint" e aponte
+# para o repositório. As variáveis marcadas com `sync: false` precisam
+# ser preenchidas manualmente no dashboard (não sobem no git).
+#
+# Docs: https://render.com/docs/infrastructure-as-code
+
+services:
+  - type: web
+    runtime: static
+    name: kropfeet-crm
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: true
+    buildFilter:
+      paths:
+        - src/**
+        - public/**
+        - index.html
+        - package.json
+        - package-lock.json
+        - tsconfig*.json
+        - vite.config.*
+        - tailwind.config.*
+        - postcss.config.*
+        - render.yaml
+      ignoredPaths:
+        - tools/**
+        - "**/*.md"
+        - .env.example
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: NODE_VERSION
+        value: "20"
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
