@@ -2,7 +2,7 @@
   "name": "kropfeet-tiny-sync",
   "version": "0.1.0",
   "private": true,
-  "description": "Utilitário Node de sincronização Tiny ERP → Supabase do KroopFeet CRM (uso esporádico).",
+  "description": "Utilitário Node de sincronização Tiny ERP → Supabase do KropFeet CRM (uso esporádico).",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -12,6 +12,7 @@
     "sync:tiny": "tsx scripts/sincronizar-tiny.ts",
     "sync:tiny:pagina": "tsx scripts/sincronizar-pagina.ts",
     "sync:tiny:produto": "tsx scripts/sincronizar-produto.ts",
+    "sync:tiny:status-estoque": "tsx scripts/sincronizar-status-estoque-tiny.ts",
     "sync:tiny:fornecedores": "tsx scripts/sincronizar-fornecedores.ts",
     "backfill:imagens": "tsx scripts/backfill-imagens.ts"
   },

@@ -122,7 +122,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-7 border-t border-line pt-5 text-center text-[0.68rem] uppercase tracking-[0.22em] text-ink-faint">
-          Acesso restrito · KroopFeet Sneakers
+          Acesso restrito · KropFeet Sneakers
         </div>
       </div>
     </AuthLayout>

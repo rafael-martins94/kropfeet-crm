@@ -32,7 +32,7 @@ export default function VendaDetailPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={venda.data ? `Venda de ${formatarDataHora(venda.data.data_venda)}` : "Venda"}
         breadcrumbs={[
@@ -93,11 +93,7 @@ export default function VendaDetailPage() {
             </dl>
           </SectionCard>
 
-          <SectionCard
-            title="Itens da venda"
-            description={`${itens.data?.length ?? 0} item(ns)`}
-            noPadding
-          >
+          <SectionCard title="Itens da venda" noPadding>
             {itens.loading ? (
               <div className="p-5 text-sm text-ink-soft">Carregando itens…</div>
             ) : (itens.data ?? []).length === 0 ? (

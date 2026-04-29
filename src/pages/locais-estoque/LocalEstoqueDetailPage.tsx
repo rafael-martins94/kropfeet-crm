@@ -28,7 +28,7 @@ export default function LocalEstoqueDetailPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={data?.nome ?? "Local"}
         breadcrumbs={[

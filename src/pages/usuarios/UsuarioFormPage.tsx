@@ -92,7 +92,7 @@ export default function UsuarioFormPage() {
 
   if (carregando) {
     return (
-      <div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <PageHeader
           title={modoEdicao ? "Editar usuário" : "Novo usuário"}
           breadcrumbs={[
@@ -112,14 +112,9 @@ export default function UsuarioFormPage() {
   const ehProprio = perfilOriginal?.id === usuarioAtual?.id;
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={modoEdicao ? `Editar ${perfilOriginal?.nome ?? "usuário"}` : "Novo usuário"}
-        description={
-          modoEdicao
-            ? "Atualize dados, papel e status deste usuário."
-            : "Convide uma pessoa para acessar o CRM."
-        }
         breadcrumbs={[
           { label: "Sistema" },
           { label: "Usuários", to: "/usuarios" },

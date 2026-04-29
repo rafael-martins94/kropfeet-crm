@@ -5,6 +5,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SearchInput } from "../../components/SearchInput";
+import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import {
@@ -190,10 +191,9 @@ export default function UsuariosListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Usuários"
-        description="Gerencie quem acessa o CRM, defina papéis e envie redefinições de senha."
         breadcrumbs={[{ label: "Sistema" }, { label: "Usuários" }]}
         actions={
           <PrimaryButton
@@ -205,43 +205,53 @@ export default function UsuariosListPage() {
         }
       />
 
-      <SectionCard noPadding>
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <SearchInput
-            placeholder="Buscar por nome ou e-mail…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            wrapperClassName="w-full sm:max-w-xs"
-          />
-          <div className="text-xs text-ink-soft">
-            {data ? `${data.total.toLocaleString("pt-BR")} usuários` : ""}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={data?.data ?? []}
-            rowKey={(u) => u.id}
-            loading={loading}
-            emptyTitle="Nenhum usuário encontrado"
-            emptyDescription="Clique em 'Novo usuário' para convidar alguém."
-          />
-        )}
-
-        {data ? (
-          <Pagination
-            page={data.page}
-            pageSize={data.pageSize}
-            total={data.total}
-            onPageChange={setPage}
-          />
-        ) : null}
+      <SectionCard
+        noPadding
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <ScrollableListShell
+          toolbar={
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <SearchInput
+                placeholder="Buscar por nome ou e-mail…"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                wrapperClassName="w-full sm:max-w-xs"
+              />
+              <div className="text-xs text-ink-soft">
+                {data ? `${data.total.toLocaleString("pt-BR")} usuários` : ""}
+              </div>
+            </div>
+          }
+          body={
+            error ? (
+              <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={data?.data ?? []}
+                rowKey={(u) => u.id}
+                loading={loading}
+                emptyTitle="Nenhum usuário encontrado"
+                emptyDescription="Clique em 'Novo usuário' para convidar alguém."
+              />
+            )
+          }
+          footer={
+            data ? (
+              <Pagination
+                page={data.page}
+                pageSize={data.pageSize}
+                total={data.total}
+                onPageChange={setPage}
+              />
+            ) : null
+          }
+        />
       </SectionCard>
     </div>
   );

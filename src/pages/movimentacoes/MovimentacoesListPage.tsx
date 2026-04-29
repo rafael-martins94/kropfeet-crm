@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
+import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { movimentacoesService, type MovimentacaoDetalhada } from "../../services/movimentacoes";
@@ -52,7 +53,7 @@ export default function MovimentacoesListPage() {
       header: "Origem",
       render: (m) =>
         m.origem ? (
-          <span className="text-ink-soft">{m.origem.codigo} · {m.origem.nome}</span>
+          <span className="text-ink-soft">{m.origem.nome}</span>
         ) : (
           <span className="text-ink-faint">—</span>
         ),
@@ -62,7 +63,7 @@ export default function MovimentacoesListPage() {
       header: "Destino",
       render: (m) =>
         m.destino ? (
-          <span className="text-ink-soft">{m.destino.codigo} · {m.destino.nome}</span>
+          <span className="text-ink-soft">{m.destino.nome}</span>
         ) : (
           <span className="text-ink-faint">—</span>
         ),
@@ -86,29 +87,38 @@ export default function MovimentacoesListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Movimentações de estoque"
-        description="Histórico auditável de entradas, saídas, transferências, reservas e vendas do estoque."
         breadcrumbs={[{ label: "Operação" }, { label: "Movimentações" }]}
       />
 
-      <SectionCard noPadding>
-        {error ? (
-          <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={data?.data ?? []}
-            rowKey={(m) => m.id}
-            loading={loading}
-            emptyTitle="Nenhuma movimentação"
-            emptyDescription="As movimentações aparecerão aqui conforme o estoque for sendo operado."
-          />
-        )}
-        {data ? (
-          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
-        ) : null}
+      <SectionCard
+        noPadding
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <ScrollableListShell
+          body={
+            error ? (
+              <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={data?.data ?? []}
+                rowKey={(m) => m.id}
+                loading={loading}
+                emptyTitle="Nenhuma movimentação"
+                emptyDescription="As movimentações aparecerão aqui conforme o estoque for sendo operado."
+              />
+            )
+          }
+          footer={
+            data ? (
+              <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
+            ) : null
+          }
+        />
       </SectionCard>
     </div>
   );

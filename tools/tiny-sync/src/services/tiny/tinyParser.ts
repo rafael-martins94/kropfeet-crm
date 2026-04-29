@@ -1,4 +1,11 @@
-import { gerarSlug, normalizarTexto, paraDataApenas, paraDataIso, paraNumeroOuNulo } from "../../utils/normalizacao.js";
+import {
+  gerarSlug,
+  normalizarNomeCategoriaTiny,
+  normalizarTexto,
+  paraDataApenas,
+  paraDataIso,
+  paraNumeroOuNulo,
+} from "../../utils/normalizacao.js";
 import { parseNomeProdutoTiny } from "../../utils/parseNumeracao.js";
 import type { TinyProdutoDetalhe } from "./tinyTipos.js";
 
@@ -172,7 +179,7 @@ function parseModelo(
   nomeModeloLimpo: string,
 ): DadosModeloParseados {
   const marca = normalizarTexto(produto.marca as string | undefined);
-  const categoria = normalizarTexto(produto.categoria as string | undefined);
+  const categoria = normalizarNomeCategoriaTiny(produto.categoria as string | undefined);
   const codigoFabricante = normalizarTexto(produto.codigo_pelo_fornecedor as string | undefined);
   const descricao = normalizarTexto(produto.descricao_complementar as string | undefined);
 

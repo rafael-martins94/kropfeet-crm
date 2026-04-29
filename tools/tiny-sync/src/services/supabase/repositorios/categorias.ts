@@ -1,13 +1,19 @@
+import { normalizarNomeCategoriaTiny } from "../../../utils/normalizacao.js";
 import type { SupabaseAppClient } from "../clienteSupabase.js";
 
 export async function obterOuCriarCategoria(
   supabase: SupabaseAppClient,
   nome: string,
 ): Promise<string> {
+  const nomeCrm = normalizarNomeCategoriaTiny(nome);
+  if (!nomeCrm) {
+    throw new Error(`Nome de categoria invalido apos normalizar (Tiny): ${JSON.stringify(nome)}`);
+  }
+
   const existente = await supabase
     .from("categorias")
     .select("id")
-    .eq("nome", nome)
+    .eq("nome", nomeCrm)
     .maybeSingle();
 
   if (existente.error) throw existente.error;
@@ -15,7 +21,7 @@ export async function obterOuCriarCategoria(
 
   const inserido = await supabase
     .from("categorias")
-    .insert({ nome })
+    .insert({ nome: nomeCrm })
     .select("id")
     .single();
 
@@ -23,7 +29,7 @@ export async function obterOuCriarCategoria(
     const reconsulta = await supabase
       .from("categorias")
       .select("id")
-      .eq("nome", nome)
+      .eq("nome", nomeCrm)
       .single();
     if (reconsulta.error) throw inserido.error;
     return reconsulta.data.id;

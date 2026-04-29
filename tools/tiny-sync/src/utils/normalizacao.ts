@@ -4,6 +4,18 @@ export function normalizarTexto(valor: string | null | undefined): string | null
   return limpo.length === 0 ? null : limpo;
 }
 
+/**
+ * Nomes de categoria vindos do Tiny costumam ter prefixo `LIS >> ` e hierarquia ` >> `.
+ * No CRM usamos o mesmo texto sem LIS e com ` - ` (ex.: `Jordan 1 - High`).
+ */
+export function normalizarNomeCategoriaTiny(valor: string | null | undefined): string | null {
+  const base = normalizarTexto(valor);
+  if (!base) return null;
+  let s = base.replace(/^\s*LIS\s*>>\s*/i, "");
+  s = s.replace(/\s*>>\s*/g, " - ");
+  return normalizarTexto(s);
+}
+
 export function gerarSlug(valor: string): string {
   return valor
     .normalize("NFD")

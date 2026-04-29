@@ -11,6 +11,7 @@ import {
   IconDashboard,
   IconFolder,
   IconImage,
+  IconLogout,
   IconPin,
   IconShoe,
   IconSwap,
@@ -20,6 +21,8 @@ import {
   IconUsers,
   IconX,
 } from "../components/Icons";
+import { useAuth } from "../contexts/AuthContext";
+import { iniciaisDoNome } from "../utils/format";
 import { cn } from "../utils/cn";
 import type { ReactNode } from "react";
 
@@ -78,6 +81,85 @@ export { menu };
 
 const STORAGE_KEY = "kf:sidebar:collapsed";
 
+function SidebarUsuarioRodape({ collapsed }: { collapsed: boolean }) {
+  const { user, perfil, sair } = useAuth();
+  const [saindo, setSaindo] = useState(false);
+
+  const email = perfil?.email ?? user?.email ?? "";
+  const nome =
+    perfil?.nome?.trim() ||
+    (user?.user_metadata?.["nome"] as string) ||
+    email.split("@")[0] ||
+    "Usuário";
+  const papel = perfil?.papel;
+
+  const handleLogout = async () => {
+    setSaindo(true);
+    try {
+      await sair();
+    } finally {
+      setSaindo(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "border-t border-line bg-surface-muted/40",
+        collapsed ? "px-2 py-3" : "px-3 py-3",
+      )}
+    >
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-2">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-[0.65rem] font-semibold text-white"
+            title={nome}
+          >
+            {iniciaisDoNome(nome)}
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={saindo}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-surface-subtle hover:text-red-600 disabled:opacity-50"
+            title="Sair"
+            aria-label="Sair"
+          >
+            <IconLogout width={16} height={16} />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-600 text-[0.65rem] font-semibold text-white">
+            {iniciaisDoNome(nome)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="truncate text-xs font-semibold text-ink">{nome}</span>
+              {papel === "admin" ? (
+                <span className="inline-flex shrink-0 items-center rounded-full bg-brand-50 px-1.5 py-0.5 text-[0.58rem] font-semibold uppercase tracking-wide text-brand-700 ring-1 ring-inset ring-brand-100">
+                  Admin
+                </span>
+              ) : null}
+            </div>
+            <div className="truncate text-[0.65rem] leading-snug text-ink-soft">{email}</div>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={saindo}
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-ink-muted transition hover:bg-surface-subtle hover:text-red-600 disabled:opacity-50"
+            title="Sair"
+            aria-label="Sair"
+          >
+            <IconLogout width={16} height={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface SidebarProps {
   mobileOpen: boolean;
   onCloseMobile: () => void;
@@ -106,35 +188,43 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-line bg-surface shadow-elevated transition-[width,transform] duration-200 ease-out lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-line bg-surface shadow-elevated transition-[width,transform] duration-200 ease-out lg:sticky lg:top-0 lg:h-dvh lg:max-h-dvh lg:translate-x-0 lg:shadow-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           collapsed ? "w-[4.5rem]" : "w-60",
         )}
       >
-        {/* Cabeçalho: logo + toggle mobile */}
+        {/* Cabeçalho: logo + recolher (desktop) + fechar (mobile) */}
         <div
           className={cn(
-            "relative flex items-center justify-center border-b border-line py-5",
-            collapsed ? "px-2" : "px-4",
+            "flex items-center justify-between gap-2 border-b border-line py-3",
+            collapsed ? "px-2" : "px-3",
           )}
         >
-          {collapsed ? (
-            <BrandLogo size="sm" />
-          ) : (
-            <BrandLogo size="lg" />
-          )}
-
-          <button
-            type="button"
-            onClick={onCloseMobile}
-            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-subtle lg:hidden"
-            aria-label="Fechar menu"
-          >
-            <IconX />
-          </button>
+          <div className="flex min-w-0 flex-1 justify-center lg:justify-start">
+            {collapsed ? <BrandLogo size="sm" /> : <BrandLogo size="lg" />}
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              className="hidden h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-surface-subtle hover:text-brand-700 lg:flex"
+              title={collapsed ? "Expandir menu" : "Recolher menu"}
+              aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+            >
+              {collapsed ? <IconChevronRight width={16} height={16} /> : <IconChevronLeft width={16} height={16} />}
+            </button>
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-subtle lg:hidden"
+              aria-label="Fechar menu"
+            >
+              <IconX />
+            </button>
+          </div>
         </div>
 
-        <nav className={cn("flex-1 overflow-y-auto overflow-x-hidden py-4", collapsed ? "px-2" : "px-3")}>
+        <nav className={cn("flex-1 overflow-y-auto overflow-x-hidden pt-2 pb-4", collapsed ? "px-2" : "px-3")}>
           {menu.map((grupo) => (
             <div key={grupo.label} className="mb-5">
               {collapsed ? (
@@ -175,30 +265,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Rodapé: toggle + versão */}
-        <div
-          className={cn(
-            "flex border-t border-line",
-            collapsed ? "flex-col items-center gap-2 px-2 py-3" : "items-center justify-between px-4 py-3",
-          )}
-        >
-          {!collapsed ? (
-            <div className="min-w-0 text-xs leading-tight text-ink-soft">
-              <div className="truncate font-medium text-ink">KroopFeet CRM</div>
-              <div className="truncate">v0.1</div>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            className="hidden h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition hover:bg-surface-subtle hover:text-brand-700 lg:flex"
-            title={collapsed ? "Expandir menu" : "Recolher menu"}
-            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-          >
-            {collapsed ? <IconChevronRight width={16} height={16} /> : <IconChevronLeft width={16} height={16} />}
-          </button>
-        </div>
+        <SidebarUsuarioRodape collapsed={collapsed} />
       </aside>
     </>
   );

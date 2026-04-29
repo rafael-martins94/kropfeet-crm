@@ -64,7 +64,6 @@ export interface PerfilUsuarioUpdate {
 }
 
 export type StatusItem = Database["public"]["Enums"]["status_item_enum"];
-export type CondicaoItem = Database["public"]["Enums"]["condicao_item_enum"];
 export type SistemaNumeracao = Database["public"]["Enums"]["sistema_numeracao_enum"];
 export type StatusVenda = Database["public"]["Enums"]["status_venda_enum"];
 export type CanalVenda = Database["public"]["Enums"]["canal_venda_enum"];

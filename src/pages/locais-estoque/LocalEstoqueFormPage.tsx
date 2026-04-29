@@ -66,7 +66,7 @@ export default function LocalEstoqueFormPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={edicao ? "Editar local" : "Novo local de estoque"}
         breadcrumbs={[

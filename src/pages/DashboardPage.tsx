@@ -27,11 +27,10 @@ export default function DashboardPage() {
   const ultimosItens = useAsync(() => dashboardService.ultimosItens(6), []);
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <HeroSection
         eyebrow="Visão geral"
-        title="Bem-vindo à KroopFeet."
-        subtitle="Catálogo, estoque, fornecedores e vendas em um só lugar."
+        title="Bem-vindo à KropFeet."
         actions={
           <>
             <PrimaryButton
@@ -138,7 +137,6 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SectionCard
           title="Últimos modelos atualizados"
-          description="Modelos de produto recentemente sincronizados ou editados."
           actions={
             <Link
               to="/modelos-produto"
@@ -190,7 +188,6 @@ export default function DashboardPage() {
 
         <SectionCard
           title="Últimos itens de estoque"
-          description="Pares físicos recentemente cadastrados ou atualizados."
           actions={
             <Link
               to="/itens-estoque"

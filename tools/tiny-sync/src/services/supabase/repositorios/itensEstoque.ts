@@ -86,3 +86,25 @@ export async function upsertItemEstoquePorTiny(
   if (inserido.error) throw inserido.error;
   return { id: inserido.data.id, resultado: "criado" };
 }
+
+export interface ItemEstoqueIdTinyResumo {
+  id: string;
+  id_tiny: string;
+  status_item: string;
+}
+
+/** Itens vinculados ao Tiny (paginação por offset). */
+export async function listarItensComIdTiny(
+  supabase: SupabaseAppClient,
+  opcoes: { offset: number; limite: number },
+): Promise<ItemEstoqueIdTinyResumo[]> {
+  const r = await supabase
+    .from("itens_estoque")
+    .select("id, id_tiny, status_item")
+    .not("id_tiny", "is", null)
+    .order("id", { ascending: true })
+    .range(opcoes.offset, opcoes.offset + opcoes.limite - 1);
+
+  if (r.error) throw r.error;
+  return (r.data ?? []) as ItemEstoqueIdTinyResumo[];
+}

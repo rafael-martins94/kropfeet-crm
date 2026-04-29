@@ -5,6 +5,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SearchInput } from "../../components/SearchInput";
+import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { IconEdit, IconEye, IconPlus, IconTrash } from "../../components/Icons";
 import { clientesService } from "../../services/clientes";
@@ -72,10 +73,9 @@ export default function ClientesListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Clientes"
-        description="Base de contatos comerciais da KroopFeet."
         breadcrumbs={[{ label: "Comercial" }, { label: "Clientes" }]}
         actions={
           <PrimaryButton icon={<IconPlus width={16} height={16} />} onClick={() => navigate("/clientes/novo")}>
@@ -84,40 +84,53 @@ export default function ClientesListPage() {
         }
       />
 
-      <SectionCard noPadding>
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <SearchInput
-            placeholder="Buscar por nome, e-mail, Instagram…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            wrapperClassName="w-full sm:max-w-sm"
-          />
-          <div className="text-xs text-ink-soft">
-            {data ? `${data.total.toLocaleString("pt-BR")} clientes` : ""}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={data?.data ?? []}
-            rowKey={(c) => c.id}
-            loading={loading}
-            emptyTitle="Nenhum cliente cadastrado"
-            emptyDescription="Cadastre seu primeiro cliente para começar."
-            emptyAction={
-              <PrimaryButton onClick={() => navigate("/clientes/novo")}>
-                Cadastrar cliente
-              </PrimaryButton>
-            }
-          />
-        )}
-
-        {data ? (
-          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
-        ) : null}
+      <SectionCard
+        noPadding
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <ScrollableListShell
+          toolbar={
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <SearchInput
+                placeholder="Buscar por nome, e-mail, Instagram…"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                wrapperClassName="w-full sm:max-w-sm"
+              />
+              <div className="text-xs text-ink-soft">
+                {data ? `${data.total.toLocaleString("pt-BR")} clientes` : ""}
+              </div>
+            </div>
+          }
+          body={
+            error ? (
+              <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={data?.data ?? []}
+                rowKey={(c) => c.id}
+                loading={loading}
+                emptyTitle="Nenhum cliente cadastrado"
+                emptyDescription="Cadastre seu primeiro cliente para começar."
+                emptyAction={
+                  <PrimaryButton onClick={() => navigate("/clientes/novo")}>
+                    Cadastrar cliente
+                  </PrimaryButton>
+                }
+              />
+            )
+          }
+          footer={
+            data ? (
+              <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
+            ) : null
+          }
+        />
       </SectionCard>
     </div>
   );

@@ -48,7 +48,7 @@ export function DataTable<T>({
     );
   }
   return (
-    <div className={cn("overflow-x-auto", className)}>
+    <div className={cn("min-w-0 w-full", className)}>
       <table className="table-base">
         <thead>
           <tr>

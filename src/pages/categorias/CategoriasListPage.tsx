@@ -5,13 +5,14 @@ import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SearchInput } from "../../components/SearchInput";
+import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { IconEdit, IconEye, IconPlus, IconTrash } from "../../components/Icons";
 import { categoriasService } from "../../services/categorias";
 import { useAsync } from "../../hooks/useAsync";
 import { useDebounce } from "../../hooks/useDebounce";
-import { formatarData } from "../../utils/format";
 import type { Categoria } from "../../types/entities";
+import { CategoriaFormModal } from "./CategoriaFormModal";
 
 export default function CategoriasListPage() {
   const navigate = useNavigate();
@@ -19,10 +20,38 @@ export default function CategoriasListPage() {
   const [search, setSearch] = useState("");
   const searchDebounced = useDebounce(search, 300);
 
+  const [modalAberto, setModalAberto] = useState(false);
+  const [categoriaEditando, setCategoriaEditando] = useState<Categoria | null>(null);
+
   const { data, loading, error, reload } = useAsync(
     () => categoriasService.listar({ page, pageSize: 20, search: searchDebounced }),
     [page, searchDebounced],
   );
+
+  const idsPagina = (data?.data ?? []).map((c) => c.id);
+  const idsChave = idsPagina.join(",");
+  const contadores = useAsync(
+    () =>
+      idsPagina.length > 0
+        ? categoriasService.contarRelacionados(idsPagina)
+        : Promise.resolve({} as Record<string, { modelos: number; itens: number }>),
+    [idsChave],
+  );
+
+  const abrirNovo = () => {
+    setCategoriaEditando(null);
+    setModalAberto(true);
+  };
+
+  const abrirEdicao = (c: Categoria) => {
+    setCategoriaEditando(c);
+    setModalAberto(true);
+  };
+
+  const fecharModal = () => {
+    setModalAberto(false);
+    setCategoriaEditando(null);
+  };
 
   const handleDelete = async (c: Categoria) => {
     if (!window.confirm(`Excluir a categoria "${c.nome}"?`)) return;
@@ -32,6 +61,18 @@ export default function CategoriasListPage() {
     } catch (e) {
       alert(e instanceof Error ? e.message : "Falha ao excluir.");
     }
+  };
+
+  const renderContador = (categoriaId: string, chave: "modelos" | "itens") => {
+    const valor = contadores.data?.[categoriaId]?.[chave];
+    if (valor === undefined) {
+      return <span className="inline-block h-3 w-8 rounded bg-line/60 animate-pulse" />;
+    }
+    return (
+      <span className="font-numeric tabular-nums text-ink">
+        {valor.toLocaleString("pt-BR")}
+      </span>
+    );
   };
 
   const columns: Column<Categoria>[] = [
@@ -45,10 +86,20 @@ export default function CategoriasListPage() {
       ),
     },
     {
-      key: "criado_em",
-      header: "Criado em",
-      width: "180px",
-      render: (c) => <span className="text-ink-soft">{formatarData(c.criado_em)}</span>,
+      key: "modelos",
+      header: "Modelos",
+      width: "120px",
+      className: "text-center",
+      headerClassName: "!text-center",
+      render: (c) => renderContador(c.id, "modelos"),
+    },
+    {
+      key: "itens",
+      header: "Itens em estoque",
+      width: "160px",
+      className: "text-center",
+      headerClassName: "!text-center",
+      render: (c) => renderContador(c.id, "itens"),
     },
     {
       key: "acoes",
@@ -60,14 +111,14 @@ export default function CategoriasListPage() {
           <button
             className="btn-ghost h-8 w-8 p-0"
             onClick={() => navigate(`/categorias/${c.id}`)}
-            title="Ver"
+            title="Ver tênis desta categoria"
           >
             <IconEye width={16} height={16} />
           </button>
           <button
             className="btn-ghost h-8 w-8 p-0"
-            onClick={() => navigate(`/categorias/${c.id}/editar`)}
-            title="Editar"
+            onClick={() => abrirEdicao(c)}
+            title="Editar nome"
           >
             <IconEdit width={16} height={16} />
           </button>
@@ -84,58 +135,74 @@ export default function CategoriasListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Categorias"
-        description="Categorias usadas para organizar os modelos de produto."
         breadcrumbs={[{ label: "Catálogo" }, { label: "Categorias" }]}
         actions={
           <PrimaryButton
             icon={<IconPlus width={16} height={16} />}
-            onClick={() => navigate("/categorias/nova")}
+            onClick={abrirNovo}
           >
             Nova categoria
           </PrimaryButton>
         }
       />
 
-      <SectionCard noPadding>
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <SearchInput
-            placeholder="Buscar por nome…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            wrapperClassName="w-full sm:max-w-xs"
-          />
-          <div className="text-xs text-ink-soft">
-            {data ? `${data.total.toLocaleString("pt-BR")} categorias` : ""}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={data?.data ?? []}
-            rowKey={(c) => c.id}
-            loading={loading}
-            emptyTitle="Nenhuma categoria encontrada"
-          />
-        )}
-
-        {data ? (
-          <Pagination
-            page={data.page}
-            pageSize={data.pageSize}
-            total={data.total}
-            onPageChange={setPage}
-          />
-        ) : null}
+      <SectionCard
+        noPadding
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <ScrollableListShell
+          toolbar={
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <SearchInput
+                placeholder="Buscar por nome…"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                wrapperClassName="w-full sm:max-w-xs"
+              />
+              <div className="text-xs text-ink-soft">
+                {data ? `${data.total.toLocaleString("pt-BR")} categorias` : ""}
+              </div>
+            </div>
+          }
+          body={
+            error ? (
+              <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={data?.data ?? []}
+                rowKey={(c) => c.id}
+                loading={loading}
+                emptyTitle="Nenhuma categoria encontrada"
+              />
+            )
+          }
+          footer={
+            data ? (
+              <Pagination
+                page={data.page}
+                pageSize={data.pageSize}
+                total={data.total}
+                onPageChange={setPage}
+              />
+            ) : null
+          }
+        />
       </SectionCard>
+
+      <CategoriaFormModal
+        open={modalAberto}
+        onClose={fecharModal}
+        categoria={categoriaEditando}
+        onSaved={() => reload()}
+      />
     </div>
   );
 }

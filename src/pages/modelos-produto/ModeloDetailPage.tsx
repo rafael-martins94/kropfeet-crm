@@ -50,10 +50,9 @@ export default function ModeloDetailPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={modelo.data?.nome_modelo ?? "Modelo"}
-        description={modelo.data?.slug ?? undefined}
         breadcrumbs={[
           { label: "Catálogo" },
           { label: "Modelos", to: "/modelos-produto" },
@@ -124,11 +123,7 @@ export default function ModeloDetailPage() {
           </div>
 
           <div className="space-y-6">
-            <SectionCard
-              title="Imagens"
-              description={`${imagens.data?.length ?? 0} imagem(ns)`}
-              noPadding
-            >
+            <SectionCard title="Imagens" noPadding>
               {imagens.loading ? (
                 <div className="p-5 text-sm text-ink-soft">Carregando imagens…</div>
               ) : (imagens.data ?? []).length === 0 ? (

@@ -49,7 +49,7 @@ export default function MarcaFormPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={edicao ? "Editar marca" : "Nova marca"}
         breadcrumbs={[{ label: "Catálogo" }, { label: "Marcas", to: "/marcas" }, { label: edicao ? "Editar" : "Nova" }]}

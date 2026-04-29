@@ -39,8 +39,11 @@ export const env = {
     token: exigir("TINY_API_TOKEN"),
     baseUrl: opcional("TINY_API_BASE_URL", "https://api.tiny.com.br/api2"),
     delayMs: inteiro("TINY_DELAY_MS", 2200),
-    maxRetries: inteiro("TINY_MAX_RETRIES", 3),
+    maxRetries: inteiro("TINY_MAX_RETRIES", 8),
     timeoutMs: inteiro("TINY_TIMEOUT_MS", 30000),
+    /** Espera base (ms) entre retentativas quando a Tiny retorna API bloqueada / limite (cod. 6 ou 30). */
+    esperaApiBloqueadaMs: inteiro("TINY_ESPERA_API_BLOQUEADA_MS", 60_000),
+    esperaApiBloqueadaMaxMs: inteiro("TINY_ESPERA_API_BLOQUEADA_MAX_MS", 180_000),
     enriquecerFornecedorSobDemanda: booleano("TINY_ENRIQUECER_FORNECEDOR", true),
   },
   imagens: {

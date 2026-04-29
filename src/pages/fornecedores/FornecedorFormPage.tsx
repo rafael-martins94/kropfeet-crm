@@ -137,7 +137,7 @@ export default function FornecedorFormPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={edicao ? "Editar fornecedor" : "Novo fornecedor"}
         breadcrumbs={[

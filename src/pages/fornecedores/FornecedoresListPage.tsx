@@ -5,6 +5,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SearchInput } from "../../components/SearchInput";
+import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { IconEdit, IconEye, IconPlus } from "../../components/Icons";
@@ -100,10 +101,9 @@ export default function FornecedoresListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Fornecedores"
-        description="Base de fornecedores sincronizada com o Tiny."
         breadcrumbs={[{ label: "Operação" }, { label: "Fornecedores" }]}
         actions={
           <PrimaryButton
@@ -115,42 +115,52 @@ export default function FornecedoresListPage() {
         }
       />
 
-      <SectionCard noPadding>
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <SearchInput
-            placeholder="Buscar por nome, fantasia, CPF/CNPJ, e-mail…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            wrapperClassName="w-full sm:max-w-sm"
-          />
-          <div className="text-xs text-ink-soft">
-            {data ? `${data.total.toLocaleString("pt-BR")} fornecedores` : ""}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={data?.data ?? []}
-            rowKey={(f) => f.id}
-            loading={loading}
-            emptyTitle="Nenhum fornecedor encontrado"
-          />
-        )}
-
-        {data ? (
-          <Pagination
-            page={data.page}
-            pageSize={data.pageSize}
-            total={data.total}
-            onPageChange={setPage}
-          />
-        ) : null}
+      <SectionCard
+        noPadding
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <ScrollableListShell
+          toolbar={
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <SearchInput
+                placeholder="Buscar por nome, fantasia, CPF/CNPJ, e-mail…"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                wrapperClassName="w-full sm:max-w-sm"
+              />
+              <div className="text-xs text-ink-soft">
+                {data ? `${data.total.toLocaleString("pt-BR")} fornecedores` : ""}
+              </div>
+            </div>
+          }
+          body={
+            error ? (
+              <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={data?.data ?? []}
+                rowKey={(f) => f.id}
+                loading={loading}
+                emptyTitle="Nenhum fornecedor encontrado"
+              />
+            )
+          }
+          footer={
+            data ? (
+              <Pagination
+                page={data.page}
+                pageSize={data.pageSize}
+                total={data.total}
+                onPageChange={setPage}
+              />
+            ) : null
+          }
+        />
       </SectionCard>
     </div>
   );

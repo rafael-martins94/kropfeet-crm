@@ -9,7 +9,6 @@ interface Crumb {
 
 interface PageHeaderProps {
   title: string;
-  description?: string;
   breadcrumbs?: Crumb[];
   actions?: ReactNode;
   backTo?: string;
@@ -17,7 +16,6 @@ interface PageHeaderProps {
 
 export function PageHeader({
   title,
-  description,
   breadcrumbs,
   actions,
   backTo,
@@ -57,9 +55,6 @@ export function PageHeader({
             <h1 className="truncate font-display text-2xl font-semibold text-brand-700 sm:text-3xl">
               {title}
             </h1>
-            {description ? (
-              <p className="mt-1 max-w-2xl text-sm text-ink-muted">{description}</p>
-            ) : null}
           </div>
         </div>
       </div>

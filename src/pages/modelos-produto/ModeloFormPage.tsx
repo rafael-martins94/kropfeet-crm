@@ -8,6 +8,7 @@ import { marcasService } from "../../services/marcas";
 import { categoriasService } from "../../services/categorias";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { useAsync } from "../../hooks/useAsync";
+import { mensagemErroSalvarModeloProduto } from "../../utils/errors";
 import { limparParaBanco } from "../../utils/format";
 import type { ModeloProdutoInsert, OrigemCadastro } from "../../types/entities";
 
@@ -97,12 +98,16 @@ export default function ModeloFormPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.id_marca.trim()) {
+      setErro("Selecione a marca do modelo.");
+      return;
+    }
     setSalvando(true);
     setErro(null);
     try {
       const payload = limparParaBanco({
         ...form,
-        id_marca: form.id_marca || null,
+        id_marca: form.id_marca,
         id_categoria: form.id_categoria || null,
       }) as unknown as ModeloProdutoInsert;
 
@@ -115,14 +120,14 @@ export default function ModeloFormPage() {
       }
       navigate("/modelos-produto");
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Erro ao salvar.");
+      setErro(mensagemErroSalvarModeloProduto(e));
     } finally {
       setSalvando(false);
     }
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={edicao ? "Editar modelo" : "Novo modelo de produto"}
         breadcrumbs={[
@@ -159,6 +164,7 @@ export default function ModeloFormPage() {
               />
               <FormSelect
                 label="Marca"
+                required
                 value={form.id_marca}
                 onChange={(e) => upd("id_marca", e.target.value)}
                 placeholder="— Selecione —"

@@ -7,6 +7,12 @@
     color-scheme: light;
   }
 
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -87,7 +93,7 @@
   }
 
   .table-base thead th {
-    @apply px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-soft bg-surface-muted border-b border-line;
+    @apply sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink shadow-sm border-b border-line;
   }
 
   .table-base tbody tr {

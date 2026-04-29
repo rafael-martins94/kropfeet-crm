@@ -5,6 +5,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SearchInput } from "../../components/SearchInput";
+import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { IconEdit, IconEye, IconPlus, IconTrash } from "../../components/Icons";
 import { marcasService } from "../../services/marcas";
@@ -87,10 +88,9 @@ export default function MarcasListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Marcas"
-        description="Marcas cadastradas no catálogo da KroopFeet."
         breadcrumbs={[{ label: "Catálogo" }, { label: "Marcas" }]}
         actions={
           <PrimaryButton
@@ -102,43 +102,53 @@ export default function MarcasListPage() {
         }
       />
 
-      <SectionCard noPadding>
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <SearchInput
-            placeholder="Buscar por nome…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            wrapperClassName="w-full sm:max-w-xs"
-          />
-          <div className="text-xs text-ink-soft">
-            {data ? `${data.total.toLocaleString("pt-BR")} marcas` : ""}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={data?.data ?? []}
-            rowKey={(m) => m.id}
-            loading={loading}
-            emptyTitle="Nenhuma marca encontrada"
-            emptyDescription="Crie a primeira marca para começar."
-          />
-        )}
-
-        {data ? (
-          <Pagination
-            page={data.page}
-            pageSize={data.pageSize}
-            total={data.total}
-            onPageChange={setPage}
-          />
-        ) : null}
+      <SectionCard
+        noPadding
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <ScrollableListShell
+          toolbar={
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <SearchInput
+                placeholder="Buscar por nome…"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                wrapperClassName="w-full sm:max-w-xs"
+              />
+              <div className="text-xs text-ink-soft">
+                {data ? `${data.total.toLocaleString("pt-BR")} marcas` : ""}
+              </div>
+            </div>
+          }
+          body={
+            error ? (
+              <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={data?.data ?? []}
+                rowKey={(m) => m.id}
+                loading={loading}
+                emptyTitle="Nenhuma marca encontrada"
+                emptyDescription="Crie a primeira marca para começar."
+              />
+            )
+          }
+          footer={
+            data ? (
+              <Pagination
+                page={data.page}
+                pageSize={data.pageSize}
+                total={data.total}
+                onPageChange={setPage}
+              />
+            ) : null
+          }
+        />
       </SectionCard>
     </div>
   );

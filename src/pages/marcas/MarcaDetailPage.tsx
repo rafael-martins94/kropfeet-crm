@@ -27,7 +27,7 @@ export default function MarcaDetailPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={data?.nome ?? "Marca"}
         breadcrumbs={[{ label: "Catálogo" }, { label: "Marcas", to: "/marcas" }, { label: data?.nome ?? "…" }]}

@@ -1,6 +1,6 @@
-# KroopFeet CRM
+# KropFeet CRM
 
-CRM web do **KroopFeet**, construído em **React + Vite + TypeScript + Tailwind CSS** e
+CRM web do **KropFeet**, construído em **React + Vite + TypeScript + Tailwind CSS** e
 conectado ao **Supabase** real que alimenta o negócio.
 
 > O utilitário Node.js que faz a sincronização com o **Tiny ERP** vive isolado em
@@ -24,7 +24,7 @@ kropfeet-crm/
 │  ├─ components/          # DataTable, FormField, StatusBadge, …
 │  ├─ contexts/            # AuthContext (sessão Supabase)
 │  ├─ hooks/               # useAsync, useDebounce
-│  ├─ layouts/             # AppLayout, AuthLayout, Sidebar, Topbar
+│  ├─ layouts/             # AppLayout, AuthLayout, Sidebar
 │  ├─ lib/                 # supabase client, env
 │  ├─ pages/               # páginas por entidade do banco
 │  ├─ routes/              # ProtectedRoute / PublicOnlyRoute
@@ -107,7 +107,7 @@ O sidebar (`src/layouts/Sidebar.tsx`) reflete diretamente essa organização.
 
 ## Identidade visual
 
-Inspirada no logotipo da KroopFeet (elegante, sóbrio, premium):
+Inspirada no logotipo da KropFeet (elegante, sóbrio, premium):
 
 - **Primária:** `#0B3F5C` · `#082C40`
 - **Accent:** `#B7D36B`

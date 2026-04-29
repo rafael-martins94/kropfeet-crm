@@ -41,10 +41,9 @@ export default function FornecedorDetailPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={data?.nome ?? "Fornecedor"}
-        description={data?.fantasia ?? undefined}
         breadcrumbs={[
           { label: "Operação" },
           { label: "Fornecedores", to: "/fornecedores" },

@@ -1,7 +1,7 @@
 # tiny-sync
 
 Utilitário Node.js de **uso esporádico** para sincronizar dados do **Tiny ERP** com o
-Supabase do KroopFeet CRM. Não é parte do runtime do produto — são scripts que você roda
+Supabase do KropFeet CRM. Não é parte do runtime do produto — são scripts que você roda
 quando precisa popular/reconciliar o banco.
 
 > Este diretório é completamente independente do front-end (que vive na raiz do

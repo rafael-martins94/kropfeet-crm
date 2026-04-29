@@ -27,7 +27,7 @@ export default function ClienteDetailPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={data?.nome ?? "Cliente"}
         breadcrumbs={[

@@ -1,5 +1,8 @@
+import type { Database } from "../../../tipos/database.js";
 import type { DadosModeloParseados } from "../../tiny/tinyParser.js";
 import type { SupabaseAppClient } from "../clienteSupabase.js";
+
+type UpdateModelo = Database["public"]["Tables"]["modelos_produto"]["Update"];
 
 export interface ReferenciasModelo {
   idMarca: string | null;
@@ -42,31 +45,68 @@ async function buscarPorNomeEMarca(
   return r.data;
 }
 
+async function buscarPrimeiroMesmoNomeComAlgumaMarca(
+  supabase: SupabaseAppClient,
+  nomeModelo: string,
+): Promise<{ id: string } | null> {
+  const r = await supabase
+    .from("modelos_produto")
+    .select("id")
+    .eq("nome_modelo", nomeModelo)
+    .not("id_marca", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if (r.error) throw r.error;
+  return r.data;
+}
+
+async function atualizarModeloExistente(
+  supabase: SupabaseAppClient,
+  id: string,
+  dados: DadosModeloParseados,
+  refs: ReferenciasModelo,
+): Promise<void> {
+  const atualizacao: UpdateModelo = {
+    id_categoria: refs.idCategoria,
+    codigo_fabricante: dados.codigoFabricante,
+    descricao: dados.descricao,
+    origem_cadastro: "tiny",
+    ...(dados.idTinyPai ? { id_tiny_pai: dados.idTinyPai } : {}),
+  };
+  if (refs.idMarca) atualizacao.id_marca = refs.idMarca;
+
+  const upd = await supabase.from("modelos_produto").update(atualizacao).eq("id", id);
+  if (upd.error) throw upd.error;
+}
+
 export async function upsertModeloProduto(
   supabase: SupabaseAppClient,
   dados: DadosModeloParseados,
   refs: ReferenciasModelo,
 ): Promise<string> {
-  const existente = await buscarPorNomeEMarca(
-    supabase,
-    dados.nomeModelo,
-    refs.idMarca,
-  );
+  const existente = await buscarPorNomeEMarca(supabase, dados.nomeModelo, refs.idMarca);
 
   if (existente) {
-    const atualizacao = {
-      id_categoria: refs.idCategoria,
-      codigo_fabricante: dados.codigoFabricante,
-      descricao: dados.descricao,
-      origem_cadastro: "tiny" as const,
-      ...(dados.idTinyPai ? { id_tiny_pai: dados.idTinyPai } : {}),
-    };
-    const upd = await supabase
-      .from("modelos_produto")
-      .update(atualizacao)
-      .eq("id", existente.id);
-    if (upd.error) throw upd.error;
+    await atualizarModeloExistente(supabase, existente.id, dados, refs);
     return existente.id;
+  }
+
+  /** Tiny pode primeiro criar modelo sem marca; sync seguinte traz marca → fundir na mesma linha em vez de duplicar. */
+  if (refs.idMarca) {
+    const orphanSemMarca = await buscarPorNomeEMarca(supabase, dados.nomeModelo, null);
+    if (orphanSemMarca) {
+      await atualizarModeloExistente(supabase, orphanSemMarca.id, dados, refs);
+      return orphanSemMarca.id;
+    }
+  }
+
+  /** Produto sem marca no Tiny, mas já existe modelo homônimo com marca → evita segundo cadastro só por marca ausente. */
+  if (!refs.idMarca) {
+    const comMarca = await buscarPrimeiroMesmoNomeComAlgumaMarca(supabase, dados.nomeModelo);
+    if (comMarca) {
+      await atualizarModeloExistente(supabase, comMarca.id, dados, refs);
+      return comMarca.id;
+    }
   }
 
   const slug = await gerarSlugUnico(supabase, dados.slug);

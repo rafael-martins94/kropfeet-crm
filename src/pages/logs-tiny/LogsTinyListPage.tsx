@@ -2,6 +2,7 @@ import { useState } from "react";
 import { DataTable, type Column } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
+import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { logsTinyService } from "../../services/logs-tiny";
@@ -79,28 +80,37 @@ export default function LogsTinyListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Logs de sincronização Tiny"
-        description="Auditoria das execuções de sincronização com a API do Tiny ERP."
         breadcrumbs={[{ label: "Sistema" }, { label: "Logs Tiny" }]}
       />
 
-      <SectionCard noPadding>
-        {error ? (
-          <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={data?.data ?? []}
-            rowKey={(l) => l.id}
-            loading={loading}
-            emptyTitle="Nenhum log de sincronização"
-          />
-        )}
-        {data ? (
-          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
-        ) : null}
+      <SectionCard
+        noPadding
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <ScrollableListShell
+          body={
+            error ? (
+              <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={data?.data ?? []}
+                rowKey={(l) => l.id}
+                loading={loading}
+                emptyTitle="Nenhum log de sincronização"
+              />
+            )
+          }
+          footer={
+            data ? (
+              <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
+            ) : null
+          }
+        />
       </SectionCard>
     </div>
   );

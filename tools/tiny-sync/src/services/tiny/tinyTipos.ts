@@ -63,6 +63,22 @@ export interface TinyRetornoObterProduto extends TinyRetornoBase {
   produto?: TinyProdutoDetalhe;
 }
 
+/** Resposta de produto.obter.estoque.php */
+export interface TinyProdutoEstoque {
+  id: string;
+  nome?: string;
+  codigo?: string;
+  unidade?: string;
+  saldo?: number | string;
+  saldoReservado?: number | string;
+  depositos?: Array<{ deposito?: Record<string, unknown> }>;
+  [chave: string]: unknown;
+}
+
+export interface TinyRetornoObterEstoqueProduto extends TinyRetornoBase {
+  produto?: TinyProdutoEstoque;
+}
+
 export interface TinyTipoContato {
   tipo?: string;
 }

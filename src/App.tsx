@@ -12,7 +12,6 @@ import MarcaFormPage from "./pages/marcas/MarcaFormPage";
 import MarcaDetailPage from "./pages/marcas/MarcaDetailPage";
 
 import CategoriasListPage from "./pages/categorias/CategoriasListPage";
-import CategoriaFormPage from "./pages/categorias/CategoriaFormPage";
 import CategoriaDetailPage from "./pages/categorias/CategoriaDetailPage";
 
 import FornecedoresListPage from "./pages/fornecedores/FornecedoresListPage";
@@ -66,9 +65,7 @@ export default function App() {
             <Route path="/marcas/:id/editar" element={<MarcaFormPage />} />
 
             <Route path="/categorias" element={<CategoriasListPage />} />
-            <Route path="/categorias/novo" element={<CategoriaFormPage />} />
             <Route path="/categorias/:id" element={<CategoriaDetailPage />} />
-            <Route path="/categorias/:id/editar" element={<CategoriaFormPage />} />
 
             <Route path="/fornecedores" element={<FornecedoresListPage />} />
             <Route path="/fornecedores/novo" element={<FornecedorFormPage />} />

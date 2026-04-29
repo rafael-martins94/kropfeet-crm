@@ -228,7 +228,6 @@ export type Database = {
           cambio_compra_para_real: number | null
           codigo_fabricante: string | null
           codigo_produto_fornecedor: string | null
-          condicao_item: Database["public"]["Enums"]["condicao_item_enum"]
           criado_em: string
           dados_tiny: Json | null
           data_cadastro_tiny: string | null
@@ -244,8 +243,6 @@ export type Database = {
           numeracao_eu: number | null
           numeracao_us: number | null
           observacoes: string | null
-          preco_sugerido_euro: number | null
-          preco_sugerido_real: number | null
           sistema_numeracao: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item: Database["public"]["Enums"]["status_item_enum"]
@@ -258,7 +255,6 @@ export type Database = {
           cambio_compra_para_real?: number | null
           codigo_fabricante?: string | null
           codigo_produto_fornecedor?: string | null
-          condicao_item?: Database["public"]["Enums"]["condicao_item_enum"]
           criado_em?: string
           dados_tiny?: Json | null
           data_cadastro_tiny?: string | null
@@ -274,8 +270,6 @@ export type Database = {
           numeracao_eu?: number | null
           numeracao_us?: number | null
           observacoes?: string | null
-          preco_sugerido_euro?: number | null
-          preco_sugerido_real?: number | null
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
@@ -288,7 +282,6 @@ export type Database = {
           cambio_compra_para_real?: number | null
           codigo_fabricante?: string | null
           codigo_produto_fornecedor?: string | null
-          condicao_item?: Database["public"]["Enums"]["condicao_item_enum"]
           criado_em?: string
           dados_tiny?: Json | null
           data_cadastro_tiny?: string | null
@@ -304,8 +297,6 @@ export type Database = {
           numeracao_eu?: number | null
           numeracao_us?: number | null
           observacoes?: string | null
-          preco_sugerido_euro?: number | null
-          preco_sugerido_real?: number | null
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku?: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
@@ -602,17 +593,18 @@ export type Database = {
         | "loja_fisica"
         | "marketplace"
         | "outro"
-      condicao_item_enum: "novo" | "seminovo" | "usado" | "defeituoso"
       origem_cadastro_enum: "manual" | "tiny" | "importacao_planilha" | "api"
       sistema_numeracao_enum: "br" | "eu" | "us" | "outro"
       situacao_fornecedor_enum: "ativo" | "inativo"
       status_item_enum:
-        | "em_estoque"
-        | "reservado"
-        | "vendido"
         | "devolvido"
+        | "em_estoque"
+        | "em_processo_de_compra"
+        | "fora_de_estoque"
         | "inativo"
-        | "aguardando_chegada"
+        | "reservado"
+        | "transferencia"
+        | "vendido"
       status_sincronizacao_enum: "em_andamento" | "sucesso" | "erro" | "parcial"
       status_venda_enum: "pendente" | "paga" | "cancelada" | "devolvida"
       tipo_movimentacao_enum:

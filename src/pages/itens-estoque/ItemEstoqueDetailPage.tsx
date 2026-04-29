@@ -53,10 +53,9 @@ export default function ItemEstoqueDetailPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={item.data?.nome_completo ?? "Item"}
-        description={item.data ? `SKU ${item.data.sku}` : undefined}
         breadcrumbs={[
           { label: "Catálogo" },
           { label: "Itens de estoque", to: "/itens-estoque" },
@@ -65,20 +64,12 @@ export default function ItemEstoqueDetailPage() {
         backTo="/itens-estoque"
         actions={
           item.data ? (
-            <>
-              <SecondaryButton
-                icon={<IconEdit width={16} height={16} />}
-                onClick={() => navigate(`/itens-estoque/${item.data!.id}/editar`)}
-              >
-                Editar
-              </SecondaryButton>
-              <DangerButton
-                icon={<IconTrash width={16} height={16} />}
-                onClick={handleDelete}
-              >
-                Excluir
-              </DangerButton>
-            </>
+            <SecondaryButton
+              icon={<IconEdit width={16} height={16} />}
+              onClick={() => navigate(`/itens-estoque/${item.data!.id}/editar`)}
+            >
+              Editar
+            </SecondaryButton>
           ) : null
         }
       />
@@ -91,12 +82,7 @@ export default function ItemEstoqueDetailPage() {
         <div className="space-y-6">
           <SectionCard
             title="Status"
-            actions={
-              <div className="flex items-center gap-2">
-                <StatusBadge value={item.data.status_item} />
-                <StatusBadge value={item.data.condicao_item} />
-              </div>
-            }
+            actions={<StatusBadge value={item.data.status_item} />}
           >
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <F label="SKU" value={item.data.sku} mono />
@@ -139,7 +125,7 @@ export default function ItemEstoqueDetailPage() {
                       to={`/locais-estoque/${local.data.id}`}
                       className="text-brand-600 hover:text-brand-700"
                     >
-                      {local.data.codigo} · {local.data.nome}
+                      {local.data.nome}
                     </Link>
                   ) : (
                     "—"
@@ -176,14 +162,6 @@ export default function ItemEstoqueDetailPage() {
               <F label="Câmbio → BRL" value={item.data.cambio_compra_para_real ?? "—"} />
               <F label="Valor pago (BRL)" value={formatarMoeda(item.data.valor_pago_real, "BRL")} />
               <F label="Valor pago (EUR)" value={formatarMoeda(item.data.valor_pago_euro, "EUR")} />
-              <F
-                label="Preço sugerido (BRL)"
-                value={formatarMoeda(item.data.preco_sugerido_real, "BRL")}
-              />
-              <F
-                label="Preço sugerido (EUR)"
-                value={formatarMoeda(item.data.preco_sugerido_euro, "EUR")}
-              />
             </dl>
           </SectionCard>
 
@@ -201,6 +179,21 @@ export default function ItemEstoqueDetailPage() {
               <p className="whitespace-pre-wrap text-sm text-ink">{item.data.observacoes}</p>
             </SectionCard>
           ) : null}
+
+          <SectionCard title="Exclusão">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="max-w-xl text-sm text-ink-soft">
+                Remove este item do estoque de forma permanente. Esta ação não pode ser desfeita.
+              </p>
+              <DangerButton
+                className="shrink-0 self-stretch sm:self-center"
+                icon={<IconTrash width={16} height={16} />}
+                onClick={handleDelete}
+              >
+                Excluir item
+              </DangerButton>
+            </div>
+          </SectionCard>
         </div>
       )}
     </div>

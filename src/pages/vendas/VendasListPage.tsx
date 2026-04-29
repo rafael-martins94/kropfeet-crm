@@ -4,6 +4,7 @@ import { DataTable, type Column } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
+import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { IconEdit, IconEye, IconPlus } from "../../components/Icons";
@@ -93,10 +94,9 @@ export default function VendasListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Vendas"
-        description="Pedidos e vendas registradas na KroopFeet."
         breadcrumbs={[{ label: "Comercial" }, { label: "Vendas" }]}
         actions={
           <PrimaryButton icon={<IconPlus width={16} height={16} />} onClick={() => navigate("/vendas/nova")}>
@@ -105,46 +105,56 @@ export default function VendasListPage() {
         }
       />
 
-      <SectionCard noPadding>
-        <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as StatusVenda | "");
-              setPage(1);
-            }}
-            className="input-base w-full sm:w-60"
-          >
-            {statusOpcoes.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <div className="text-xs text-ink-soft">
-            {data ? `${data.total.toLocaleString("pt-BR")} vendas` : ""}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
-        ) : (
-          <DataTable
-            columns={columns}
-            rows={data?.data ?? []}
-            rowKey={(v) => v.id}
-            loading={loading}
-            emptyTitle="Nenhuma venda registrada"
-            emptyDescription="Registre a primeira venda para começar a acompanhar o comercial."
-            emptyAction={
-              <PrimaryButton onClick={() => navigate("/vendas/nova")}>Nova venda</PrimaryButton>
-            }
-          />
-        )}
-
-        {data ? (
-          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
-        ) : null}
+      <SectionCard
+        noPadding
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
+        <ScrollableListShell
+          toolbar={
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <select
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value as StatusVenda | "");
+                  setPage(1);
+                }}
+                className="input-base w-full sm:w-60"
+              >
+                {statusOpcoes.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <div className="text-xs text-ink-soft">
+                {data ? `${data.total.toLocaleString("pt-BR")} vendas` : ""}
+              </div>
+            </div>
+          }
+          body={
+            error ? (
+              <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
+            ) : (
+              <DataTable
+                columns={columns}
+                rows={data?.data ?? []}
+                rowKey={(v) => v.id}
+                loading={loading}
+                emptyTitle="Nenhuma venda registrada"
+                emptyDescription="Registre a primeira venda para começar a acompanhar o comercial."
+                emptyAction={
+                  <PrimaryButton onClick={() => navigate("/vendas/nova")}>Nova venda</PrimaryButton>
+                }
+              />
+            )
+          }
+          footer={
+            data ? (
+              <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
+            ) : null
+          }
+        />
       </SectionCard>
     </div>
   );

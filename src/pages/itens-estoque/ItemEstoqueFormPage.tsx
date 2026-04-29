@@ -10,12 +10,7 @@ import { fornecedoresService } from "../../services/fornecedores";
 import { locaisEstoqueService } from "../../services/locais-estoque";
 import { useAsync } from "../../hooks/useAsync";
 import { limparParaBanco } from "../../utils/format";
-import type {
-  CondicaoItem,
-  ItemEstoqueInsert,
-  SistemaNumeracao,
-  StatusItem,
-} from "../../types/entities";
+import type { ItemEstoqueInsert, SistemaNumeracao, StatusItem } from "../../types/entities";
 
 type FormState = {
   sku: string;
@@ -30,15 +25,12 @@ type FormState = {
   numeracao_us: string;
   sistema_numeracao: SistemaNumeracao;
   status_item: StatusItem;
-  condicao_item: CondicaoItem;
   data_compra: string;
   moeda_compra: string;
   valor_pago_original: string;
   cambio_compra_para_real: string;
   valor_pago_real: string;
   valor_pago_euro: string;
-  preco_sugerido_real: string;
-  preco_sugerido_euro: string;
   observacoes: string;
 };
 
@@ -55,15 +47,12 @@ const vazio: FormState = {
   numeracao_us: "",
   sistema_numeracao: "br",
   status_item: "em_estoque",
-  condicao_item: "novo",
   data_compra: "",
   moeda_compra: "",
   valor_pago_original: "",
   cambio_compra_para_real: "",
   valor_pago_real: "",
   valor_pago_euro: "",
-  preco_sugerido_real: "",
-  preco_sugerido_euro: "",
   observacoes: "",
 };
 
@@ -111,15 +100,12 @@ export default function ItemEstoqueFormPage() {
           numeracao_us: it.numeracao_us?.toString() ?? "",
           sistema_numeracao: it.sistema_numeracao,
           status_item: it.status_item,
-          condicao_item: it.condicao_item,
           data_compra: it.data_compra ?? "",
           moeda_compra: it.moeda_compra ?? "",
           valor_pago_original: it.valor_pago_original?.toString() ?? "",
           cambio_compra_para_real: it.cambio_compra_para_real?.toString() ?? "",
           valor_pago_real: it.valor_pago_real?.toString() ?? "",
           valor_pago_euro: it.valor_pago_euro?.toString() ?? "",
-          preco_sugerido_real: it.preco_sugerido_real?.toString() ?? "",
-          preco_sugerido_euro: it.preco_sugerido_euro?.toString() ?? "",
           observacoes: it.observacoes ?? "",
         });
       })
@@ -145,7 +131,6 @@ export default function ItemEstoqueFormPage() {
         codigo_produto_fornecedor: form.codigo_produto_fornecedor,
         sistema_numeracao: form.sistema_numeracao,
         status_item: form.status_item,
-        condicao_item: form.condicao_item,
         moeda_compra: form.moeda_compra,
         observacoes: form.observacoes,
       });
@@ -159,8 +144,6 @@ export default function ItemEstoqueFormPage() {
         cambio_compra_para_real: numOuNulo(form.cambio_compra_para_real),
         valor_pago_real: numOuNulo(form.valor_pago_real),
         valor_pago_euro: numOuNulo(form.valor_pago_euro),
-        preco_sugerido_real: numOuNulo(form.preco_sugerido_real),
-        preco_sugerido_euro: numOuNulo(form.preco_sugerido_euro),
       } as unknown as ItemEstoqueInsert;
 
       if (id) {
@@ -179,7 +162,7 @@ export default function ItemEstoqueFormPage() {
   };
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title={edicao ? "Editar item de estoque" : "Novo item de estoque"}
         breadcrumbs={[
@@ -237,7 +220,7 @@ export default function ItemEstoqueFormPage() {
                 placeholder="— Nenhum —"
                 options={(locais.data ?? []).map((l) => ({
                   value: l.id,
-                  label: `${l.codigo} · ${l.nome}`,
+                  label: l.nome,
                 }))}
               />
               <FormInput
@@ -254,7 +237,7 @@ export default function ItemEstoqueFormPage() {
           </SectionCard>
 
           <SectionCard title="Numeração e estado">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <FormInput
                 label="Numeração BR"
                 value={form.numeracao_br}
@@ -290,22 +273,13 @@ export default function ItemEstoqueFormPage() {
                 onChange={(e) => upd("status_item", e.target.value as StatusItem)}
                 options={[
                   { value: "em_estoque", label: "Em estoque" },
+                  { value: "fora_de_estoque", label: "Fora de estoque" },
+                  { value: "em_processo_de_compra", label: "Em processo de compra" },
+                  { value: "transferencia", label: "Transferência" },
                   { value: "reservado", label: "Reservado" },
                   { value: "vendido", label: "Vendido" },
                   { value: "devolvido", label: "Devolvido" },
                   { value: "inativo", label: "Inativo" },
-                  { value: "aguardando_chegada", label: "Aguardando chegada" },
-                ]}
-              />
-              <FormSelect
-                label="Condição"
-                value={form.condicao_item}
-                onChange={(e) => upd("condicao_item", e.target.value as CondicaoItem)}
-                options={[
-                  { value: "novo", label: "Novo" },
-                  { value: "seminovo", label: "Seminovo" },
-                  { value: "usado", label: "Usado" },
-                  { value: "defeituoso", label: "Defeituoso" },
                 ]}
               />
             </div>
@@ -348,18 +322,6 @@ export default function ItemEstoqueFormPage() {
                 label="Valor pago (EUR)"
                 value={form.valor_pago_euro}
                 onChange={(e) => upd("valor_pago_euro", e.target.value)}
-                inputMode="decimal"
-              />
-              <FormInput
-                label="Preço sugerido (BRL)"
-                value={form.preco_sugerido_real}
-                onChange={(e) => upd("preco_sugerido_real", e.target.value)}
-                inputMode="decimal"
-              />
-              <FormInput
-                label="Preço sugerido (EUR)"
-                value={form.preco_sugerido_euro}
-                onChange={(e) => upd("preco_sugerido_euro", e.target.value)}
                 inputMode="decimal"
               />
             </div>

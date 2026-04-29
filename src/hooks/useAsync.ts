@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { mensagemErro } from "../utils/errors";
 
 export interface AsyncState<T> {
   data: T | null;
@@ -33,9 +34,7 @@ export function useAsync<T>(
         if (!cancelado && montado.current) setData(r);
       })
       .catch((e) => {
-        if (!cancelado && montado.current) {
-          setError(e instanceof Error ? e : new Error(String(e)));
-        }
+        if (!cancelado && montado.current) setError(new Error(mensagemErro(e)));
       })
       .finally(() => {
         if (!cancelado && montado.current) setLoading(false);

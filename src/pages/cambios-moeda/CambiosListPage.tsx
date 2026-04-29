@@ -9,7 +9,7 @@ import { IconPlus, IconRefresh, IconSwap, IconTrash } from "../../components/Ico
 import { cambiosMoedaService } from "../../services/cambios-moeda";
 import { cotacaoApi, type CotacaoAtual } from "../../services/cotacao-api";
 import { useAsync } from "../../hooks/useAsync";
-import { formatarData, formatarDataHora, formatarMoeda } from "../../utils/format";
+import { formatarData, formatarMoeda } from "../../utils/format";
 import type { CambioMoeda, CambioMoedaInsert } from "../../types/entities";
 import { cn } from "../../utils/cn";
 
@@ -50,15 +50,6 @@ function formatarPercentual(valor: number): string {
   }).format(valor)}%`;
 }
 
-function tempoRelativo(data: Date | null): string {
-  if (!data) return "—";
-  const diff = (Date.now() - data.getTime()) / 1000;
-  if (diff < 60) return "agora mesmo";
-  if (diff < 3600) return `há ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `há ${Math.floor(diff / 3600)} h`;
-  return formatarDataHora(data.toISOString());
-}
-
 export default function CambiosListPage() {
   const [page, setPage] = useState(1);
   const { data, loading, error, reload } = useAsync(
@@ -70,7 +61,6 @@ export default function CambiosListPage() {
   const [cotacoes, setCotacoes] = useState<Record<string, CotacaoAtual>>({});
   const [erroCotacoes, setErroCotacoes] = useState<string | null>(null);
   const [buscandoCotacoes, setBuscandoCotacoes] = useState(false);
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
   const [registrandoPar, setRegistrandoPar] = useState<string | null>(null);
 
   const carregarCotacoes = useCallback(async () => {
@@ -85,7 +75,6 @@ export default function CambiosListPage() {
         mapa[parKey(r.moedaOrigem, r.moedaDestino)] = r;
       }
       setCotacoes(mapa);
-      setUltimaAtualizacao(new Date());
       if (resultados.length === 0) {
         setErroCotacoes(
           "Não foi possível obter nenhuma cotação. Verifique sua conexão.",
@@ -276,10 +265,9 @@ export default function CambiosListPage() {
   ];
 
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
         title="Câmbio de moeda"
-        description="Painel consultivo em tempo real (AwesomeAPI) e histórico de cotações utilizadas na precificação."
         breadcrumbs={[{ label: "Operação" }, { label: "Câmbio de moeda" }]}
         actions={
           <button
@@ -299,14 +287,7 @@ export default function CambiosListPage() {
       />
 
       {/* Painel de cotações ao vivo ------------------------------------- */}
-      <SectionCard
-        title="Cotações ao vivo"
-        description={
-          ultimaAtualizacao
-            ? `Atualizado ${tempoRelativo(ultimaAtualizacao)} · fonte: AwesomeAPI`
-            : "Buscando cotações…"
-        }
-      >
+      <SectionCard title="Cotações ao vivo">
         {erroCotacoes ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {erroCotacoes}
@@ -395,11 +376,7 @@ export default function CambiosListPage() {
 
       {/* Conversor + Registro manual ----------------------------------- */}
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <SectionCard
-          title="Conversor"
-          description="Use os valores ao vivo para converter entre moedas."
-          className="lg:col-span-2"
-        >
+        <SectionCard title="Conversor" className="lg:col-span-2">
           <div className="space-y-4">
             <FormInput
               label="Valor"
@@ -459,11 +436,7 @@ export default function CambiosListPage() {
           </div>
         </SectionCard>
 
-        <SectionCard
-          title="Registrar outra cotação"
-          description="Para pares fora do painel ou valores manuais."
-          className="lg:col-span-3"
-        >
+        <SectionCard title="Registrar outra cotação" className="lg:col-span-3">
           <form onSubmit={handleCriar} className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormInput

@@ -33,7 +33,9 @@ export const modelosProdutoService = {
     atualizar("modelos_produto", id, patch),
   deletar: (id: string) => deletar("modelos_produto", id),
 
-  listarComRelacoes: async (params?: PaginationParams) => {
+  listarComRelacoes: async (
+    params?: PaginationParams & { idCategoria?: string; idMarca?: string },
+  ) => {
     const page = params?.page ?? 1;
     const pageSize = params?.pageSize ?? 20;
     const termo = params?.search?.trim();
@@ -46,6 +48,13 @@ export const modelosProdutoService = {
          categoria:categorias(id, nome)`,
         { count: "exact" },
       );
+
+    if (params?.idCategoria) {
+      query = query.eq("id_categoria", params.idCategoria);
+    }
+    if (params?.idMarca) {
+      query = query.eq("id_marca", params.idMarca);
+    }
 
     if (termo) {
       const padrao = `%${termo.replace(/%/g, "")}%`;

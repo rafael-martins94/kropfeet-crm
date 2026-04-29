@@ -1,4 +1,5 @@
 import { env } from "../../config/env.js";
+import { formatarErroDesconhecido } from "../../utils/erro.js";
 import { logger } from "../../utils/logger.js";
 import { comRetry, dormir } from "../../utils/retry.js";
 import {
@@ -7,8 +8,10 @@ import {
   type TinyContatoResumo,
   type TinyEnvelope,
   type TinyProdutoDetalhe,
+  type TinyProdutoEstoque,
   type TinyProdutoListagem,
   type TinyRetornoObterContato,
+  type TinyRetornoObterEstoqueProduto,
   type TinyRetornoObterProduto,
   type TinyRetornoPesquisaContatos,
   type TinyRetornoPesquisaProdutos,
@@ -17,6 +20,7 @@ import {
 const ENDPOINTS = {
   pesquisaProdutos: "/produtos.pesquisa.php",
   obterProduto: "/produto.obter.php",
+  obterEstoqueProduto: "/produto.obter.estoque.php",
   pesquisaContatos: "/contatos.pesquisa.php",
   obterContato: "/contato.obter.php",
 } as const;
@@ -27,8 +31,33 @@ const CODIGOS_ERRO_TEMPORARIOS = new Set([
   "30", // limite de requisicoes
 ]);
 
+function textoItemErroTiny(item: unknown): string {
+  if (typeof item === "string") return item;
+  if (!item || typeof item !== "object") return "";
+  const rec = item as Record<string, unknown>;
+  const direto = rec.erro;
+  if (typeof direto === "string") return direto;
+  if (direto && typeof direto === "object") {
+    try {
+      return JSON.stringify(direto);
+    } catch {
+      return formatarErroDesconhecido(direto);
+    }
+  }
+  try {
+    return JSON.stringify(item);
+  } catch {
+    return "";
+  }
+}
+
 function montarUrl(endpoint: string): string {
   return `${env.tiny.baseUrl}${endpoint}`;
+}
+
+function normalizarCodigoErroTiny(v: unknown): string | null {
+  if (v === null || v === undefined || v === "") return null;
+  return String(v);
 }
 
 function eTemporario(erro: unknown): boolean {
@@ -61,9 +90,7 @@ async function chamarTiny<TRetorno>(
   } catch (erro) {
     clearTimeout(timeout);
     throw new TinyApiError({
-      mensagem: `Falha de rede ao chamar ${endpoint}: ${
-        erro instanceof Error ? erro.message : String(erro)
-      }`,
+      mensagem: `Falha de rede ao chamar ${endpoint}: ${formatarErroDesconhecido(erro)}`,
       status: null,
       endpoint,
       temporario: true,
@@ -107,13 +134,10 @@ async function chamarTiny<TRetorno>(
   }
 
   if (retorno.status && retorno.status !== "OK") {
-    const codigoErro = retorno.codigo_erro ?? null;
+    const codigoErro = normalizarCodigoErroTiny(retorno.codigo_erro);
     const temporario = codigoErro ? CODIGOS_ERRO_TEMPORARIOS.has(codigoErro) : false;
     const mensagemErros = Array.isArray(retorno.erros)
-      ? retorno.erros
-          .map((e) => (typeof e === "string" ? e : (e as { erro?: string })?.erro ?? ""))
-          .filter(Boolean)
-          .join("; ")
+      ? retorno.erros.map(textoItemErroTiny).filter(Boolean).join("; ")
       : "";
     throw new TinyApiError({
       mensagem: `Tiny retornou erro em ${endpoint}: status=${retorno.status} codigo=${codigoErro ?? "?"} ${
@@ -130,6 +154,17 @@ async function chamarTiny<TRetorno>(
   return retorno as TRetorno;
 }
 
+function esperaAposErroTiny(erro: unknown, tentativa: number): number | undefined {
+  if (!(erro instanceof TinyApiError)) return undefined;
+  const c = erro.codigoErro;
+  if (c === "6" || c === "30") {
+    const base = env.tiny.esperaApiBloqueadaMs;
+    const max = env.tiny.esperaApiBloqueadaMaxMs;
+    return Math.min(max, base * tentativa);
+  }
+  return undefined;
+}
+
 async function chamarTinyComRetry<TRetorno>(
   endpoint: string,
   corpo: Record<string, string>,
@@ -139,6 +174,7 @@ async function chamarTinyComRetry<TRetorno>(
     delayInicialMs: 1500,
     fatorBackoff: 2,
     deveTentarNovamente: eTemporario,
+    esperaAposErro: esperaAposErroTiny,
     rotulo: endpoint,
   });
 }
@@ -163,6 +199,23 @@ export async function obterProdutoTiny(idTiny: string): Promise<TinyProdutoDetal
       mensagem: `produto.obter.php nao retornou "produto" para id=${idTiny}`,
       status: null,
       endpoint: ENDPOINTS.obterProduto,
+      corpoBruto: retorno,
+    });
+  }
+  return retorno.produto;
+}
+
+export async function obterEstoqueProdutoTiny(idTiny: string): Promise<TinyProdutoEstoque> {
+  logger.debug("Tiny: obtendo estoque do produto", { idTiny });
+  const retorno = await chamarTinyComRetry<TinyRetornoObterEstoqueProduto>(
+    ENDPOINTS.obterEstoqueProduto,
+    { id: idTiny },
+  );
+  if (!retorno.produto) {
+    throw new TinyApiError({
+      mensagem: `produto.obter.estoque.php nao retornou "produto" para id=${idTiny}`,
+      status: null,
+      endpoint: ENDPOINTS.obterEstoqueProduto,
       corpoBruto: retorno,
     });
   }
