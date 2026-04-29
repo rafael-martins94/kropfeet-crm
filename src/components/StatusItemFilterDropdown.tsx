@@ -116,7 +116,7 @@ export function StatusItemFilterDropdown({
     );
 
   return (
-    <div className={cn("relative w-full sm:w-52", className)}>
+    <div className={cn("relative w-full min-w-0", className)}>
       <button
         ref={anchorRef}
         type="button"

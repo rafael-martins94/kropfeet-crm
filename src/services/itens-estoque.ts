@@ -6,6 +6,10 @@ import type {
   PaginationParams,
   StatusItem,
 } from "../types/entities";
+import {
+  matchesSizeFilter,
+  type DisplaySizeSystem,
+} from "../utils/sizeConversion";
 import { atualizar, deletar, inserir, obterPorId } from "./base";
 
 export interface ItemEstoqueDetalhado extends ItemEstoque {
@@ -68,6 +72,8 @@ export const itensEstoqueService = {
       /** UUID do local ou `FILTRO_LOCAL_SEM` / vazio (sem filtro). */
       idLocalEstoque?: FiltroLocalItem;
       ordenacao?: { coluna: ColunaOrdemItemEstoque; ascendente: boolean };
+      displaySizeSystem?: DisplaySizeSystem;
+      numeracao?: string;
     },
   ) => {
     const page = params?.page ?? 1;
@@ -79,76 +85,106 @@ export const itensEstoqueService = {
 
     const filtroCat = params?.idCategoria?.trim();
     const filtroLocal = params?.idLocalEstoque?.trim();
+    const filtroNumeracao = params?.numeracao?.trim();
+    const displaySizeSystem = params?.displaySizeSystem ?? "br";
 
     const modeloEmbed =
       filtroCat && filtroCat !== ""
         ? "modelo:modelos_produto!inner(id, nome_modelo, slug, id_categoria)"
         : "modelo:modelos_produto(id, nome_modelo, slug, id_categoria)";
 
-    let query = supabase
-      .from("itens_estoque")
-      .select(
-        `*,
-         ${modeloEmbed},
-         fornecedor:fornecedores(id, nome),
-         local:locais_estoque(id, nome, codigo)`,
-        { count: "exact" },
-      );
-
-    if (params?.status) {
-      query = query.eq("status_item", params.status);
-    }
-
-    if (filtroCat === FILTRO_CATEGORIA_SEM) {
-      query = query.is("modelo.id_categoria", null);
-    } else if (filtroCat) {
-      query = query.eq("modelo.id_categoria", filtroCat);
-    }
-
-    if (filtroLocal === FILTRO_LOCAL_SEM) {
-      query = query.is("id_local_estoque", null);
-    } else if (filtroLocal) {
-      query = query.eq("id_local_estoque", filtroLocal);
-    }
-
-    if (termo) {
-      const padrao = `%${termo.replace(/%/g, "")}%`;
-      query = query.or(
-        `sku.ilike.${padrao},nome_completo.ilike.${padrao},codigo_fabricante.ilike.${padrao}`,
-      );
-    }
-
-    /** Desempate estável entre páginas */
-    const comDesempate = <T extends typeof query>(q: T) =>
-      q.order("id", { ascending: true });
-
-    switch (coluna) {
-      case "local_nome":
-        query = comDesempate(
-          query.order("nome", {
-            ascending: ascendente,
-            foreignTable: "locais_estoque",
-            nullsFirst: false,
-          }),
+    const buildQuery = () => {
+      let query = supabase
+        .from("itens_estoque")
+        .select(
+          `*,
+           ${modeloEmbed},
+           fornecedor:fornecedores(id, nome),
+           local:locais_estoque(id, nome, codigo)`,
+          { count: "exact" },
         );
-        break;
-      case "numeracao_br":
-        query = comDesempate(
-          query.order("numeracao_br", {
-            ascending: ascendente,
-            nullsFirst: false,
-          }),
+
+      if (params?.status) {
+        query = query.eq("status_item", params.status);
+      }
+
+      if (filtroCat === FILTRO_CATEGORIA_SEM) {
+        query = query.is("modelo.id_categoria", null);
+      } else if (filtroCat) {
+        query = query.eq("modelo.id_categoria", filtroCat);
+      }
+
+      if (filtroLocal === FILTRO_LOCAL_SEM) {
+        query = query.is("id_local_estoque", null);
+      } else if (filtroLocal) {
+        query = query.eq("id_local_estoque", filtroLocal);
+      }
+
+      if (termo) {
+        const padrao = `%${termo.replace(/%/g, "")}%`;
+        query = query.or(
+          `sku.ilike.${padrao},nome_completo.ilike.${padrao},codigo_fabricante.ilike.${padrao}`,
         );
-        break;
-      default:
-        query = comDesempate(query.order(coluna, { ascending: ascendente }));
-    }
+      }
+
+      /** Desempate estável entre páginas */
+      const comDesempate = <T extends typeof query>(q: T) =>
+        q.order("id", { ascending: true });
+
+      switch (coluna) {
+        case "local_nome":
+          query = comDesempate(
+            query.order("nome", {
+              ascending: ascendente,
+              foreignTable: "locais_estoque",
+              nullsFirst: false,
+            }),
+          );
+          break;
+        case "numeracao_br":
+          query = comDesempate(
+            query.order("numeracao_br", {
+              ascending: ascendente,
+              nullsFirst: false,
+            }),
+          );
+          break;
+        default:
+          query = comDesempate(query.order(coluna, { ascending: ascendente }));
+      }
+
+      return query;
+    };
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
-    query = query.range(from, to);
 
-    const { data, error, count } = await query;
+    if (filtroNumeracao) {
+      const chunkSize = 1000;
+      const todos: ItemEstoqueDetalhado[] = [];
+
+      for (let offset = 0; ; offset += chunkSize) {
+        const { data, error } = await buildQuery().range(offset, offset + chunkSize - 1);
+        if (error) throw error;
+
+        const lote = (data ?? []) as unknown as ItemEstoqueDetalhado[];
+        todos.push(...lote);
+        if (lote.length < chunkSize) break;
+      }
+
+      const filtrados = todos.filter((item) =>
+        matchesSizeFilter(item, displaySizeSystem, filtroNumeracao),
+      );
+
+      return {
+        data: filtrados.slice(from, to + 1),
+        total: filtrados.length,
+        page,
+        pageSize,
+      };
+    }
+
+    const { data, error, count } = await buildQuery().range(from, to);
     if (error) throw error;
     return {
       data: (data ?? []) as unknown as ItemEstoqueDetalhado[],

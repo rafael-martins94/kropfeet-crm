@@ -24,6 +24,12 @@ import { useDebounce } from "../../hooks/useDebounce";
 import type { StatusItem } from "../../types/entities";
 import { cn } from "../../utils/cn";
 import { mensagemErro } from "../../utils/errors";
+import {
+  formatSizeLabel,
+  getAllSizeEquivalences,
+  getSizeByDisplaySystem,
+  type DisplaySizeSystem,
+} from "../../utils/sizeConversion";
 
 function CabecalhoOrdenavel({
   label,
@@ -89,6 +95,16 @@ const statusOpcoesAlteracao: Array<{ value: StatusItem; label: string }> = [
   { value: "inativo", label: "Inativo" },
 ];
 
+const padraoNumeracaoOpcoes: Array<{ value: DisplaySizeSystem; label: string }> = [
+  { value: "br", label: "BR" },
+  { value: "eu", label: "EU" },
+  { value: "us_m", label: "US M" },
+  { value: "us_w", label: "US W" },
+  { value: "us_y", label: "US Y" },
+];
+
+const sistemasNumeracao: DisplaySizeSystem[] = ["br", "eu", "us_m", "us_w", "us_y"];
+
 export default function ItensEstoqueListPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -98,7 +114,10 @@ export default function ItensEstoqueListPage() {
   const [categoriaId, setCategoriaId] = useState("");
   /** UUID do local de estoque ou `FILTRO_LOCAL_SEM` ou "" para todos */
   const [localEstoqueId, setLocalEstoqueId] = useState("");
+  const [displaySizeSystem, setDisplaySizeSystem] = useState<DisplaySizeSystem>("br");
+  const [numeracaoFiltro, setNumeracaoFiltro] = useState("");
   const searchDebounced = useDebounce(search, 400);
+  const numeracaoFiltroDebounced = useDebounce(numeracaoFiltro, 250);
 
   const [colunaOrdem, setColunaOrdem] = useState<ColunaOrdemItemEstoque>("atualizado_em");
   const [ordemAscendente, setOrdemAscendente] = useState(false);
@@ -142,9 +161,21 @@ export default function ItensEstoqueListPage() {
         status,
         idCategoria: categoriaId || undefined,
         idLocalEstoque: localEstoqueId || undefined,
+        displaySizeSystem,
+        numeracao: numeracaoFiltroDebounced,
         ordenacao: { coluna: colunaOrdem, ascendente: ordemAscendente },
       }),
-    [page, searchDebounced, status, categoriaId, localEstoqueId, colunaOrdem, ordemAscendente],
+    [
+      page,
+      searchDebounced,
+      status,
+      categoriaId,
+      localEstoqueId,
+      displaySizeSystem,
+      numeracaoFiltroDebounced,
+      colunaOrdem,
+      ordemAscendente,
+    ],
   );
 
   const alterarOrdem = (coluna: ColunaOrdemItemEstoque) => {
@@ -163,7 +194,7 @@ export default function ItensEstoqueListPage() {
     setSelectedIds(new Set());
     setErroMassa(null);
     setErroStatusInline(null);
-  }, [searchDebounced, status, categoriaId, localEstoqueId]);
+  }, [searchDebounced, status, categoriaId, localEstoqueId, displaySizeSystem, numeracaoFiltroDebounced]);
 
   const idsPaginaAtual = useMemo(() => rows.map((r) => r.id), [rows]);
   const qtdSelecionadosPagina = useMemo(
@@ -305,8 +336,10 @@ export default function ItensEstoqueListPage() {
         />
       ),
       headerClassName: "align-top whitespace-normal",
-      width: "164px",
-      render: (it) => <span className="font-numeric tabular-nums text-xs">{it.sku}</span>,
+      width: "118px",
+      render: (it) => (
+        <span className="block max-w-[7rem] truncate font-numeric tabular-nums text-xs">{it.sku}</span>
+      ),
     },
     {
       key: "produto",
@@ -319,24 +352,16 @@ export default function ItensEstoqueListPage() {
           onOrdem={alterarOrdem}
         />
       ),
-      headerClassName: "align-top whitespace-normal min-w-[10rem]",
+      headerClassName: "align-top whitespace-normal min-w-[11rem] max-w-[min(34vw,17rem)]",
+      className: "min-w-[11rem] max-w-[min(34vw,17rem)]",
       render: (it) => (
-        <div className="min-w-0">
-          <Link
-            to={`/itens-estoque/${it.id}`}
-            className="block truncate font-medium text-ink hover:text-brand-700"
-          >
-            {it.nome_completo}
-          </Link>
-          {it.modelo ? (
-            <Link
-              to={`/modelos-produto/${it.modelo.id}`}
-              className="block truncate text-xs text-ink-soft hover:text-brand-600"
-            >
-              {it.modelo.nome_modelo}
-            </Link>
-          ) : null}
-        </div>
+        <Link
+          to={`/itens-estoque/${it.id}`}
+          className="block truncate text-sm font-medium text-ink hover:text-brand-700"
+          title={it.nome_completo}
+        >
+          {it.nome_completo}
+        </Link>
       ),
     },
     {
@@ -351,19 +376,33 @@ export default function ItensEstoqueListPage() {
           onOrdem={alterarOrdem}
         />
       ),
-      headerClassName: "align-top whitespace-normal min-w-[6.5rem]",
-      width: "136px",
-      render: (it) => (
-        <span className="text-ink-muted">
-          {it.numeracao_br
-            ? `BR ${it.numeracao_br}`
-            : it.numeracao_eu
-              ? `EU ${it.numeracao_eu}`
-              : it.numeracao_us
-                ? `US ${it.numeracao_us}`
-                : "—"}
-        </span>
-      ),
+      headerClassName: "align-top whitespace-normal",
+      width: "96px",
+      render: (it) => {
+        const principal = formatSizeLabel(
+          getSizeByDisplaySystem(it, displaySizeSystem),
+          displaySizeSystem,
+        );
+        const equivalencias = getAllSizeEquivalences(it);
+        const secundarias = sistemasNumeracao
+          .filter((sistema) => sistema !== displaySizeSystem)
+          .map((sistema) => formatSizeLabel(equivalencias[sistema], sistema))
+          .filter((label) => label !== "—");
+        const tooltipEq =
+          secundarias.length > 0 ? secundarias.join(" • ") : undefined;
+
+        return (
+          <span
+            className={cn(
+              "inline-block max-w-[6rem] truncate text-sm font-medium tabular-nums text-ink-muted",
+              tooltipEq && "cursor-help",
+            )}
+            title={tooltipEq}
+          >
+            {principal}
+          </span>
+        );
+      },
     },
     {
       key: "status",
@@ -377,14 +416,14 @@ export default function ItensEstoqueListPage() {
         />
       ),
       headerClassName: "align-top whitespace-normal",
-      width: "172px",
+      width: "216px",
       render: (it) => (
-        <div className="min-w-[10rem] max-w-[13rem]" onClick={(e) => e.stopPropagation()}>
+        <div className="min-w-[11.5rem] w-full max-w-[13.5rem]" onClick={(e) => e.stopPropagation()}>
           <StatusItemFilterDropdown
             value={it.status_item}
             options={statusOpcoesAlteracao}
             disabled={statusUpdatingId === it.id}
-            className="w-full sm:w-full"
+            className="w-full min-w-0 sm:w-full"
             onChange={(novo) => {
               void alterarStatusNaLinha(it.id, it.status_item, novo);
             }}
@@ -403,9 +442,10 @@ export default function ItensEstoqueListPage() {
           onOrdem={alterarOrdem}
         />
       ),
-      headerClassName: "align-top whitespace-normal min-w-[7rem]",
+      headerClassName: "align-top whitespace-normal max-w-[8rem]",
+      className: "max-w-[8rem]",
       render: (it) => (
-        <span className="text-ink-soft">
+        <span className="block truncate text-ink-soft" title={it.local?.nome ?? undefined}>
           {it.local?.nome ?? "—"}
         </span>
       ),
@@ -428,6 +468,26 @@ export default function ItensEstoqueListPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="Itens de estoque"
+        titleAccessory={
+          <label className="flex items-center gap-2 rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-soft shadow-sm">
+            <span>Padrão</span>
+            <select
+              value={displaySizeSystem}
+              onChange={(e) => {
+                setDisplaySizeSystem(e.target.value as DisplaySizeSystem);
+                setPage(1);
+              }}
+              className="bg-transparent text-xs font-semibold text-ink outline-none"
+              aria-label="Padrão de numeração"
+            >
+              {padraoNumeracaoOpcoes.map((opcao) => (
+                <option key={opcao.value} value={opcao.value}>
+                  {opcao.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
         breadcrumbs={[{ label: "Catálogo" }, { label: "Itens de estoque" }]}
         actions={
           <PrimaryButton
@@ -446,8 +506,14 @@ export default function ItensEstoqueListPage() {
       >
         <ScrollableListShell
           toolbar={
-            <div className="flex flex-col gap-2 border-b border-line px-5 py-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-              <div className="flex min-w-0 flex-1 flex-row flex-nowrap items-end gap-2 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch] sm:gap-3">
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+              <div
+                className={cn(
+                  "grid min-w-0 flex-1 gap-x-3 gap-y-4 items-end",
+                  "[grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]",
+                  "lg:[grid-template-columns:minmax(11rem,1.35fr)_minmax(9rem,0.92fr)_minmax(10rem,1fr)_minmax(11.5rem,1.48fr)_minmax(7rem,0.68fr)] lg:grid-rows-1",
+                )}
+              >
                 <SearchInput
                   placeholder="Buscar por SKU, nome completo, código…"
                   value={search}
@@ -455,16 +521,16 @@ export default function ItensEstoqueListPage() {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  wrapperClassName="min-w-[min(100%,14rem)] max-w-sm shrink-0 sm:w-auto sm:max-w-[220px]"
+                  wrapperClassName="w-full min-w-0"
                 />
-                <div className="flex shrink-0 flex-col gap-1.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
                     Status
                   </span>
                   <StatusItemFilterDropdown
                     value={status}
                     options={statusOpcoes}
-                    className="w-52 shrink-0 sm:w-52"
+                    className="w-full"
                     onChange={(v) => {
                       setStatus(v);
                       setPage(1);
@@ -477,11 +543,12 @@ export default function ItensEstoqueListPage() {
                   options={opcoesLocalFiltro}
                   loading={locaisLista.loading}
                   searchPlaceholder="Buscar local…"
+                  triggerClassName="w-full min-w-0"
                   onChange={(v) => {
                     setLocalEstoqueId(v);
                     setPage(1);
                   }}
-                  className="shrink-0 sm:min-w-[14rem]"
+                  className="w-full min-w-0 max-w-[13rem]"
                 />
                 <SearchableSelectDropdown
                   label="Categoria (modelo)"
@@ -489,12 +556,27 @@ export default function ItensEstoqueListPage() {
                   options={opcoesCategoriaFiltro}
                   loading={categoriasLista.loading}
                   searchPlaceholder="Buscar categoria…"
+                  triggerClassName="w-full min-w-0"
                   onChange={(v) => {
                     setCategoriaId(v);
                     setPage(1);
                   }}
-                  className="shrink-0 sm:min-w-[15rem]"
+                  className="w-full min-w-[12rem]"
                 />
+                <div className="flex min-w-0 max-w-[9rem] flex-col gap-1.5 lg:max-w-none">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+                    Numeração
+                  </span>
+                  <SearchInput
+                    placeholder="Ex.: US 6, BR37…"
+                    value={numeracaoFiltro}
+                    onChange={(e) => {
+                      setNumeracaoFiltro(e.target.value);
+                      setPage(1);
+                    }}
+                    wrapperClassName="w-full min-w-0"
+                  />
+                </div>
               </div>
               <div className="shrink-0 whitespace-nowrap pt-1 text-xs text-ink-soft sm:pt-0">
                 {data ? `${data.total.toLocaleString("pt-BR")} itens` : ""}

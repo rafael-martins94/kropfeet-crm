@@ -22,6 +22,8 @@ interface DataTableProps<T> {
   emptyDescription?: string;
   emptyAction?: ReactNode;
   className?: string;
+  /** Classes extras na `<table>` (ex.: `table-fixed`). */
+  tableClassName?: string;
 }
 
 export function DataTable<T>({
@@ -34,6 +36,7 @@ export function DataTable<T>({
   emptyDescription,
   emptyAction,
   className,
+  tableClassName,
 }: DataTableProps<T>) {
   if (loading) {
     return <LoadingState />;
@@ -49,7 +52,7 @@ export function DataTable<T>({
   }
   return (
     <div className={cn("min-w-0 w-full", className)}>
-      <table className="table-base">
+      <table className={cn("table-base", tableClassName)}>
         <thead>
           <tr>
             {columns.map((c) => (

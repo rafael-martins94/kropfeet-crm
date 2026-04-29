@@ -20,6 +20,8 @@ export interface SearchableSelectDropdownProps {
   disabled?: boolean;
   loading?: boolean;
   className?: string;
+  /** Classes extras no botão do trigger (permite afiar largura em filtros específicos). */
+  triggerClassName?: string;
 }
 
 function ChevronDown({ open }: { open: boolean }) {
@@ -58,6 +60,7 @@ export function SearchableSelectDropdown({
   disabled,
   loading,
   className,
+  triggerClassName,
 }: SearchableSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -115,10 +118,11 @@ export function SearchableSelectDropdown({
       aria-expanded={open}
       aria-haspopup="listbox"
       className={cn(
-        "group flex h-[38px] w-full min-w-[15rem] items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left text-sm text-ink shadow-sm transition-all",
+        "group flex h-[38px] w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-left text-sm text-ink shadow-sm transition-all",
         "hover:border-brand-400/35 hover:bg-brand-50/40 hover:shadow-md",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
         (disabled || loading) && "cursor-not-allowed opacity-60 hover:border-line hover:bg-surface hover:shadow-sm",
+        triggerClassName,
       )}
       onClick={() => !(disabled || loading) && setOpen((o) => !o)}
     >
@@ -213,7 +217,7 @@ export function SearchableSelectDropdown({
     );
 
   return (
-    <div className={cn("relative w-full sm:w-auto sm:min-w-[16rem]", className)}>
+    <div className={cn("relative w-full min-w-0", className)}>
       {label ? (
         <div className="flex flex-col gap-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">

@@ -9,6 +9,7 @@ interface Crumb {
 
 interface PageHeaderProps {
   title: string;
+  titleAccessory?: ReactNode;
   breadcrumbs?: Crumb[];
   actions?: ReactNode;
   backTo?: string;
@@ -16,6 +17,7 @@ interface PageHeaderProps {
 
 export function PageHeader({
   title,
+  titleAccessory,
   breadcrumbs,
   actions,
   backTo,
@@ -51,10 +53,11 @@ export function PageHeader({
               <IconChevronLeft />
             </Link>
           ) : null}
-          <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
             <h1 className="truncate font-display text-2xl font-semibold text-brand-700 sm:text-3xl">
               {title}
             </h1>
+            {titleAccessory}
           </div>
         </div>
       </div>
