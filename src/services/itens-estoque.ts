@@ -29,6 +29,11 @@ export type ColunaOrdemItemEstoque = (typeof COLUNAS_ORDEM_ITEM_ESTOQUE)[number]
 /** Valor especial para filtrar itens cujo modelo não tem categoria. */
 export const FILTRO_CATEGORIA_SEM = "__sem_categoria__" as const;
 
+/** Valor especial para filtrar itens sem local definido. */
+export const FILTRO_LOCAL_SEM = "__sem_local__" as const;
+
+export type FiltroLocalItem = "" | typeof FILTRO_LOCAL_SEM | string;
+
 export type FiltroCategoriaItem = "" | typeof FILTRO_CATEGORIA_SEM | string;
 
 export const itensEstoqueService = {
@@ -58,8 +63,10 @@ export const itensEstoqueService = {
   listarComRelacoes: async (
     params?: PaginationParams & {
       status?: StatusItem | "";
-      /** UUID da categoria ou `FILTRO_CATEGORIA_SEM` / string vazia (sem filtro). */
+      /** UUID da categoria ou `FILTRO_CATEGORIA_SEM` / vazio (sem filtro). */
       idCategoria?: FiltroCategoriaItem;
+      /** UUID do local ou `FILTRO_LOCAL_SEM` / vazio (sem filtro). */
+      idLocalEstoque?: FiltroLocalItem;
       ordenacao?: { coluna: ColunaOrdemItemEstoque; ascendente: boolean };
     },
   ) => {
@@ -71,6 +78,8 @@ export const itensEstoqueService = {
     const ascendente = params?.ordenacao?.ascendente ?? false;
 
     const filtroCat = params?.idCategoria?.trim();
+    const filtroLocal = params?.idLocalEstoque?.trim();
+
     const modeloEmbed =
       filtroCat && filtroCat !== ""
         ? "modelo:modelos_produto!inner(id, nome_modelo, slug, id_categoria)"
@@ -94,6 +103,12 @@ export const itensEstoqueService = {
       query = query.is("modelo.id_categoria", null);
     } else if (filtroCat) {
       query = query.eq("modelo.id_categoria", filtroCat);
+    }
+
+    if (filtroLocal === FILTRO_LOCAL_SEM) {
+      query = query.is("id_local_estoque", null);
+    } else if (filtroLocal) {
+      query = query.eq("id_local_estoque", filtroLocal);
     }
 
     if (termo) {

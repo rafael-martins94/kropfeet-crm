@@ -1,4 +1,6 @@
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
+import { usePopoverAnchorRect } from "../hooks/usePopoverAnchorRect";
 import { cn } from "../utils/cn";
 import { pillClassesForStatusItem } from "./StatusBadge";
 import type { StatusItem } from "../types/entities";
@@ -31,7 +33,7 @@ function ChevronDown({ className }: { className?: string }) {
   );
 }
 
-/** Filtro de status com pills nas mesmas cores do `StatusBadge`. */
+/** Filtro de status com pills; lista em portal para não ser cortada por overflow do pai. */
 export function StatusItemFilterDropdown({
   value,
   options,
@@ -40,14 +42,18 @@ export function StatusItemFilterDropdown({
   disabled,
 }: StatusItemFilterDropdownProps) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLUListElement>(null);
+  const pos = usePopoverAnchorRect(anchorRef, open, 4);
 
   const selected = options.find((o) => o.value === value) ?? options[0];
 
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (anchorRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -62,9 +68,57 @@ export function StatusItemFilterDropdown({
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
+  const list =
+    open &&
+    createPortal(
+      <ul
+        ref={panelRef}
+        role="listbox"
+        style={{
+          position: "fixed",
+          top: pos.top,
+          left: pos.left,
+          width: pos.width,
+          zIndex: 10000,
+        }}
+        className="max-h-72 overflow-auto rounded-lg border border-line bg-surface py-1 shadow-lg"
+      >
+        {options.map((o) => (
+          <li
+            key={o.value === "" ? "__all__" : o.value}
+            role="option"
+            aria-selected={value === o.value}
+          >
+            <button
+              type="button"
+              className={cn(
+                "flex w-full items-center px-3 py-2 text-left transition-colors hover:bg-brand-50/80",
+                value === o.value && "bg-brand-50/90",
+              )}
+              onClick={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+            >
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+                  pillClassesForStatusItem(o.value),
+                )}
+              >
+                {o.label}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>,
+      document.body,
+    );
+
   return (
-    <div ref={rootRef} className={cn("relative w-full sm:w-52", className)}>
+    <div className={cn("relative w-full sm:w-52", className)}>
       <button
+        ref={anchorRef}
         type="button"
         disabled={disabled}
         aria-expanded={open}
@@ -85,41 +139,7 @@ export function StatusItemFilterDropdown({
         </span>
         <ChevronDown />
       </button>
-      {open ? (
-        <ul
-          role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 max-h-72 overflow-auto rounded-lg border border-line bg-surface py-1 shadow-lg"
-        >
-          {options.map((o) => (
-            <li
-              key={o.value === "" ? "__all__" : o.value}
-              role="option"
-              aria-selected={value === o.value}
-            >
-              <button
-                type="button"
-                className={cn(
-                  "flex w-full items-center px-3 py-2 text-left transition-colors hover:bg-brand-50/80",
-                  value === o.value && "bg-brand-50/90",
-                )}
-                onClick={() => {
-                  onChange(o.value);
-                  setOpen(false);
-                }}
-              >
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
-                    pillClassesForStatusItem(o.value),
-                  )}
-                >
-                  {o.label}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {list}
     </div>
   );
 }
