@@ -1,11 +1,25 @@
-export type DisplaySizeSystem = "br" | "eu" | "us_m" | "us_w" | "us_y";
+/** Padrão de exibição na lista (BR / EU / US único). */
+export type DisplaySizeSystem = "br" | "eu" | "us";
 
-export type SizeEquivalence = Record<DisplaySizeSystem, number | null>;
+/** Colunas US internas da tabela de equivalência. */
+export type UsVariantColumn = "us_m" | "us_w" | "us_y";
+
+export type ShoeSizeEquivalence = {
+  br: number | null;
+  eu: number | null;
+  us_m: number | null;
+  us_w: number | null;
+  us_y: number | null;
+};
+
+/** @deprecated use ShoeSizeEquivalence */
+export type SizeEquivalence = ShoeSizeEquivalence;
 
 export type SizeConvertibleItem = {
   numeracao_br?: number | string | null;
   numeracao_eu?: number | string | null;
   numeracao_us?: number | string | null;
+  nome_completo?: string | null;
 };
 
 export const SHOE_SIZE_EQUIVALENCE_TABLE = [
@@ -31,15 +45,7 @@ export const SHOE_SIZE_EQUIVALENCE_TABLE = [
   { br: 44, eu: 45.5, us_m: 13, us_w: 14.5, us_y: null },
   { br: 45, eu: 46.5, us_m: 14, us_w: 15.5, us_y: null },
   { br: 46, eu: 47.5, us_m: 15, us_w: 16.5, us_y: null },
-] as const satisfies readonly SizeEquivalence[];
-
-const DISPLAY_SYSTEM_LABELS: Record<DisplaySizeSystem, string> = {
-  br: "BR",
-  eu: "EU",
-  us_m: "US M",
-  us_w: "US W",
-  us_y: "US Y",
-};
+] as const satisfies readonly ShoeSizeEquivalence[];
 
 const EPSILON = 0.0001;
 
@@ -49,6 +55,11 @@ function sameSize(a: number | null, b: number | null): boolean {
 
 function compactNumber(value: number): string {
   return Number.isInteger(value) ? value.toFixed(0) : value.toString();
+}
+
+/** Decimal com vírgula (alinhado a EU / nomes BR). */
+function formatDecimalBrStyle(value: number): string {
+  return compactNumber(value).replace(".", ",");
 }
 
 function decimalVariants(value: number): string[] {
@@ -82,42 +93,126 @@ export function normalizeSizeSearch(value: string | number | null | undefined): 
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
     .toUpperCase()
-    .replace(",", ".")
+    .replace(/,/g, ".")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function findEquivalenceRow(item: SizeConvertibleItem): SizeEquivalence | null {
-  const known = {
-    br: normalizeSizeValue(item.numeracao_br),
-    eu: normalizeSizeValue(item.numeracao_eu),
-    us_m: normalizeSizeValue(item.numeracao_us),
-  };
+function findEquivalenceRow(item: SizeConvertibleItem): ShoeSizeEquivalence | null {
+  const br = normalizeSizeValue(item.numeracao_br);
+  const eu = normalizeSizeValue(item.numeracao_eu);
+  const usRaw = normalizeSizeValue(item.numeracao_us);
 
-  const filled = Object.entries(known).filter(([, value]) => value !== null) as Array<
-    [keyof typeof known, number]
-  >;
-  if (filled.length === 0) return null;
+  if (br === null && eu === null && usRaw === null) return null;
 
-  const exact = SHOE_SIZE_EQUIVALENCE_TABLE.find((row) =>
-    filled.every(([system, value]) => sameSize(row[system], value)),
-  );
-  if (exact) return exact;
-
-  let best: SizeEquivalence | null = null;
-  let bestScore = 0;
-  for (const row of SHOE_SIZE_EQUIVALENCE_TABLE) {
-    const score = filled.filter(([system, value]) => sameSize(row[system], value)).length;
-    if (score > bestScore) {
-      best = row;
-      bestScore = score;
-    }
+  /** Nesta tabela cada BR é único por linha: resolve equivalência completa. */
+  if (br !== null) {
+    const byBr = SHOE_SIZE_EQUIVALENCE_TABLE.find((row) => sameSize(row.br, br));
+    if (byBr) return byBr;
   }
 
-  return best;
+  if (eu !== null && br !== null) {
+    const byPair = SHOE_SIZE_EQUIVALENCE_TABLE.find(
+      (row) => sameSize(row.br, br) && sameSize(row.eu, eu),
+    );
+    if (byPair) return byPair;
+  }
+
+  /** EU apenas (fallback se BR ausente/errado) */
+  if (eu !== null) {
+    const rows = SHOE_SIZE_EQUIVALENCE_TABLE.filter((row) => sameSize(row.eu, eu));
+    if (rows.length === 1) return rows[0]!;
+  }
+
+  /** Só numeracao_us: qualquer coluna US + dica do nome */
+  if (usRaw !== null) {
+    let best: ShoeSizeEquivalence | null = null;
+    let bestScore = -1;
+
+    const nomeHint = parseUltimoBracketUs(item.nome_completo);
+
+    for (const row of SHOE_SIZE_EQUIVALENCE_TABLE) {
+      let score = 0;
+      if (sameSize(usRaw, row.us_m)) score += nomeHint?.variant === "mens" ? 12 : 8;
+      if (sameSize(usRaw, row.us_w)) score += nomeHint?.variant === "w" ? 12 : 8;
+      if (row.us_y !== null && sameSize(usRaw, row.us_y))
+        score += nomeHint?.variant === "y" ? 12 : 8;
+
+      if (score <= 0) continue;
+
+      if (br !== null && !sameSize(row.br, br)) score -= 5;
+      if (eu !== null && !sameSize(row.eu, eu)) score -= 5;
+
+      if (nomeHint !== null) {
+        if (nomeHint.variant === "w" && row.us_w !== null && sameSize(nomeHint.value, row.us_w))
+          score += 4;
+        if (nomeHint.variant === "y" && row.us_y !== null && sameSize(nomeHint.value, row.us_y))
+          score += 4;
+        if (nomeHint.variant === "mens" && sameSize(nomeHint.value, row.us_m)) score += 4;
+      }
+
+      if (score > bestScore) {
+        best = row;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  return null;
 }
 
-export function getAllSizeEquivalences(item: SizeConvertibleItem): SizeEquivalence {
+/** Item na mesma medição física que `targetRow` (BR, colunas US ou colchetes US no nome). */
+function itemBelongsToUsEquivalenceRow(
+  item: SizeConvertibleItem,
+  targetRow: ShoeSizeEquivalence,
+): boolean {
+  const brItem = normalizeSizeValue(item.numeracao_br);
+  const euItem = normalizeSizeValue(item.numeracao_eu);
+  const usRaw = normalizeSizeValue(item.numeracao_us);
+
+  if (brItem !== null && sameSize(brItem, targetRow.br)) return true;
+
+  const resolved = findEquivalenceRow(item);
+  if (resolved !== null && equivalenceRowsMatch(resolved, targetRow)) return true;
+
+  if (
+    brItem !== null &&
+    euItem !== null &&
+    sameSize(brItem, targetRow.br) &&
+    sameSize(euItem, targetRow.eu)
+  ) {
+    return true;
+  }
+
+  if (usRaw !== null) {
+    if (sameSize(usRaw, targetRow.us_m)) return true;
+    if (sameSize(usRaw, targetRow.us_w)) return true;
+    if (targetRow.us_y !== null && sameSize(usRaw, targetRow.us_y)) return true;
+  }
+
+  const ultimoNome = parseUltimoBracketUs(item.nome_completo);
+  if (ultimoNome !== null) {
+    if (
+      ultimoNome.variant === "w" &&
+      targetRow.us_w !== null &&
+      sameSize(ultimoNome.value, targetRow.us_w)
+    )
+      return true;
+    if (
+      ultimoNome.variant === "y" &&
+      targetRow.us_y !== null &&
+      sameSize(ultimoNome.value, targetRow.us_y)
+    )
+      return true;
+    if (ultimoNome.variant === "mens" && sameSize(ultimoNome.value, targetRow.us_m))
+      return true;
+  }
+
+  return false;
+}
+
+export function getAllSizeEquivalences(item: SizeConvertibleItem): ShoeSizeEquivalence {
   const row = findEquivalenceRow(item);
   if (row) {
     return {
@@ -142,7 +237,99 @@ export function getSizeByDisplaySystem(
   item: SizeConvertibleItem,
   displaySystem: DisplaySizeSystem,
 ): number | null {
-  return getAllSizeEquivalences(item)[displaySystem];
+  const eq = getAllSizeEquivalences(item);
+  if (displaySystem === "us") return eq.us_m ?? eq.us_w ?? eq.us_y;
+  return eq[displaySystem];
+}
+
+/**
+ * Último `[US…]` em `nome_completo` (vírgula decimal, sufixo W/Y).
+ * Paridade com tools/tiny-sync parseNumeracao (comentário de manutenção).
+ */
+export function parseUltimoBracketUs(
+  nomeCompleto: string | null | undefined,
+): { value: number; variant: "mens" | "w" | "y" } | null {
+  if (!nomeCompleto?.trim()) return null;
+  const re = /\[\s*US\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*([WY])?\s*\]/gi;
+  let last: { value: number; variant: "mens" | "w" | "y" } | null = null;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(nomeCompleto)) !== null) {
+    const n = Number(m[1].replace(",", "."));
+    if (!Number.isFinite(n)) continue;
+    const suf = (m[2] ?? "").toUpperCase();
+    const variant = suf === "Y" ? "y" : suf === "W" ? "w" : "mens";
+    last = { value: n, variant };
+  }
+  return last;
+}
+
+function formatUsNumericLabel(value: number, variant: "mens" | "w" | "y"): string {
+  const n = formatDecimalBrStyle(value);
+  if (variant === "w") return `US ${n}W`;
+  if (variant === "y") return `US ${n}Y`;
+  return `US ${n}`;
+}
+
+/**
+ * Rótulo principal da coluna US: último `[US…]` no nome; senão fallback pela linha de equivalência.
+ */
+export function getUsDisplayLabel(item: SizeConvertibleItem): string {
+  const parsed = parseUltimoBracketUs(item.nome_completo);
+  if (parsed) return formatUsNumericLabel(parsed.value, parsed.variant);
+
+  const eq = getAllSizeEquivalences(item);
+  if (eq.us_m !== null) return formatUsNumericLabel(eq.us_m, "mens");
+  if (eq.us_w !== null) return formatUsNumericLabel(eq.us_w, "w");
+  if (eq.us_y !== null) return formatUsNumericLabel(eq.us_y, "y");
+  return "—";
+}
+
+/** Linhas de tooltip: outras equivalências além do primário US. */
+export function getSecondaryEquivalenceLabelsForUsColumn(item: SizeConvertibleItem): string[] {
+  const primary = getUsDisplayLabel(item);
+  const eq = getAllSizeEquivalences(item);
+  const out: string[] = [];
+
+  const pushIf = (label: string) => {
+    if (label !== "—" && label !== primary) out.push(label);
+  };
+
+  pushIf(formatSizeLabel(eq.br, "br"));
+  pushIf(formatSizeLabel(eq.eu, "eu"));
+  if (eq.us_m !== null) pushIf(formatUsNumericLabel(eq.us_m, "mens"));
+  if (eq.us_w !== null) pushIf(formatUsNumericLabel(eq.us_w, "w"));
+  if (eq.us_y !== null) pushIf(formatUsNumericLabel(eq.us_y, "y"));
+
+  return out;
+}
+
+/**Tooltip da coluna NUM: equivalências não exibidas como primário. */
+export function getSecondaryEquivalenceLabelsAfterPrimary(
+  displaySystem: DisplaySizeSystem,
+  item: SizeConvertibleItem,
+): string[] {
+  if (displaySystem === "us") return getSecondaryEquivalenceLabelsForUsColumn(item);
+
+  const eq = getAllSizeEquivalences(item);
+  const primary =
+    displaySystem === "br"
+      ? formatSizeLabel(eq.br, "br")
+      : formatSizeLabel(eq.eu, "eu");
+  const out: string[] = [];
+  const pushIf = (label: string) => {
+    if (label !== "—" && label !== primary) out.push(label);
+  };
+
+  if (displaySystem === "br") {
+    pushIf(formatSizeLabel(eq.eu, "eu"));
+  } else {
+    pushIf(formatSizeLabel(eq.br, "br"));
+  }
+  if (eq.us_m !== null) pushIf(formatUsNumericLabel(eq.us_m, "mens"));
+  if (eq.us_w !== null) pushIf(formatUsNumericLabel(eq.us_w, "w"));
+  if (eq.us_y !== null) pushIf(formatUsNumericLabel(eq.us_y, "y"));
+
+  return out;
 }
 
 export function formatSizeLabel(
@@ -151,10 +338,10 @@ export function formatSizeLabel(
 ): string {
   if (value === null || value === undefined) return "—";
 
-  if (displaySystem === "eu") return `EU ${compactNumber(value).replace(".", ",")}`;
-  if (displaySystem === "us_y") return `US ${compactNumber(value)}Y`;
+  if (displaySystem === "eu") return `EU ${formatDecimalBrStyle(value)}`;
+  if (displaySystem === "us") return formatUsNumericLabel(value, "mens");
 
-  return `${DISPLAY_SYSTEM_LABELS[displaySystem]} ${compactNumber(value)}`;
+  return `BR ${formatDecimalBrStyle(value)}`;
 }
 
 export function getSearchableSizeLabels(item: SizeConvertibleItem): string[] {
@@ -188,6 +375,8 @@ export function getSearchableSizeLabels(item: SizeConvertibleItem): string[] {
 
   if (sizes.us_w !== null) {
     for (const v of decimalVariants(sizes.us_w)) {
+      labels.add(`US${v}W`);
+      labels.add(`US ${v}W`);
       labels.add(`USW${v}`);
       labels.add(`US W ${v}`);
       labels.add(`W${v}`);
@@ -205,37 +394,156 @@ export function getSearchableSizeLabels(item: SizeConvertibleItem): string[] {
   return [...labels];
 }
 
+type FilterSizeSystem = "br" | "eu" | UsVariantColumn;
+
+type ParsedSizeFilter =
+  | { kind: "column"; system: FilterSizeSystem; value: number }
+  | { kind: "us_ambiguous"; value: number };
+
+/** Numerações “inteiras” de calçados (vs 7,5 / 43,5). */
+function isWholeShoeStep(value: number): boolean {
+  return Math.abs(value - Math.round(value)) < EPSILON;
+}
+
+/**
+ * Filtro só com dígito US (sem M/W/Y):
+ * - Meia-numeração: prioriza linhas onde bate em `us_w` ou `us_y` (ex.: US 7,5 feminino ⇄ US M 6 / US 6Y);
+ *   evita usar `us_m` 7,5 (linha física diferente → ex.: feminino US 9).
+ * - Inteira: união masculino ∪ feminino ∪ infantil.
+ * Para meia masculina explícita: `USM7.5`.
+ */
+function rowsForAmbiguousUs(value: number): ShoeSizeEquivalence[] {
+  const byW_Y = SHOE_SIZE_EQUIVALENCE_TABLE.filter(
+    (row) =>
+      sameSize(row.us_w, value) ||
+      (row.us_y !== null && sameSize(row.us_y, value)),
+  );
+
+  let chosen: ShoeSizeEquivalence[];
+  if (!isWholeShoeStep(value)) {
+    chosen =
+      byW_Y.length > 0
+        ? [...byW_Y]
+        : SHOE_SIZE_EQUIVALENCE_TABLE.filter((row) => sameSize(row.us_m, value));
+  } else {
+    chosen = SHOE_SIZE_EQUIVALENCE_TABLE.filter(
+      (row) =>
+        sameSize(row.us_m, value) ||
+        sameSize(row.us_w, value) ||
+        (row.us_y !== null && sameSize(row.us_y, value)),
+    );
+  }
+
+  const byBr = new Map<number, ShoeSizeEquivalence>();
+  for (const row of chosen) {
+    if (row.br !== null) {
+      byBr.set(row.br, row as ShoeSizeEquivalence);
+    }
+  }
+  return [...byBr.values()];
+}
+
+function findTableRowByUs(system: UsVariantColumn, value: number): ShoeSizeEquivalence | null {
+  const row = SHOE_SIZE_EQUIVALENCE_TABLE.find(
+    (r) => r[system] !== null && sameSize(r[system], value),
+  );
+  return row ?? null;
+}
+
+/** Duas linhas da tabela são a mesma numeração (br/eu/US alinhados; null em ambos conta como igual). */
+function equivalenceRowsMatch(
+  a: ShoeSizeEquivalence | null,
+  b: ShoeSizeEquivalence | null,
+): boolean {
+  if (!a || !b) return false;
+  const keys: (keyof ShoeSizeEquivalence)[] = ["br", "eu", "us_m", "us_w", "us_y"];
+  const cellMatch = (x: number | null, y: number | null) => {
+    if (x === null && y === null) return true;
+    return sameSize(x, y);
+  };
+  return keys.every((k) => cellMatch(a[k], b[k]));
+}
+
+function interpretFilterDisplay(displaySystem: DisplaySizeSystem): "br" | "eu" {
+  if (displaySystem === "eu") return "eu";
+  return "br";
+}
+
 function parseSizeFilter(
   filterValue: string,
   displaySystem: DisplaySizeSystem,
-): { system: DisplaySizeSystem; value: number } | null {
+): ParsedSizeFilter | null {
   const text = normalizeSizeSearch(filterValue);
   if (!text) return null;
 
   const compact = text.replace(/\s+/g, "");
   const numberPattern = "(\\d+(?:\\.\\d+)?)";
-  const prefixedPatterns: Array<[RegExp, DisplaySizeSystem]> = [
+  const prefixedPatterns: Array<[RegExp, FilterSizeSystem]> = [
     [new RegExp(`^BR${numberPattern}$`), "br"],
     [new RegExp(`^EU${numberPattern}$`), "eu"],
     [new RegExp(`^USM${numberPattern}$`), "us_m"],
+    [new RegExp(`^US${numberPattern}Y$`), "us_y"],
+    [new RegExp(`^US${numberPattern}W$`), "us_w"],
+    [new RegExp(`^${numberPattern}Y$`), "us_y"],
+    [new RegExp(`^${numberPattern}W$`), "us_w"],
     [new RegExp(`^M${numberPattern}$`), "us_m"],
     [new RegExp(`^USW${numberPattern}$`), "us_w"],
     [new RegExp(`^W${numberPattern}$`), "us_w"],
-    [new RegExp(`^US${numberPattern}Y$`), "us_y"],
-    [new RegExp(`^${numberPattern}Y$`), "us_y"],
-    [new RegExp(`^US${numberPattern}$`), "us_m"],
   ];
 
   for (const [pattern, system] of prefixedPatterns) {
     const match = compact.match(pattern);
     if (match) {
       const value = normalizeSizeValue(match[1]);
-      return value === null ? null : { system, value };
+      return value === null ? null : { kind: "column", system, value };
     }
   }
 
+  /** `US7`, `US7.5`, `US7,5`: ambíguo — não confundir com masculino apenas. */
+  const nakedUs = compact.match(new RegExp(`^US${numberPattern}$`));
+  if (nakedUs) {
+    const value = normalizeSizeValue(nakedUs[1]);
+    return value === null ? null : { kind: "us_ambiguous", value };
+  }
+
   const value = normalizeSizeValue(compact);
-  return value === null ? null : { system: displaySystem, value };
+  if (value === null) return null;
+  if (displaySystem === "us") return { kind: "us_ambiguous", value };
+  return { kind: "column", system: interpretFilterDisplay(displaySystem), value };
+}
+
+/** Rótulo pesquisável para filtros US com coluna explícita. */
+function filterLabelComparableForUs(system: UsVariantColumn, value: number): string[] {
+  const out: string[] = [];
+  const dot = compactNumber(value);
+  const comma = dot.replace(".", ",");
+  for (const v of dot === comma ? [dot] : [dot, comma]) {
+    if (system === "us_m") {
+      out.push(normalizeComparable(`US ${v}`));
+      out.push(normalizeComparable(`USM${v}`));
+      out.push(normalizeComparable(`M${v}`));
+    } else if (system === "us_w") {
+      out.push(normalizeComparable(`US${v}W`));
+      out.push(normalizeComparable(`US ${v}W`));
+      out.push(normalizeComparable(`USW${v}`));
+      out.push(normalizeComparable(`US W ${v}`));
+      out.push(normalizeComparable(`W${v}`));
+    } else {
+      out.push(normalizeComparable(`US ${v}Y`));
+      out.push(normalizeComparable(`${v}Y`));
+    }
+  }
+  return [...new Set(out)];
+}
+
+/** Labels combinados para filtro só com número americano. */
+function filterLabelComparableForAmbiguousUs(value: number): string[] {
+  const merged = [
+    ...filterLabelComparableForUs("us_m", value),
+    ...filterLabelComparableForUs("us_w", value),
+    ...filterLabelComparableForUs("us_y", value),
+  ];
+  return [...new Set(merged)];
 }
 
 export function matchesSizeFilter(
@@ -249,12 +557,37 @@ export function matchesSizeFilter(
   if (!parsed) return false;
 
   const sizes = getAllSizeEquivalences(item);
-  if (sameSize(sizes[parsed.system], parsed.value)) return true;
 
-  const normalizedTarget = normalizeComparable(
-    formatSizeLabel(parsed.value, parsed.system).replace("US M", "US"),
-  );
-  return getSearchableSizeLabels(item).some(
-    (label) => normalizeComparable(label) === normalizedTarget,
-  );
+  if (parsed.kind === "us_ambiguous") {
+    const targetRows = rowsForAmbiguousUs(parsed.value);
+    if (targetRows.some((row) => itemBelongsToUsEquivalenceRow(item, row))) return true;
+
+    const itemLabels = getSearchableSizeLabels(item).map((x) => normalizeComparable(x));
+    const candidates = filterLabelComparableForAmbiguousUs(parsed.value);
+    return candidates.some((c) => itemLabels.includes(c));
+  }
+
+  const { system, value } = parsed;
+
+  if (system === "us_m" || system === "us_w" || system === "us_y") {
+    const targetRow = findTableRowByUs(system, value);
+    if (targetRow !== null && itemBelongsToUsEquivalenceRow(item, targetRow)) return true;
+
+    if (sameSize(sizes[system], value)) return true;
+
+    const itemLabels = getSearchableSizeLabels(item).map((x) => normalizeComparable(x));
+    const candidates = filterLabelComparableForUs(system, value);
+    return candidates.some((c) => itemLabels.includes(c));
+  }
+
+  if (system === "br" || system === "eu") {
+    if (sameSize(sizes[system], value)) return true;
+
+    const normalizedTarget = normalizeComparable(formatSizeLabel(value, system));
+    return getSearchableSizeLabels(item).some(
+      (label) => normalizeComparable(label) === normalizedTarget,
+    );
+  }
+
+  return false;
 }

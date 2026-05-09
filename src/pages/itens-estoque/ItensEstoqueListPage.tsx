@@ -16,6 +16,7 @@ import {
   itensEstoqueService,
   type ColunaOrdemItemEstoque,
   type ItemEstoqueDetalhado,
+  type RegiaoEstoqueFiltro,
 } from "../../services/itens-estoque";
 import { categoriasService } from "../../services/categorias";
 import { locaisEstoqueService } from "../../services/locais-estoque";
@@ -26,8 +27,9 @@ import { cn } from "../../utils/cn";
 import { mensagemErro } from "../../utils/errors";
 import {
   formatSizeLabel,
-  getAllSizeEquivalences,
+  getSecondaryEquivalenceLabelsAfterPrimary,
   getSizeByDisplaySystem,
+  getUsDisplayLabel,
   type DisplaySizeSystem,
 } from "../../utils/sizeConversion";
 
@@ -98,12 +100,14 @@ const statusOpcoesAlteracao: Array<{ value: StatusItem; label: string }> = [
 const padraoNumeracaoOpcoes: Array<{ value: DisplaySizeSystem; label: string }> = [
   { value: "br", label: "BR" },
   { value: "eu", label: "EU" },
-  { value: "us_m", label: "US M" },
-  { value: "us_w", label: "US W" },
-  { value: "us_y", label: "US Y" },
+  { value: "us", label: "US" },
 ];
 
-const sistemasNumeracao: DisplaySizeSystem[] = ["br", "eu", "us_m", "us_w", "us_y"];
+const regiaoEstoqueOpcoes: Array<{ value: RegiaoEstoqueFiltro; label: string }> = [
+  { value: "", label: "Todas" },
+  { value: "br", label: "BR" },
+  { value: "eu", label: "EU" },
+];
 
 export default function ItensEstoqueListPage() {
   const navigate = useNavigate();
@@ -114,6 +118,7 @@ export default function ItensEstoqueListPage() {
   const [categoriaId, setCategoriaId] = useState("");
   /** UUID do local de estoque ou `FILTRO_LOCAL_SEM` ou "" para todos */
   const [localEstoqueId, setLocalEstoqueId] = useState("");
+  const [regiaoEstoque, setRegiaoEstoque] = useState<RegiaoEstoqueFiltro>("");
   const [displaySizeSystem, setDisplaySizeSystem] = useState<DisplaySizeSystem>("br");
   const [numeracaoFiltro, setNumeracaoFiltro] = useState("");
   const searchDebounced = useDebounce(search, 400);
@@ -161,6 +166,7 @@ export default function ItensEstoqueListPage() {
         status,
         idCategoria: categoriaId || undefined,
         idLocalEstoque: localEstoqueId || undefined,
+        regiaoEstoque,
         displaySizeSystem,
         numeracao: numeracaoFiltroDebounced,
         ordenacao: { coluna: colunaOrdem, ascendente: ordemAscendente },
@@ -171,6 +177,7 @@ export default function ItensEstoqueListPage() {
       status,
       categoriaId,
       localEstoqueId,
+      regiaoEstoque,
       displaySizeSystem,
       numeracaoFiltroDebounced,
       colunaOrdem,
@@ -194,7 +201,15 @@ export default function ItensEstoqueListPage() {
     setSelectedIds(new Set());
     setErroMassa(null);
     setErroStatusInline(null);
-  }, [searchDebounced, status, categoriaId, localEstoqueId, displaySizeSystem, numeracaoFiltroDebounced]);
+  }, [
+    searchDebounced,
+    status,
+    categoriaId,
+    localEstoqueId,
+    regiaoEstoque,
+    displaySizeSystem,
+    numeracaoFiltroDebounced,
+  ]);
 
   const idsPaginaAtual = useMemo(() => rows.map((r) => r.id), [rows]);
   const qtdSelecionadosPagina = useMemo(
@@ -379,15 +394,11 @@ export default function ItensEstoqueListPage() {
       headerClassName: "align-top whitespace-normal",
       width: "96px",
       render: (it) => {
-        const principal = formatSizeLabel(
-          getSizeByDisplaySystem(it, displaySizeSystem),
-          displaySizeSystem,
-        );
-        const equivalencias = getAllSizeEquivalences(it);
-        const secundarias = sistemasNumeracao
-          .filter((sistema) => sistema !== displaySizeSystem)
-          .map((sistema) => formatSizeLabel(equivalencias[sistema], sistema))
-          .filter((label) => label !== "—");
+        const principal =
+          displaySizeSystem === "us"
+            ? getUsDisplayLabel(it)
+            : formatSizeLabel(getSizeByDisplaySystem(it, displaySizeSystem), displaySizeSystem);
+        const secundarias = getSecondaryEquivalenceLabelsAfterPrimary(displaySizeSystem, it);
         const tooltipEq =
           secundarias.length > 0 ? secundarias.join(" • ") : undefined;
 
@@ -469,24 +480,44 @@ export default function ItensEstoqueListPage() {
       <PageHeader
         title="Itens de estoque"
         titleAccessory={
-          <label className="flex items-center gap-2 rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-soft shadow-sm">
-            <span>Padrão</span>
-            <select
-              value={displaySizeSystem}
-              onChange={(e) => {
-                setDisplaySizeSystem(e.target.value as DisplaySizeSystem);
-                setPage(1);
-              }}
-              className="bg-transparent text-xs font-semibold text-ink outline-none"
-              aria-label="Padrão de numeração"
-            >
-              {padraoNumeracaoOpcoes.map((opcao) => (
-                <option key={opcao.value} value={opcao.value}>
-                  {opcao.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-soft shadow-sm">
+              <span>Padrão</span>
+              <select
+                value={displaySizeSystem}
+                onChange={(e) => {
+                  setDisplaySizeSystem(e.target.value as DisplaySizeSystem);
+                  setPage(1);
+                }}
+                className="bg-transparent text-xs font-semibold text-ink outline-none"
+                aria-label="Padrão de numeração"
+              >
+                {padraoNumeracaoOpcoes.map((opcao) => (
+                  <option key={opcao.value} value={opcao.value}>
+                    {opcao.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-soft shadow-sm">
+              <span>Região</span>
+              <select
+                value={regiaoEstoque}
+                onChange={(e) => {
+                  setRegiaoEstoque(e.target.value as RegiaoEstoqueFiltro);
+                  setPage(1);
+                }}
+                className="bg-transparent text-xs font-semibold text-ink outline-none"
+                aria-label="Região do estoque"
+              >
+                {regiaoEstoqueOpcoes.map((opcao) => (
+                  <option key={opcao.value || "todas"} value={opcao.value}>
+                    {opcao.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         }
         breadcrumbs={[{ label: "Catálogo" }, { label: "Itens de estoque" }]}
         actions={

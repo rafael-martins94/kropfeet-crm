@@ -12,10 +12,17 @@ import {
 } from "../utils/sizeConversion";
 import { atualizar, deletar, inserir, obterPorId } from "./base";
 
+export type RegiaoEstoqueFiltro = "" | "br" | "eu";
+
+const REGIAO_PARA_PAISES_LOCAL: Record<Exclude<RegiaoEstoqueFiltro, "">, string[]> = {
+  br: ["Brasil"],
+  eu: ["Portugal"],
+};
+
 export interface ItemEstoqueDetalhado extends ItemEstoque {
   modelo?: { id: string; nome_modelo: string; slug: string; id_categoria?: string | null } | null;
   fornecedor?: { id: string; nome: string } | null;
-  local?: { id: string; nome: string; codigo: string } | null;
+  local?: { id: string; nome: string; codigo: string; pais?: string | null; tipo_regiao?: string } | null;
 }
 
 /** Colunas ordenáveis na lista com relacionamentos (alinhado ao PostgREST / FK `locais_estoque`). */
@@ -71,6 +78,8 @@ export const itensEstoqueService = {
       idCategoria?: FiltroCategoriaItem;
       /** UUID do local ou `FILTRO_LOCAL_SEM` / vazio (sem filtro). */
       idLocalEstoque?: FiltroLocalItem;
+      /** BR/EU, aplicado a partir do país cadastrado no local de estoque relacionado. */
+      regiaoEstoque?: RegiaoEstoqueFiltro;
       ordenacao?: { coluna: ColunaOrdemItemEstoque; ascendente: boolean };
       displaySizeSystem?: DisplaySizeSystem;
       numeracao?: string;
@@ -85,6 +94,7 @@ export const itensEstoqueService = {
 
     const filtroCat = params?.idCategoria?.trim();
     const filtroLocal = params?.idLocalEstoque?.trim();
+    const filtroRegiao = params?.regiaoEstoque ?? "";
     const filtroNumeracao = params?.numeracao?.trim();
     const displaySizeSystem = params?.displaySizeSystem ?? "br";
 
@@ -92,6 +102,10 @@ export const itensEstoqueService = {
       filtroCat && filtroCat !== ""
         ? "modelo:modelos_produto!inner(id, nome_modelo, slug, id_categoria)"
         : "modelo:modelos_produto(id, nome_modelo, slug, id_categoria)";
+    const localEmbed =
+      filtroRegiao
+        ? "local:locais_estoque!inner(id, nome, codigo, pais, tipo_regiao)"
+        : "local:locais_estoque(id, nome, codigo, pais, tipo_regiao)";
 
     const buildQuery = () => {
       let query = supabase
@@ -100,7 +114,7 @@ export const itensEstoqueService = {
           `*,
            ${modeloEmbed},
            fornecedor:fornecedores(id, nome),
-           local:locais_estoque(id, nome, codigo)`,
+           ${localEmbed}`,
           { count: "exact" },
         );
 
@@ -118,6 +132,10 @@ export const itensEstoqueService = {
         query = query.is("id_local_estoque", null);
       } else if (filtroLocal) {
         query = query.eq("id_local_estoque", filtroLocal);
+      }
+
+      if (filtroRegiao) {
+        query = query.in("local.pais", REGIAO_PARA_PAISES_LOCAL[filtroRegiao]);
       }
 
       if (termo) {
