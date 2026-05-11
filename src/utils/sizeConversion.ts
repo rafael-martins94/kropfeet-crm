@@ -171,6 +171,15 @@ function itemBelongsToUsEquivalenceRow(
   const euItem = normalizeSizeValue(item.numeracao_eu);
   const usRaw = normalizeSizeValue(item.numeracao_us);
 
+  const ultimoNome = parseUltimoBracketUs(item.nome_completo);
+  if (ultimoNome !== null) {
+    if (ultimoNome.variant === "mens") return sameSize(ultimoNome.value, targetRow.us_m);
+    if (ultimoNome.variant === "w") {
+      return targetRow.us_w !== null && sameSize(ultimoNome.value, targetRow.us_w);
+    }
+    return targetRow.us_y !== null && sameSize(ultimoNome.value, targetRow.us_y);
+  }
+
   if (brItem !== null && sameSize(brItem, targetRow.br)) return true;
 
   const resolved = findEquivalenceRow(item);
@@ -189,24 +198,6 @@ function itemBelongsToUsEquivalenceRow(
     if (sameSize(usRaw, targetRow.us_m)) return true;
     if (sameSize(usRaw, targetRow.us_w)) return true;
     if (targetRow.us_y !== null && sameSize(usRaw, targetRow.us_y)) return true;
-  }
-
-  const ultimoNome = parseUltimoBracketUs(item.nome_completo);
-  if (ultimoNome !== null) {
-    if (
-      ultimoNome.variant === "w" &&
-      targetRow.us_w !== null &&
-      sameSize(ultimoNome.value, targetRow.us_w)
-    )
-      return true;
-    if (
-      ultimoNome.variant === "y" &&
-      targetRow.us_y !== null &&
-      sameSize(ultimoNome.value, targetRow.us_y)
-    )
-      return true;
-    if (ultimoNome.variant === "mens" && sameSize(ultimoNome.value, targetRow.us_m))
-      return true;
   }
 
   return false;
@@ -400,39 +391,9 @@ type ParsedSizeFilter =
   | { kind: "column"; system: FilterSizeSystem; value: number }
   | { kind: "us_ambiguous"; value: number };
 
-/** Numerações “inteiras” de calçados (vs 7,5 / 43,5). */
-function isWholeShoeStep(value: number): boolean {
-  return Math.abs(value - Math.round(value)) < EPSILON;
-}
-
-/**
- * Filtro só com dígito US (sem M/W/Y):
- * - Meia-numeração: prioriza linhas onde bate em `us_w` ou `us_y` (ex.: US 7,5 feminino ⇄ US M 6 / US 6Y);
- *   evita usar `us_m` 7,5 (linha física diferente → ex.: feminino US 9).
- * - Inteira: união masculino ∪ feminino ∪ infantil.
- * Para meia masculina explícita: `USM7.5`.
- */
+/** Filtro US sem W/Y usa a coluna principal `US` da tabela enviada. */
 function rowsForAmbiguousUs(value: number): ShoeSizeEquivalence[] {
-  const byW_Y = SHOE_SIZE_EQUIVALENCE_TABLE.filter(
-    (row) =>
-      sameSize(row.us_w, value) ||
-      (row.us_y !== null && sameSize(row.us_y, value)),
-  );
-
-  let chosen: ShoeSizeEquivalence[];
-  if (!isWholeShoeStep(value)) {
-    chosen =
-      byW_Y.length > 0
-        ? [...byW_Y]
-        : SHOE_SIZE_EQUIVALENCE_TABLE.filter((row) => sameSize(row.us_m, value));
-  } else {
-    chosen = SHOE_SIZE_EQUIVALENCE_TABLE.filter(
-      (row) =>
-        sameSize(row.us_m, value) ||
-        sameSize(row.us_w, value) ||
-        (row.us_y !== null && sameSize(row.us_y, value)),
-    );
-  }
+  const chosen = SHOE_SIZE_EQUIVALENCE_TABLE.filter((row) => sameSize(row.us_m, value));
 
   const byBr = new Map<number, ShoeSizeEquivalence>();
   for (const row of chosen) {
@@ -512,40 +473,6 @@ function parseSizeFilter(
   return { kind: "column", system: interpretFilterDisplay(displaySystem), value };
 }
 
-/** Rótulo pesquisável para filtros US com coluna explícita. */
-function filterLabelComparableForUs(system: UsVariantColumn, value: number): string[] {
-  const out: string[] = [];
-  const dot = compactNumber(value);
-  const comma = dot.replace(".", ",");
-  for (const v of dot === comma ? [dot] : [dot, comma]) {
-    if (system === "us_m") {
-      out.push(normalizeComparable(`US ${v}`));
-      out.push(normalizeComparable(`USM${v}`));
-      out.push(normalizeComparable(`M${v}`));
-    } else if (system === "us_w") {
-      out.push(normalizeComparable(`US${v}W`));
-      out.push(normalizeComparable(`US ${v}W`));
-      out.push(normalizeComparable(`USW${v}`));
-      out.push(normalizeComparable(`US W ${v}`));
-      out.push(normalizeComparable(`W${v}`));
-    } else {
-      out.push(normalizeComparable(`US ${v}Y`));
-      out.push(normalizeComparable(`${v}Y`));
-    }
-  }
-  return [...new Set(out)];
-}
-
-/** Labels combinados para filtro só com número americano. */
-function filterLabelComparableForAmbiguousUs(value: number): string[] {
-  const merged = [
-    ...filterLabelComparableForUs("us_m", value),
-    ...filterLabelComparableForUs("us_w", value),
-    ...filterLabelComparableForUs("us_y", value),
-  ];
-  return [...new Set(merged)];
-}
-
 export function matchesSizeFilter(
   item: SizeConvertibleItem,
   displaySystem: DisplaySizeSystem,
@@ -560,33 +487,18 @@ export function matchesSizeFilter(
 
   if (parsed.kind === "us_ambiguous") {
     const targetRows = rowsForAmbiguousUs(parsed.value);
-    if (targetRows.some((row) => itemBelongsToUsEquivalenceRow(item, row))) return true;
-
-    const itemLabels = getSearchableSizeLabels(item).map((x) => normalizeComparable(x));
-    const candidates = filterLabelComparableForAmbiguousUs(parsed.value);
-    return candidates.some((c) => itemLabels.includes(c));
+    return targetRows.some((row) => itemBelongsToUsEquivalenceRow(item, row));
   }
 
   const { system, value } = parsed;
 
   if (system === "us_m" || system === "us_w" || system === "us_y") {
     const targetRow = findTableRowByUs(system, value);
-    if (targetRow !== null && itemBelongsToUsEquivalenceRow(item, targetRow)) return true;
-
-    if (sameSize(sizes[system], value)) return true;
-
-    const itemLabels = getSearchableSizeLabels(item).map((x) => normalizeComparable(x));
-    const candidates = filterLabelComparableForUs(system, value);
-    return candidates.some((c) => itemLabels.includes(c));
+    return targetRow !== null && itemBelongsToUsEquivalenceRow(item, targetRow);
   }
 
   if (system === "br" || system === "eu") {
-    if (sameSize(sizes[system], value)) return true;
-
-    const normalizedTarget = normalizeComparable(formatSizeLabel(value, system));
-    return getSearchableSizeLabels(item).some(
-      (label) => normalizeComparable(label) === normalizedTarget,
-    );
+    return sameSize(sizes[system], value);
   }
 
   return false;
