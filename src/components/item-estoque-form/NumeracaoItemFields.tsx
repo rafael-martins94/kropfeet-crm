@@ -65,49 +65,47 @@ export function NumeracaoItemFields({
   showStatus = true,
 }: NumeracaoItemFieldsProps) {
   return (
-    <div className="flex flex-wrap items-end gap-y-4">
-      <div className="flex flex-wrap items-end gap-x-4">
-        <FormInput
-          label="BR"
-          value={numeracaoBr}
-          onChange={(e) => onBrChange(e.target.value)}
-          inputMode="decimal"
-          wrapperClassName={cn(NUMERACAO_INPUT_WIDTH, "shrink-0")}
-        />
-        <FormInput
-          label="EU"
-          value={numeracaoEu}
-          onChange={(e) => onEuChange(e.target.value)}
-          inputMode="decimal"
-          wrapperClassName={cn(NUMERACAO_INPUT_WIDTH, "shrink-0")}
-        />
-        <FieldWrapper id="numeracao-us" label="US" className="shrink-0">
-          <div className="flex items-center gap-1.5">
-            <input
-              id="numeracao-us"
-              value={numeracaoUs}
-              onChange={onUsChange ? (e) => onUsChange(e.target.value) : undefined}
-              readOnly={usPreenchidoPorTipo}
-              inputMode="decimal"
-              placeholder={usPreenchidoPorTipo ? "—" : "10"}
-              className={cn(
-                "input-base",
-                NUMERACAO_INPUT_WIDTH,
-                usPreenchidoPorTipo && "bg-surface-muted/60",
-              )}
-            />
-            <SearchableSelectDropdown
-              value={usVariant || ""}
-              onChange={(v) => onUsVariantChange(v as UsSizeVariant)}
-              options={[...US_VARIANT_OPCOES]}
-              emptyLabel="Tipo"
-              searchPlaceholder="Tipo…"
-              triggerClassName="w-[7rem] shrink-0 px-2"
-              className="w-[7rem] shrink-0"
-            />
-          </div>
-        </FieldWrapper>
-      </div>
+    <div className="flex flex-nowrap items-end gap-x-4 overflow-x-auto pb-0.5">
+      <FormInput
+        label="BR"
+        value={numeracaoBr}
+        onChange={(e) => onBrChange(e.target.value)}
+        inputMode="decimal"
+        wrapperClassName={cn(NUMERACAO_INPUT_WIDTH, "shrink-0")}
+      />
+      <FormInput
+        label="EU"
+        value={numeracaoEu}
+        onChange={(e) => onEuChange(e.target.value)}
+        inputMode="decimal"
+        wrapperClassName={cn(NUMERACAO_INPUT_WIDTH, "shrink-0")}
+      />
+      <FieldWrapper id="numeracao-us" label="US" className="shrink-0">
+        <div className="flex items-center gap-1.5">
+          <input
+            id="numeracao-us"
+            value={numeracaoUs}
+            onChange={onUsChange ? (e) => onUsChange(e.target.value) : undefined}
+            readOnly={usPreenchidoPorTipo}
+            inputMode="decimal"
+            placeholder={usPreenchidoPorTipo ? "—" : "10"}
+            className={cn(
+              "input-base",
+              NUMERACAO_INPUT_WIDTH,
+              usPreenchidoPorTipo && "bg-surface-muted/60",
+            )}
+          />
+          <SearchableSelectDropdown
+            value={usVariant || ""}
+            onChange={(v) => onUsVariantChange(v as UsSizeVariant)}
+            options={[...US_VARIANT_OPCOES]}
+            emptyLabel="Tipo"
+            searchPlaceholder="Tipo…"
+            triggerClassName="w-[7rem] shrink-0 px-2"
+            className="w-[7rem] shrink-0"
+          />
+        </div>
+      </FieldWrapper>
       <SearchableSelectDropdown
         label="Sistema de numeração"
         value={sistemaNumeracao}
@@ -115,7 +113,7 @@ export function NumeracaoItemFields({
         options={[...SISTEMA_OPCOES]}
         emptyLabel="— Selecione —"
         searchPlaceholder="Buscar sistema…"
-        className="ml-6 min-w-[9rem] shrink-0 sm:ml-10"
+        className="ml-4 w-[9.5rem] shrink-0 sm:ml-8"
       />
       {showStatus && statusItem !== undefined && onStatusChange ? (
         <SearchableSelectDropdown
@@ -125,7 +123,7 @@ export function NumeracaoItemFields({
           options={STATUS_OPCOES}
           emptyLabel="— Selecione —"
           searchPlaceholder="Buscar status…"
-          className="ml-4 min-w-[10rem] shrink-0 sm:ml-6"
+          className="w-[10rem] shrink-0"
         />
       ) : null}
     </div>
