@@ -1,27 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { ItensEstoqueFiltrosToolbar } from "../../components/itens-estoque/ItensEstoqueFiltrosToolbar";
+import { ItensEstoqueHeaderControls } from "../../components/itens-estoque/ItensEstoqueHeaderControls";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton, SecondaryButton, DangerButton } from "../../components/PrimaryButton";
-import { SearchInput } from "../../components/SearchInput";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
-import { SearchableSelectDropdown } from "../../components/SearchableSelectDropdown";
 import { StatusItemFilterDropdown } from "../../components/StatusItemFilterDropdown";
 import { IconEdit, IconEye, IconPlus, IconTrash } from "../../components/Icons";
 import {
-  FILTRO_CATEGORIA_SEM,
-  FILTRO_LOCAL_SEM,
   itensEstoqueService,
   type ColunaOrdemItemEstoque,
   type ItemEstoqueDetalhado,
-  type RegiaoEstoqueFiltro,
 } from "../../services/itens-estoque";
-import { categoriasService } from "../../services/categorias";
-import { locaisEstoqueService } from "../../services/locais-estoque";
 import { useAsync } from "../../hooks/useAsync";
-import { useDebounce } from "../../hooks/useDebounce";
+import { useItensEstoqueFiltros } from "../../hooks/useItensEstoqueFiltros";
 import type { StatusItem } from "../../types/entities";
 import { cn } from "../../utils/cn";
 import { mensagemErro } from "../../utils/errors";
@@ -30,7 +25,6 @@ import {
   getSecondaryEquivalenceLabelsAfterPrimary,
   getSizeByDisplaySystem,
   getUsDisplayLabel,
-  type DisplaySizeSystem,
 } from "../../utils/sizeConversion";
 
 function CabecalhoOrdenavel({
@@ -42,7 +36,6 @@ function CabecalhoOrdenavel({
   onOrdem,
 }: {
   label: string;
-  /** Tooltip opcional (ex.: cabeçalho abreviado). */
   title?: string;
   coluna: ColunaOrdemItemEstoque;
   colunaAtiva: ColunaOrdemItemEstoque;
@@ -74,18 +67,6 @@ function CabecalhoOrdenavel({
   );
 }
 
-const statusOpcoes: Array<{ value: StatusItem | ""; label: string }> = [
-  { value: "", label: "Todos os status" },
-  { value: "em_estoque", label: "Em estoque" },
-  { value: "fora_de_estoque", label: "Fora de estoque" },
-  { value: "em_processo_de_compra", label: "Em processo de compra" },
-  { value: "transferencia", label: "Transferência" },
-  { value: "reservado", label: "Reservado" },
-  { value: "vendido", label: "Vendido" },
-  { value: "devolvido", label: "Devolvido" },
-  { value: "inativo", label: "Inativo" },
-];
-
 const statusOpcoesAlteracao: Array<{ value: StatusItem; label: string }> = [
   { value: "em_estoque", label: "Em estoque" },
   { value: "fora_de_estoque", label: "Fora de estoque" },
@@ -97,32 +78,9 @@ const statusOpcoesAlteracao: Array<{ value: StatusItem; label: string }> = [
   { value: "inativo", label: "Inativo" },
 ];
 
-const padraoNumeracaoOpcoes: Array<{ value: DisplaySizeSystem; label: string }> = [
-  { value: "br", label: "BR" },
-  { value: "eu", label: "EU" },
-  { value: "us", label: "US" },
-];
-
-const regiaoEstoqueOpcoes: Array<{ value: RegiaoEstoqueFiltro; label: string }> = [
-  { value: "", label: "Todas" },
-  { value: "br", label: "BR" },
-  { value: "eu", label: "EU" },
-];
-
 export default function ItensEstoqueListPage() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<StatusItem | "">("");
-  /** UUID da categoria, `FILTRO_CATEGORIA_SEM` ou "" para todas */
-  const [categoriaId, setCategoriaId] = useState("");
-  /** UUID do local de estoque ou `FILTRO_LOCAL_SEM` ou "" para todos */
-  const [localEstoqueId, setLocalEstoqueId] = useState("");
-  const [regiaoEstoque, setRegiaoEstoque] = useState<RegiaoEstoqueFiltro>("");
-  const [displaySizeSystem, setDisplaySizeSystem] = useState<DisplaySizeSystem>("br");
-  const [numeracaoFiltro, setNumeracaoFiltro] = useState("");
-  const searchDebounced = useDebounce(search, 400);
-  const numeracaoFiltroDebounced = useDebounce(numeracaoFiltro, 250);
+  const filtros = useItensEstoqueFiltros();
 
   const [colunaOrdem, setColunaOrdem] = useState<ColunaOrdemItemEstoque>("atualizado_em");
   const [ordemAscendente, setOrdemAscendente] = useState(false);
@@ -136,57 +94,24 @@ export default function ItensEstoqueListPage() {
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [erroStatusInline, setErroStatusInline] = useState<string | null>(null);
 
-  const categoriasLista = useAsync(() => categoriasService.listarTodas(), []);
-  const locaisLista = useAsync(() => locaisEstoqueService.listarTodos(), []);
-
-  const opcoesCategoriaFiltro = useMemo(
-    () => [
-      { value: "", label: "Todas as categorias" },
-      { value: FILTRO_CATEGORIA_SEM, label: "Sem categoria" },
-      ...(categoriasLista.data ?? []).map((c) => ({ value: c.id, label: c.nome })),
-    ],
-    [categoriasLista.data],
-  );
-
-  const opcoesLocalFiltro = useMemo(
-    () => [
-      { value: "", label: "Todos os locais" },
-      { value: FILTRO_LOCAL_SEM, label: "Sem local definido" },
-      ...(locaisLista.data ?? []).map((l) => ({ value: l.id, label: l.nome })),
-    ],
-    [locaisLista.data],
-  );
-
   const { data, loading, error, reload } = useAsync(
     () =>
       itensEstoqueService.listarComRelacoes({
-        page,
+        page: filtros.page,
         pageSize: 50,
-        search: searchDebounced,
-        status,
-        idCategoria: categoriaId || undefined,
-        idLocalEstoque: localEstoqueId || undefined,
-        regiaoEstoque,
-        displaySizeSystem,
-        numeracao: numeracaoFiltroDebounced,
+        ...filtros.paramsListagem,
         ordenacao: { coluna: colunaOrdem, ascendente: ordemAscendente },
       }),
     [
-      page,
-      searchDebounced,
-      status,
-      categoriaId,
-      localEstoqueId,
-      regiaoEstoque,
-      displaySizeSystem,
-      numeracaoFiltroDebounced,
+      filtros.page,
+      filtros.paramsListagem,
       colunaOrdem,
       ordemAscendente,
     ],
   );
 
   const alterarOrdem = (coluna: ColunaOrdemItemEstoque) => {
-    setPage(1);
+    filtros.resetPage();
     if (colunaOrdem === coluna) {
       setOrdemAscendente((a) => !a);
     } else {
@@ -201,15 +126,7 @@ export default function ItensEstoqueListPage() {
     setSelectedIds(new Set());
     setErroMassa(null);
     setErroStatusInline(null);
-  }, [
-    searchDebounced,
-    status,
-    categoriaId,
-    localEstoqueId,
-    regiaoEstoque,
-    displaySizeSystem,
-    numeracaoFiltroDebounced,
-  ]);
+  }, [filtros.paramsListagem]);
 
   const idsPaginaAtual = useMemo(() => rows.map((r) => r.id), [rows]);
   const qtdSelecionadosPagina = useMemo(
@@ -361,7 +278,7 @@ export default function ItensEstoqueListPage() {
       header: (
         <CabecalhoOrdenavel
           label="Produto"
-          coluna="nome_completo"
+          coluna="nome_produto"
           colunaAtiva={colunaOrdem}
           ascendente={ordemAscendente}
           onOrdem={alterarOrdem}
@@ -373,9 +290,9 @@ export default function ItensEstoqueListPage() {
         <Link
           to={`/itens-estoque/${it.id}`}
           className="block truncate text-sm font-medium text-ink hover:text-brand-700"
-          title={it.nome_completo}
+          title={it.nome_produto}
         >
-          {it.nome_completo}
+          {it.nome_produto}
         </Link>
       ),
     },
@@ -395,12 +312,17 @@ export default function ItensEstoqueListPage() {
       width: "96px",
       render: (it) => {
         const principal =
-          displaySizeSystem === "us"
+          filtros.displaySizeSystem === "us"
             ? getUsDisplayLabel(it)
-            : formatSizeLabel(getSizeByDisplaySystem(it, displaySizeSystem), displaySizeSystem);
-        const secundarias = getSecondaryEquivalenceLabelsAfterPrimary(displaySizeSystem, it);
-        const tooltipEq =
-          secundarias.length > 0 ? secundarias.join(" • ") : undefined;
+            : formatSizeLabel(
+                getSizeByDisplaySystem(it, filtros.displaySizeSystem),
+                filtros.displaySizeSystem,
+              );
+        const secundarias = getSecondaryEquivalenceLabelsAfterPrimary(
+          filtros.displaySizeSystem,
+          it,
+        );
+        const tooltipEq = secundarias.length > 0 ? secundarias.join(" • ") : undefined;
 
         return (
           <span
@@ -480,52 +402,27 @@ export default function ItensEstoqueListPage() {
       <PageHeader
         title="Itens de estoque"
         titleAccessory={
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-soft shadow-sm">
-              <span>Padrão</span>
-              <select
-                value={displaySizeSystem}
-                onChange={(e) => {
-                  setDisplaySizeSystem(e.target.value as DisplaySizeSystem);
-                  setPage(1);
-                }}
-                className="bg-transparent text-xs font-semibold text-ink outline-none"
-                aria-label="Padrão de numeração"
-              >
-                {padraoNumeracaoOpcoes.map((opcao) => (
-                  <option key={opcao.value} value={opcao.value}>
-                    {opcao.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-soft shadow-sm">
-              <span>Região</span>
-              <select
-                value={regiaoEstoque}
-                onChange={(e) => {
-                  setRegiaoEstoque(e.target.value as RegiaoEstoqueFiltro);
-                  setPage(1);
-                }}
-                className="bg-transparent text-xs font-semibold text-ink outline-none"
-                aria-label="Região do estoque"
-              >
-                {regiaoEstoqueOpcoes.map((opcao) => (
-                  <option key={opcao.value || "todas"} value={opcao.value}>
-                    {opcao.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <ItensEstoqueHeaderControls
+            displaySizeSystem={filtros.displaySizeSystem}
+            onDisplaySizeSystemChange={(v) => {
+              filtros.setDisplaySizeSystem(v);
+              filtros.resetPage();
+            }}
+            regiaoEstoque={filtros.regiaoEstoque}
+            onRegiaoEstoqueChange={(novaRegiao) => {
+              filtros.setRegiaoEstoque(novaRegiao);
+              filtros.aplicarFiltroLocaisPorRegiao(novaRegiao);
+              filtros.resetPage();
+            }}
+          />
         }
         breadcrumbs={[{ label: "Catálogo" }, { label: "Itens de estoque" }]}
         actions={
           <PrimaryButton
             icon={<IconPlus width={16} height={16} />}
-            onClick={() => navigate("/itens-estoque/novo")}
+            onClick={() => navigate("/ordens-compra/novo")}
           >
-            Novo item
+            Nova ordem de compra
           </PrimaryButton>
         }
       />
@@ -537,82 +434,37 @@ export default function ItensEstoqueListPage() {
       >
         <ScrollableListShell
           toolbar={
-            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
-              <div
-                className={cn(
-                  "grid min-w-0 flex-1 gap-x-3 gap-y-4 items-end",
-                  "[grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]",
-                  "lg:[grid-template-columns:minmax(11rem,1.35fr)_minmax(9rem,0.92fr)_minmax(10rem,1fr)_minmax(11.5rem,1.48fr)_minmax(7rem,0.68fr)] lg:grid-rows-1",
-                )}
-              >
-                <SearchInput
-                  placeholder="Buscar por SKU, nome completo, código…"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  wrapperClassName="w-full min-w-0"
-                />
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
-                    Status
-                  </span>
-                  <StatusItemFilterDropdown
-                    value={status}
-                    options={statusOpcoes}
-                    className="w-full"
-                    onChange={(v) => {
-                      setStatus(v);
-                      setPage(1);
-                    }}
-                  />
-                </div>
-                <SearchableSelectDropdown
-                  label="Local de estoque"
-                  value={localEstoqueId}
-                  options={opcoesLocalFiltro}
-                  loading={locaisLista.loading}
-                  searchPlaceholder="Buscar local…"
-                  triggerClassName="w-full min-w-0"
-                  onChange={(v) => {
-                    setLocalEstoqueId(v);
-                    setPage(1);
-                  }}
-                  className="w-full min-w-0 max-w-[13rem]"
-                />
-                <SearchableSelectDropdown
-                  label="Categoria (modelo)"
-                  value={categoriaId}
-                  options={opcoesCategoriaFiltro}
-                  loading={categoriasLista.loading}
-                  searchPlaceholder="Buscar categoria…"
-                  triggerClassName="w-full min-w-0"
-                  onChange={(v) => {
-                    setCategoriaId(v);
-                    setPage(1);
-                  }}
-                  className="w-full min-w-[12rem]"
-                />
-                <div className="flex min-w-0 max-w-[9rem] flex-col gap-1.5 lg:max-w-none">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
-                    Numeração
-                  </span>
-                  <SearchInput
-                    placeholder="Ex.: US 6, BR37…"
-                    value={numeracaoFiltro}
-                    onChange={(e) => {
-                      setNumeracaoFiltro(e.target.value);
-                      setPage(1);
-                    }}
-                    wrapperClassName="w-full min-w-0"
-                  />
-                </div>
-              </div>
-              <div className="shrink-0 whitespace-nowrap pt-1 text-xs text-ink-soft sm:pt-0">
-                {data ? `${data.total.toLocaleString("pt-BR")} itens` : ""}
-              </div>
-            </div>
+            <ItensEstoqueFiltrosToolbar
+              search={filtros.search}
+              onSearchChange={(v) => {
+                filtros.setSearch(v);
+                filtros.resetPage();
+              }}
+              status={filtros.status}
+              onStatusChange={(v) => {
+                filtros.setStatus(v);
+                filtros.resetPage();
+              }}
+              localEstoqueIds={filtros.localEstoqueIds}
+              onLocalEstoqueIdsChange={(v) => {
+                filtros.setLocalEstoqueIds(v);
+                filtros.resetPage();
+              }}
+              categoriaIds={filtros.categoriaIds}
+              onCategoriaIdsChange={(v) => {
+                filtros.setCategoriaIds(v);
+                filtros.resetPage();
+              }}
+              numeracaoFiltro={filtros.numeracaoFiltro}
+              onNumeracaoFiltroChange={(v) => {
+                filtros.setNumeracaoFiltro(v);
+                filtros.resetPage();
+              }}
+              opcoesLocalFiltro={filtros.opcoesLocalFiltro}
+              opcoesCategoriaFiltro={filtros.opcoesCategoriaFiltro}
+              locaisLoading={filtros.locaisLista.loading}
+              categoriasLoading={filtros.categoriasLista.loading}
+            />
           }
           banner={
             <>
@@ -704,7 +556,7 @@ export default function ItensEstoqueListPage() {
                 page={data.page}
                 pageSize={data.pageSize}
                 total={data.total}
-                onPageChange={setPage}
+                onPageChange={filtros.setPage}
               />
             ) : null
           }

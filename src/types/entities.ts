@@ -28,6 +28,10 @@ export type ItemEstoque = Tables["itens_estoque"]["Row"];
 export type ItemEstoqueInsert = Tables["itens_estoque"]["Insert"];
 export type ItemEstoqueUpdate = Tables["itens_estoque"]["Update"];
 
+export type OrdemCompra = Tables["ordens_compra"]["Row"];
+export type OrdemCompraInsert = Tables["ordens_compra"]["Insert"];
+export type OrdemCompraUpdate = Tables["ordens_compra"]["Update"];
+
 export type Cliente = Tables["clientes"]["Row"];
 export type ClienteInsert = Tables["clientes"]["Insert"];
 export type ClienteUpdate = Tables["clientes"]["Update"];
@@ -38,6 +42,9 @@ export type VendaUpdate = Tables["vendas"]["Update"];
 
 export type ItemVenda = Tables["itens_venda"]["Row"];
 export type MovimentacaoEstoque = Tables["movimentacoes_estoque"]["Row"];
+
+export type ConferenciaEstoque = Tables["conferencias_estoque"]["Row"];
+export type ConferenciaEstoqueInsert = Tables["conferencias_estoque"]["Insert"];
 
 export type CambioMoeda = Tables["cambios_moeda"]["Row"];
 export type CambioMoedaInsert = Tables["cambios_moeda"]["Insert"];

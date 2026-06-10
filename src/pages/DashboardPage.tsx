@@ -213,7 +213,7 @@ export default function DashboardPage() {
                       to={`/itens-estoque/${it.id}`}
                       className="block truncate text-sm font-medium text-ink hover:text-brand-700"
                     >
-                      {it.nome_completo}
+                      {it.nome_produto}
                     </Link>
                     <div className="mt-0.5 truncate text-xs text-ink-soft">SKU {it.sku}</div>
                   </div>

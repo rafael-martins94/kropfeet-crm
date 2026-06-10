@@ -84,7 +84,7 @@ export const dashboardService = {
   async ultimosItens(limite = 5) {
     const { data, error } = await supabase
       .from("itens_estoque")
-      .select("id, sku, nome_completo, status_item, atualizado_em")
+      .select("id, sku, nome_produto, status_item, atualizado_em")
       .order("atualizado_em", { ascending: false })
       .limit(limite);
     if (error) throw error;

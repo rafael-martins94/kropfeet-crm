@@ -41,11 +41,10 @@ export interface DadosItemEstoqueParseados {
   idTiny: string;
   sku: string;
   nomeCompleto: string;
-  codigoFabricante: string | null;
-  codigoProdutoFornecedor: string | null;
+  codigoFornecedor: string | null;
   numeracaoBr: number | null;
   numeracaoEu: number | null;
-  numeracaoUs: number | null;
+  numeracaoUs: string | null;
   sistemaNumeracao: "br" | "eu" | "us" | "outro";
   valorPagoOriginal: number | null;
   dataCadastroTiny: string | null;
@@ -64,7 +63,7 @@ export interface ProdutoTinyParseado {
 function inferirSistemaNumeracao(
   br: number | null,
   eu: number | null,
-  us: number | null,
+  us: string | null,
 ): "br" | "eu" | "us" | "outro" {
   if (br !== null) return "br";
   if (eu !== null) return "eu";
@@ -218,8 +217,7 @@ export function parseProdutoTiny(produto: TinyProdutoDetalhe): ProdutoTinyParsea
     idTiny,
     sku,
     nomeCompleto,
-    codigoFabricante: modelo.codigoFabricante,
-    codigoProdutoFornecedor: normalizarTexto(produto.codigo_pelo_fornecedor as string | undefined),
+    codigoFornecedor: normalizarTexto(produto.codigo_pelo_fornecedor as string | undefined),
     numeracaoBr: br,
     numeracaoEu: eu,
     numeracaoUs: us,

@@ -8,6 +8,7 @@ import { itensEstoqueService } from "../../services/itens-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { fornecedoresService } from "../../services/fornecedores";
 import { locaisEstoqueService } from "../../services/locais-estoque";
+import { ordensCompraService } from "../../services/ordens-compra";
 import { useAsync } from "../../hooks/useAsync";
 import { formatarData, formatarDataHora, formatarMoeda } from "../../utils/format";
 
@@ -19,6 +20,13 @@ export default function ItemEstoqueDetailPage() {
     () => (id ? itensEstoqueService.obter(id) : Promise.resolve(null)),
     [id],
   );
+  const ordem = useAsync(
+    () =>
+      item.data?.id_ordem_compra
+        ? ordensCompraService.obter(item.data.id_ordem_compra)
+        : Promise.resolve(null),
+    [item.data?.id_ordem_compra],
+  );
   const modelo = useAsync(
     () =>
       item.data?.id_modelo_produto
@@ -27,11 +35,11 @@ export default function ItemEstoqueDetailPage() {
     [item.data?.id_modelo_produto],
   );
   const fornecedor = useAsync(
-    () =>
-      item.data?.id_fornecedor
-        ? fornecedoresService.obter(item.data.id_fornecedor)
-        : Promise.resolve(null),
-    [item.data?.id_fornecedor],
+    () => {
+      const idFornecedor = ordem.data?.id_fornecedor ?? item.data?.id_fornecedor;
+      return idFornecedor ? fornecedoresService.obter(idFornecedor) : Promise.resolve(null);
+    },
+    [ordem.data?.id_fornecedor, item.data?.id_fornecedor],
   );
   const local = useAsync(
     () =>
@@ -52,10 +60,16 @@ export default function ItemEstoqueDetailPage() {
     }
   };
 
+  const temOrdem = Boolean(item.data?.id_ordem_compra && ordem.data);
+  const temCustoLegado =
+    !temOrdem &&
+    item.data?.valor_pago_original != null &&
+    item.data.valor_pago_original !== 0;
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
-        title={item.data?.nome_completo ?? "Item"}
+        title={item.data?.nome_produto ?? "Item"}
         breadcrumbs={[
           { label: "Catálogo" },
           { label: "Itens de estoque", to: "/itens-estoque" },
@@ -86,7 +100,7 @@ export default function ItemEstoqueDetailPage() {
           >
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <F label="SKU" value={item.data.sku} mono />
-              <F label="Nome completo" value={item.data.nome_completo} />
+              <F label="Nome produto" value={item.data.nome_produto} />
               <F
                 label="Modelo"
                 value={
@@ -102,21 +116,19 @@ export default function ItemEstoqueDetailPage() {
                   )
                 }
               />
-              <F
-                label="Fornecedor"
-                value={
-                  fornecedor.data ? (
+              {!temOrdem && fornecedor.data ? (
+                <F
+                  label="Fornecedor (legado)"
+                  value={
                     <Link
                       to={`/fornecedores/${fornecedor.data.id}`}
                       className="text-brand-600 hover:text-brand-700"
                     >
                       {fornecedor.data.nome}
                     </Link>
-                  ) : (
-                    "—"
-                  )
-                }
-              />
+                  }
+                />
+              ) : null}
               <F
                 label="Local de estoque"
                 value={
@@ -132,12 +144,7 @@ export default function ItemEstoqueDetailPage() {
                   )
                 }
               />
-              <F label="Código do fabricante" value={item.data.codigo_fabricante ?? "—"} mono />
-              <F
-                label="Código (fornecedor)"
-                value={item.data.codigo_produto_fornecedor ?? "—"}
-                mono
-              />
+              <F label="Código do fornecedor" value={item.data.codigo_fornecedor ?? "—"} mono />
               <F label="ID Tiny" value={item.data.id_tiny ?? "—"} mono />
             </dl>
           </SectionCard>
@@ -151,19 +158,67 @@ export default function ItemEstoqueDetailPage() {
             </dl>
           </SectionCard>
 
-          <SectionCard title="Compra e precificação">
-            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-              <F label="Data da compra" value={formatarData(item.data.data_compra)} />
-              <F label="Moeda da compra" value={item.data.moeda_compra ?? "—"} />
-              <F
-                label="Valor pago (original)"
-                value={formatarMoeda(item.data.valor_pago_original, item.data.moeda_compra ?? "BRL")}
-              />
-              <F label="Câmbio → BRL" value={item.data.cambio_compra_para_real ?? "—"} />
-              <F label="Valor pago (BRL)" value={formatarMoeda(item.data.valor_pago_real, "BRL")} />
-              <F label="Valor pago (EUR)" value={formatarMoeda(item.data.valor_pago_euro, "EUR")} />
-            </dl>
-          </SectionCard>
+          {temOrdem && ordem.data ? (
+            <SectionCard title="Origem">
+              <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <F
+                  label="Ordem de compra"
+                  value={
+                    <Link
+                      to={`/ordens-compra/${ordem.data.id}`}
+                      className="text-brand-600 hover:text-brand-700"
+                    >
+                      Ver ordem ({formatarData(ordem.data.data_compra)})
+                    </Link>
+                  }
+                />
+                <F
+                  label="Fornecedor"
+                  value={
+                    fornecedor.data ? (
+                      <Link
+                        to={`/fornecedores/${fornecedor.data.id}`}
+                        className="text-brand-600 hover:text-brand-700"
+                      >
+                        {fornecedor.data.nome}
+                      </Link>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
+                <F label="Moeda" value={ordem.data.moeda_compra} />
+                <F
+                  label="Valor pago (original)"
+                  value={formatarMoeda(ordem.data.valor_pago_original, ordem.data.moeda_compra)}
+                />
+                <F label="Câmbio → BRL" value={ordem.data.cambio_compra_para_real ?? "—"} />
+                <F
+                  label="Valor pago (BRL)"
+                  value={formatarMoeda(ordem.data.valor_pago_real, "BRL")}
+                />
+                <F label="Câmbio → EUR" value={ordem.data.cambio_compra_para_euro ?? "—"} />
+                <F
+                  label="Valor pago (EUR)"
+                  value={formatarMoeda(ordem.data.valor_pago_euro, "EUR")}
+                />
+              </dl>
+            </SectionCard>
+          ) : null}
+
+          {temCustoLegado ? (
+            <SectionCard title="Custo (Tiny)">
+              <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <F
+                  label="Valor de custo"
+                  value={formatarMoeda(item.data.valor_pago_original, "BRL")}
+                />
+              </dl>
+              <p className="mt-3 text-xs text-ink-soft">
+                Custo importado do Tiny (legado). Itens sem ordem de compra não possuem detalhes de moeda ou câmbio.
+              </p>
+            </SectionCard>
+          ) : null}
 
           <SectionCard title="Auditoria">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">

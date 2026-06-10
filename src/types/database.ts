@@ -84,6 +84,54 @@ export type Database = {
         }
         Relationships: []
       }
+      conferencias_estoque: {
+        Row: {
+          conferido_em: string
+          criado_em: string
+          data_conferencia: string
+          id: string
+          id_item_estoque: string
+          id_local_estoque: string | null
+          id_usuario: string
+          status_item_anterior: Database["public"]["Enums"]["status_item_enum"] | null
+        }
+        Insert: {
+          conferido_em?: string
+          criado_em?: string
+          data_conferencia?: string
+          id?: string
+          id_item_estoque: string
+          id_local_estoque?: string | null
+          id_usuario: string
+          status_item_anterior?: Database["public"]["Enums"]["status_item_enum"] | null
+        }
+        Update: {
+          conferido_em?: string
+          criado_em?: string
+          data_conferencia?: string
+          id?: string
+          id_item_estoque?: string
+          id_local_estoque?: string | null
+          id_usuario?: string
+          status_item_anterior?: Database["public"]["Enums"]["status_item_enum"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conferencias_estoque_id_item_estoque_fkey"
+            columns: ["id_item_estoque"]
+            isOneToOne: false
+            referencedRelation: "itens_estoque"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conferencias_estoque_id_local_estoque_fkey"
+            columns: ["id_local_estoque"]
+            isOneToOne: false
+            referencedRelation: "locais_estoque"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           atualizado_em: string
@@ -225,84 +273,117 @@ export type Database = {
       itens_estoque: {
         Row: {
           atualizado_em: string
-          cambio_compra_para_real: number | null
-          codigo_fabricante: string | null
-          codigo_produto_fornecedor: string | null
+          codigo_fornecedor: string | null
           criado_em: string
           dados_tiny: Json | null
           data_cadastro_tiny: string | null
-          data_compra: string | null
           id: string
           id_fornecedor: string | null
           id_local_estoque: string | null
           id_modelo_produto: string
+          id_ordem_compra: string | null
           id_tiny: string | null
-          moeda_compra: string | null
-          nome_completo: string
+          nome_produto: string
           numeracao_br: number | null
           numeracao_eu: number | null
-          numeracao_us: number | null
+          numeracao_us: string | null
           observacoes: string | null
           ordem_em_estoque_primeiro: number
           sistema_numeracao: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_euro: number | null
           valor_pago_original: number | null
-          valor_pago_real: number | null
         }
         Insert: {
           atualizado_em?: string
-          cambio_compra_para_real?: number | null
-          codigo_fabricante?: string | null
-          codigo_produto_fornecedor?: string | null
+          codigo_fornecedor?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_cadastro_tiny?: string | null
-          data_compra?: string | null
           id?: string
           id_fornecedor?: string | null
           id_local_estoque?: string | null
           id_modelo_produto: string
+          id_ordem_compra?: string | null
           id_tiny?: string | null
-          moeda_compra?: string | null
-          nome_completo: string
+          nome_produto: string
           numeracao_br?: number | null
           numeracao_eu?: number | null
-          numeracao_us?: number | null
+          numeracao_us?: string | null
           observacoes?: string | null
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_euro?: number | null
           valor_pago_original?: number | null
-          valor_pago_real?: number | null
         }
         Update: {
           atualizado_em?: string
-          cambio_compra_para_real?: number | null
-          codigo_fabricante?: string | null
-          codigo_produto_fornecedor?: string | null
+          codigo_fornecedor?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_cadastro_tiny?: string | null
-          data_compra?: string | null
           id?: string
           id_fornecedor?: string | null
           id_local_estoque?: string | null
           id_modelo_produto?: string
+          id_ordem_compra?: string | null
           id_tiny?: string | null
-          moeda_compra?: string | null
-          nome_completo?: string
+          nome_produto?: string
           numeracao_br?: number | null
           numeracao_eu?: number | null
-          numeracao_us?: number | null
+          numeracao_us?: string | null
           observacoes?: string | null
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku?: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_euro?: number | null
           valor_pago_original?: number | null
+        }
+        Relationships: []
+      }
+      ordens_compra: {
+        Row: {
+          atualizado_em: string
+          cambio_compra_para_euro: number | null
+          cambio_compra_para_real: number | null
+          criado_em: string
+          data_compra: string
+          id: string
+          id_fornecedor: string | null
+          id_item_estoque: string
+          moeda_compra: string
+          observacoes: string | null
+          valor_pago_euro: number | null
+          valor_pago_original: number
+          valor_pago_real: number | null
+        }
+        Insert: {
+          atualizado_em?: string
+          cambio_compra_para_euro?: number | null
+          cambio_compra_para_real?: number | null
+          criado_em?: string
+          data_compra?: string
+          id?: string
+          id_fornecedor?: string | null
+          id_item_estoque: string
+          moeda_compra: string
+          observacoes?: string | null
+          valor_pago_euro?: number | null
+          valor_pago_original: number
+          valor_pago_real?: number | null
+        }
+        Update: {
+          atualizado_em?: string
+          cambio_compra_para_euro?: number | null
+          cambio_compra_para_real?: number | null
+          criado_em?: string
+          data_compra?: string
+          id?: string
+          id_fornecedor?: string | null
+          id_item_estoque?: string
+          moeda_compra?: string
+          observacoes?: string | null
+          valor_pago_euro?: number | null
+          valor_pago_original?: number
           valor_pago_real?: number | null
         }
         Relationships: []
@@ -589,6 +670,40 @@ export type Database = {
         Args: { categoria_ids: string[] }
         Returns: { id: string; modelos: number; itens: number }[]
       }
+      conferir_item_estoque: {
+        Args: { p_id_item: string; p_id_local?: string }
+        Returns: string
+      }
+      desfazer_conferencia_item: {
+        Args: { p_id_item: string }
+        Returns: undefined
+      }
+      criar_ordem_compra_com_item: {
+        Args: {
+          p_sku: string
+          p_nome_produto: string
+          p_id_modelo_produto: string
+          p_id_local_estoque?: string
+          p_codigo_fornecedor?: string
+          p_numeracao_br?: number
+          p_numeracao_eu?: number
+          p_numeracao_us?: string
+          p_sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
+          p_status_item?: Database["public"]["Enums"]["status_item_enum"]
+          p_observacoes_item?: string
+          p_id_fornecedor?: string
+          p_data_compra?: string
+          p_moeda_compra?: string
+          p_valor_pago_original?: number
+          p_cambio_compra_para_real?: number
+          p_cambio_compra_para_euro?: number
+          p_valor_pago_real?: number
+          p_valor_pago_euro?: number
+          p_observacoes_ordem?: string
+        }
+        Returns: Json
+      }
+      is_admin: { Args: Record<string, never>; Returns: boolean }
     }
     Enums: {
       canal_venda_enum:

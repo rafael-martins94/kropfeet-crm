@@ -26,9 +26,14 @@ import ModelosListPage from "./pages/modelos-produto/ModelosListPage";
 import ModeloFormPage from "./pages/modelos-produto/ModeloFormPage";
 import ModeloDetailPage from "./pages/modelos-produto/ModeloDetailPage";
 
+import ConferenciaEstoquePage from "./pages/conferencia-estoque/ConferenciaEstoquePage";
 import ItensEstoqueListPage from "./pages/itens-estoque/ItensEstoqueListPage";
 import ItemEstoqueFormPage from "./pages/itens-estoque/ItemEstoqueFormPage";
 import ItemEstoqueDetailPage from "./pages/itens-estoque/ItemEstoqueDetailPage";
+
+import OrdensCompraListPage from "./pages/ordens-compra/OrdensCompraListPage";
+import OrdemCompraFormPage from "./pages/ordens-compra/OrdemCompraFormPage";
+import OrdemCompraDetailPage from "./pages/ordens-compra/OrdemCompraDetailPage";
 
 import ClientesListPage from "./pages/clientes/ClientesListPage";
 import ClienteFormPage from "./pages/clientes/ClienteFormPage";
@@ -82,10 +87,15 @@ export default function App() {
             <Route path="/modelos-produto/:id" element={<ModeloDetailPage />} />
             <Route path="/modelos-produto/:id/editar" element={<ModeloFormPage />} />
 
+            <Route path="/conferencia-estoque" element={<ConferenciaEstoquePage />} />
             <Route path="/itens-estoque" element={<ItensEstoqueListPage />} />
-            <Route path="/itens-estoque/novo" element={<ItemEstoqueFormPage />} />
+            <Route path="/itens-estoque/novo" element={<Navigate to="/ordens-compra/novo" replace />} />
             <Route path="/itens-estoque/:id" element={<ItemEstoqueDetailPage />} />
             <Route path="/itens-estoque/:id/editar" element={<ItemEstoqueFormPage />} />
+
+            <Route path="/ordens-compra" element={<OrdensCompraListPage />} />
+            <Route path="/ordens-compra/novo" element={<OrdemCompraFormPage />} />
+            <Route path="/ordens-compra/:id" element={<OrdemCompraDetailPage />} />
 
             <Route path="/clientes" element={<ClientesListPage />} />
             <Route path="/clientes/novo" element={<ClienteFormPage />} />

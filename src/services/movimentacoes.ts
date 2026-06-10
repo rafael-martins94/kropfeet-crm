@@ -7,7 +7,7 @@ export interface MovimentacaoDetalhada {
   data_movimentacao: string;
   observacoes: string | null;
   criado_em: string;
-  item_estoque: { id: string; sku: string; nome_completo: string } | null;
+  item_estoque: { id: string; sku: string; nome_produto: string } | null;
   origem: { id: string; nome: string; codigo: string } | null;
   destino: { id: string; nome: string; codigo: string } | null;
   venda: { id: string } | null;
@@ -22,7 +22,7 @@ export const movimentacoesService = {
       .from("movimentacoes_estoque")
       .select(
         `id, tipo_movimentacao, data_movimentacao, observacoes, criado_em,
-         item_estoque:itens_estoque(id, sku, nome_completo),
+         item_estoque:itens_estoque(id, sku, nome_produto),
          origem:locais_estoque!movimentacoes_estoque_id_local_origem_fkey(id, nome, codigo),
          destino:locais_estoque!movimentacoes_estoque_id_local_destino_fkey(id, nome, codigo),
          venda:vendas(id)`,

@@ -1,0 +1,132 @@
+import { SearchInput } from "../SearchInput";
+import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
+import { StatusItemFilterDropdown } from "../StatusItemFilterDropdown";
+import { statusOpcoesFiltro } from "./itensEstoqueFiltrosConstants";
+import {
+  situacaoConferenciaOpcoes,
+  type SituacaoConferenciaFiltro,
+} from "../../services/conferencias-estoque";
+import type { StatusItem } from "../../types/entities";
+import { cn } from "../../utils/cn";
+import type { SearchableSelectOption } from "../SearchableSelectDropdown";
+
+interface ItensEstoqueFiltrosToolbarProps {
+  search: string;
+  onSearchChange: (value: string) => void;
+  status: StatusItem[];
+  onStatusChange: (value: StatusItem[]) => void;
+  localEstoqueIds: string[];
+  onLocalEstoqueIdsChange: (value: string[]) => void;
+  categoriaIds?: string[];
+  onCategoriaIdsChange?: (value: string[]) => void;
+  situacaoConferencia?: SituacaoConferenciaFiltro;
+  onSituacaoConferenciaChange?: (value: SituacaoConferenciaFiltro) => void;
+  numeracaoFiltro: string;
+  onNumeracaoFiltroChange: (value: string) => void;
+  opcoesLocalFiltro: SearchableSelectOption[];
+  opcoesCategoriaFiltro?: SearchableSelectOption[];
+  locaisLoading?: boolean;
+  categoriasLoading?: boolean;
+  /** Na conferência, troca categoria por situação da conferência. */
+  variant?: "default" | "conferencia";
+}
+
+export function ItensEstoqueFiltrosToolbar({
+  search,
+  onSearchChange,
+  status,
+  onStatusChange,
+  localEstoqueIds,
+  onLocalEstoqueIdsChange,
+  categoriaIds = [],
+  onCategoriaIdsChange,
+  situacaoConferencia = "",
+  onSituacaoConferenciaChange,
+  numeracaoFiltro,
+  onNumeracaoFiltroChange,
+  opcoesLocalFiltro,
+  opcoesCategoriaFiltro = [],
+  locaisLoading,
+  categoriasLoading,
+  variant = "default",
+}: ItensEstoqueFiltrosToolbarProps) {
+  return (
+    <div className="border-b border-line px-5 py-4">
+      <div
+        className={cn(
+          "grid min-w-0 flex-1 gap-x-3 gap-y-4 items-end",
+          "[grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]",
+          "lg:[grid-template-columns:minmax(11rem,1.35fr)_minmax(11rem,1.35fr)_minmax(10rem,1fr)_minmax(11.5rem,1.48fr)_minmax(7rem,0.68fr)] lg:grid-rows-1",
+        )}
+      >
+        <SearchInput
+          placeholder="Buscar por SKU, nome produto, código…"
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          wrapperClassName="w-full min-w-0"
+        />
+        <div className="flex w-full min-w-0 flex-col gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+            Status
+          </span>
+          <StatusItemFilterDropdown
+            multiple
+            value={status}
+            options={statusOpcoesFiltro}
+            emptyLabel="Todos os status"
+            className="w-full"
+            onChange={onStatusChange}
+          />
+        </div>
+        <SearchableSelectDropdown
+          multiple
+          label="Local de estoque"
+          value={localEstoqueIds}
+          options={opcoesLocalFiltro}
+          emptyLabel="Todos os locais"
+          loading={locaisLoading}
+          searchPlaceholder="Buscar local…"
+          triggerClassName="w-full min-w-0"
+          onChange={onLocalEstoqueIdsChange}
+          className="w-full min-w-0 max-w-[13rem]"
+        />
+        {variant === "conferencia" ? (
+          <SearchableSelectDropdown
+            label="Situação da conferência"
+            value={situacaoConferencia}
+            options={situacaoConferenciaOpcoes}
+            emptyLabel="Todos os itens"
+            searchPlaceholder="Buscar…"
+            triggerClassName="w-full min-w-0"
+            onChange={(v) => onSituacaoConferenciaChange?.(v as SituacaoConferenciaFiltro)}
+            className="w-full min-w-[12rem]"
+          />
+        ) : (
+          <SearchableSelectDropdown
+            multiple
+            label="Categoria (modelo)"
+            value={categoriaIds}
+            options={opcoesCategoriaFiltro}
+            emptyLabel="Todas as categorias"
+            loading={categoriasLoading}
+            searchPlaceholder="Buscar categoria…"
+            triggerClassName="w-full min-w-0"
+            onChange={onCategoriaIdsChange ?? (() => {})}
+            className="w-full min-w-[12rem]"
+          />
+        )}
+        <div className="flex min-w-0 max-w-[9rem] flex-col gap-1.5 lg:max-w-none">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+            Numeração
+          </span>
+          <SearchInput
+            placeholder="Ex.: US 6, BR37…"
+            value={numeracaoFiltro}
+            onChange={(e) => onNumeracaoFiltroChange(e.target.value)}
+            wrapperClassName="w-full min-w-0"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

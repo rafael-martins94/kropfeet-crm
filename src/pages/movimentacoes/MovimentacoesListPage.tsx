@@ -39,7 +39,7 @@ export default function MovimentacoesListPage() {
             to={`/itens-estoque/${m.item_estoque.id}`}
             className="font-medium text-ink hover:text-brand-700"
           >
-            {m.item_estoque.nome_completo}
+            {m.item_estoque.nome_produto}
             <span className="ml-2 font-numeric tabular-nums text-xs text-ink-soft">
               SKU {m.item_estoque.sku}
             </span>

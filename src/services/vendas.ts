@@ -6,7 +6,38 @@ import type {
   VendaInsert,
   VendaUpdate,
 } from "../types/entities";
+import { calcularLucroVenda, resolverCustoItem, type CustoItemEstoque } from "../utils/custoItem";
 import { atualizar, deletar, inserir, obterPorId } from "./base";
+
+export interface ItemVendaDetalhado {
+  id: string;
+  id_venda: string;
+  id_item_estoque: string;
+  moeda_venda: string;
+  valor_venda_original: number;
+  valor_venda_real: number | null;
+  valor_venda_euro: number | null;
+  cambio_utilizado: number | null;
+  lucro_real: number | null;
+  lucro_euro: number | null;
+  criado_em: string;
+  item_estoque?: {
+    id: string;
+    sku: string;
+    nome_produto: string;
+    numeracao_br: number | null;
+    id_ordem_compra: string | null;
+    valor_pago_original: number | null;
+    ordem_compra?: {
+      valor_pago_real: number | null;
+      valor_pago_euro: number | null;
+      valor_pago_original: number;
+      moeda_compra: string;
+    } | null;
+  } | null;
+  custo?: CustoItemEstoque | null;
+  lucroCalculado?: { lucroReal: number | null; lucroEuro: number | null };
+}
 
 export interface VendaDetalhada extends Venda {
   cliente?: { id: string; nome: string; email: string | null } | null;
@@ -62,17 +93,32 @@ export const vendasService = {
     };
   },
 
-  obterItens: async (idVenda: string) => {
+  obterItens: async (idVenda: string): Promise<ItemVendaDetalhado[]> => {
     const { data, error } = await supabase
       .from("itens_venda")
       .select(
         `*,
-         item_estoque:itens_estoque(id, sku, nome_completo, numeracao_br)`,
+         item_estoque:itens_estoque(
+           id, sku, nome_produto, numeracao_br, id_ordem_compra, valor_pago_original,
+           ordem_compra:ordens_compra!itens_estoque_id_ordem_compra_fkey(
+             valor_pago_real, valor_pago_euro, valor_pago_original, moeda_compra
+           )
+         )`,
       )
       .eq("id_venda", idVenda)
       .order("criado_em", { ascending: true });
     if (error) throw error;
-    return data ?? [];
+
+    return (data ?? []).map((iv) => {
+      const row = iv as unknown as ItemVendaDetalhado;
+      const custo = resolverCustoItem(row.item_estoque ?? null);
+      const lucroCalculado = calcularLucroVenda(
+        row.valor_venda_real,
+        row.valor_venda_euro,
+        custo,
+      );
+      return { ...row, custo, lucroCalculado };
+    });
   },
 
   totalPorStatus: async (): Promise<Record<StatusVenda, number>> => {

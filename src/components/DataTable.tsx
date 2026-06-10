@@ -18,6 +18,7 @@ interface DataTableProps<T> {
   rowKey: (row: T) => string;
   loading?: boolean;
   onRowClick?: (row: T) => void;
+  rowClassName?: (row: T) => string | undefined;
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;
@@ -32,6 +33,7 @@ export function DataTable<T>({
   rowKey,
   loading,
   onRowClick,
+  rowClassName,
   emptyTitle,
   emptyDescription,
   emptyAction,
@@ -71,7 +73,7 @@ export function DataTable<T>({
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={cn(onRowClick && "cursor-pointer")}
+              className={cn(onRowClick && "cursor-pointer", rowClassName?.(row))}
             >
               {columns.map((c) => (
                 <td key={c.key} className={c.className}>

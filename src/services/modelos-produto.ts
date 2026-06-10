@@ -91,4 +91,23 @@ export const modelosProdutoService = {
     if (error) throw error;
     return data ?? [];
   },
+
+  /** URL da imagem principal (ou primeira) por modelo — para thumbnails no select. */
+  listarUrlsPrincipaisPorModelo: async (): Promise<Record<string, string>> => {
+    const { data, error } = await supabase
+      .from("imagens_modelo_produto")
+      .select("id_modelo_produto, url_origem, caminho_arquivo, imagem_principal, ordem_exibicao")
+      .order("imagem_principal", { ascending: false })
+      .order("ordem_exibicao", { ascending: true });
+
+    if (error) throw error;
+
+    const map: Record<string, string> = {};
+    for (const img of data ?? []) {
+      if (map[img.id_modelo_produto]) continue;
+      const url = img.url_origem ?? img.caminho_arquivo;
+      if (url) map[img.id_modelo_produto] = url;
+    }
+    return map;
+  },
 };

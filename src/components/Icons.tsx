@@ -210,3 +210,9 @@ export const IconList = (p: IconProps) => (
     <circle cx="4" cy="18" r="1" />
   </svg>
 );
+
+export const IconCheck = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M5 12.5 9.5 17 19 7" />
+  </svg>
+);

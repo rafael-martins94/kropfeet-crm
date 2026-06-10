@@ -225,84 +225,69 @@ export type Database = {
       itens_estoque: {
         Row: {
           atualizado_em: string
-          cambio_compra_para_real: number | null
-          codigo_fabricante: string | null
-          codigo_produto_fornecedor: string | null
+          codigo_fornecedor: string | null
           criado_em: string
           dados_tiny: Json | null
           data_cadastro_tiny: string | null
-          data_compra: string | null
           id: string
           id_fornecedor: string | null
           id_local_estoque: string | null
           id_modelo_produto: string
+          id_ordem_compra: string | null
           id_tiny: string | null
-          moeda_compra: string | null
-          nome_completo: string
+          nome_produto: string
           numeracao_br: number | null
           numeracao_eu: number | null
-          numeracao_us: number | null
+          numeracao_us: string | null
           observacoes: string | null
           sistema_numeracao: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_euro: number | null
           valor_pago_original: number | null
-          valor_pago_real: number | null
         }
         Insert: {
           atualizado_em?: string
-          cambio_compra_para_real?: number | null
-          codigo_fabricante?: string | null
-          codigo_produto_fornecedor?: string | null
+          codigo_fornecedor?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_cadastro_tiny?: string | null
-          data_compra?: string | null
           id?: string
           id_fornecedor?: string | null
           id_local_estoque?: string | null
           id_modelo_produto: string
+          id_ordem_compra?: string | null
           id_tiny?: string | null
-          moeda_compra?: string | null
-          nome_completo: string
+          nome_produto: string
           numeracao_br?: number | null
           numeracao_eu?: number | null
-          numeracao_us?: number | null
+          numeracao_us?: string | null
           observacoes?: string | null
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_euro?: number | null
           valor_pago_original?: number | null
-          valor_pago_real?: number | null
         }
         Update: {
           atualizado_em?: string
-          cambio_compra_para_real?: number | null
-          codigo_fabricante?: string | null
-          codigo_produto_fornecedor?: string | null
+          codigo_fornecedor?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_cadastro_tiny?: string | null
-          data_compra?: string | null
           id?: string
           id_fornecedor?: string | null
           id_local_estoque?: string | null
           id_modelo_produto?: string
+          id_ordem_compra?: string | null
           id_tiny?: string | null
-          moeda_compra?: string | null
-          nome_completo?: string
+          nome_produto?: string
           numeracao_br?: number | null
           numeracao_eu?: number | null
-          numeracao_us?: number | null
+          numeracao_us?: string | null
           observacoes?: string | null
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku?: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_euro?: number | null
           valor_pago_original?: number | null
-          valor_pago_real?: number | null
         }
         Relationships: []
       }

@@ -28,9 +28,8 @@ export async function upsertItemEstoquePorTiny(
     id_fornecedor: refs.idFornecedor,
     id_local_estoque: refs.idLocalEstoque,
     sku: dados.sku,
-    nome_completo: dados.nomeCompleto,
-    codigo_fabricante: dados.codigoFabricante,
-    codigo_produto_fornecedor: dados.codigoProdutoFornecedor,
+    nome_produto: dados.nomeCompleto,
+    codigo_fornecedor: dados.codigoFornecedor,
     numeracao_br: dados.numeracaoBr,
     numeracao_eu: dados.numeracaoEu,
     numeracao_us: dados.numeracaoUs,
@@ -78,7 +77,7 @@ export async function upsertItemEstoquePorTiny(
       id_tiny: dados.idTiny,
       id_modelo_produto: refs.idModeloProduto,
       sku: dados.sku,
-      nome_completo: dados.nomeCompleto,
+      nome_produto: dados.nomeCompleto,
     })
     .select("id")
     .single();

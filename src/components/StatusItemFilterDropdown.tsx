@@ -10,13 +10,27 @@ export interface StatusItemFilterOption {
   label: string;
 }
 
-interface StatusItemFilterDropdownProps {
-  value: StatusItem | "";
+type StatusItemFilterDropdownBaseProps = {
   options: StatusItemFilterOption[];
-  onChange: (value: StatusItem | "") => void;
   className?: string;
   disabled?: boolean;
-}
+  /** Texto do trigger quando nenhum status está selecionado (modo múltiplo). */
+  emptyLabel?: string;
+};
+
+type StatusItemFilterDropdownProps = StatusItemFilterDropdownBaseProps &
+  (
+    | {
+        multiple?: false;
+        value: StatusItem | "";
+        onChange: (value: StatusItem | "") => void;
+      }
+    | {
+        multiple: true;
+        value: StatusItem[];
+        onChange: (value: StatusItem[]) => void;
+      }
+  );
 
 function ChevronDown({ className }: { className?: string }) {
   return (
@@ -34,19 +48,35 @@ function ChevronDown({ className }: { className?: string }) {
 }
 
 /** Filtro de status com pills; lista em portal para não ser cortada por overflow do pai. */
-export function StatusItemFilterDropdown({
-  value,
-  options,
-  onChange,
-  className,
-  disabled,
-}: StatusItemFilterDropdownProps) {
+export function StatusItemFilterDropdown(props: StatusItemFilterDropdownProps) {
+  const { options, className, disabled, multiple = false } = props;
+  const value = props.value;
+  const onChange = props.onChange;
+  const emptyLabel = props.emptyLabel ?? "Todos os status";
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLUListElement>(null);
   const pos = usePopoverAnchorRect(anchorRef, open, 4);
 
-  const selected = options.find((o) => o.value === value) ?? options[0];
+  const opcoesPainel = multiple ? options.filter((o) => o.value !== "") : options;
+
+  const selected = multiple
+    ? null
+    : (options.find((o) => o.value === value) ?? options[0]);
+
+  const labelTrigger = multiple
+    ? (value as StatusItem[]).length === 0
+      ? emptyLabel
+      : (value as StatusItem[]).length === 1
+        ? (options.find((o) => o.value === (value as StatusItem[])[0])?.label ?? emptyLabel)
+        : `${(value as StatusItem[]).length} selecionados`
+    : (selected?.label ?? "—");
+
+  const pillValue = multiple
+    ? (value as StatusItem[]).length === 1
+      ? (value as StatusItem[])[0]
+      : ""
+    : (selected?.value ?? "");
 
   useEffect(() => {
     if (!open) return;
@@ -83,34 +113,61 @@ export function StatusItemFilterDropdown({
         }}
         className="max-h-72 overflow-auto rounded-lg border border-line bg-surface py-1 shadow-lg"
       >
-        {options.map((o) => (
-          <li
-            key={o.value === "" ? "__all__" : o.value}
-            role="option"
-            aria-selected={value === o.value}
-          >
-            <button
-              type="button"
-              className={cn(
-                "flex w-full items-center px-3 py-2 text-left transition-colors hover:bg-brand-50/80",
-                value === o.value && "bg-brand-50/90",
-              )}
-              onClick={() => {
-                onChange(o.value);
-                setOpen(false);
-              }}
+        {opcoesPainel.map((o) => {
+          const ativo = multiple
+            ? (value as StatusItem[]).includes(o.value as StatusItem)
+            : value === o.value;
+          return (
+            <li
+              key={o.value === "" ? "__all__" : o.value}
+              role="option"
+              aria-selected={ativo}
             >
-              <span
+              <button
+                type="button"
                 className={cn(
-                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
-                  pillClassesForStatusItem(o.value),
+                  "flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-brand-50/80",
+                  ativo && "bg-brand-50/90",
                 )}
+                onClick={() => {
+                  if (multiple) {
+                    const selecionados = value as StatusItem[];
+                    const status = o.value as StatusItem;
+                    const next = ativo
+                      ? selecionados.filter((v) => v !== status)
+                      : [...selecionados, status];
+                    (onChange as (value: StatusItem[]) => void)(next);
+                  } else {
+                    (onChange as (value: StatusItem | "") => void)(o.value);
+                    setOpen(false);
+                  }
+                }}
               >
-                {o.label}
-              </span>
-            </button>
-          </li>
-        ))}
+                {multiple ? (
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
+                      ativo
+                        ? "border-brand-600 bg-brand-600 text-white"
+                        : "border-line bg-surface text-transparent",
+                    )}
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+                    pillClassesForStatusItem(o.value),
+                  )}
+                >
+                  {o.label}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>,
       document.body,
     );
@@ -131,11 +188,13 @@ export function StatusItemFilterDropdown({
       >
         <span
           className={cn(
-            "inline-flex min-w-0 max-w-[calc(100%-1.5rem)] items-center truncate rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
-            pillClassesForStatusItem(selected?.value),
+            "flex min-w-0 flex-1 items-center truncate rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+            multiple && (value as StatusItem[]).length !== 1
+              ? "bg-surface-muted text-ink-soft ring-line"
+              : pillClassesForStatusItem(pillValue),
           )}
         >
-          {selected?.label ?? "—"}
+          {labelTrigger}
         </span>
         <ChevronDown />
       </button>

@@ -112,10 +112,12 @@ export default function VendaDetailPage() {
                       <th>Moeda</th>
                       <th className="text-right">Valor BRL</th>
                       <th className="text-right">Valor EUR</th>
+                      <th className="text-right">Custo BRL</th>
+                      <th className="text-right">Lucro BRL</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(itens.data as any[]).map((iv) => (
+                    {(itens.data ?? []).map((iv) => (
                       <tr key={iv.id}>
                         <td>
                           {iv.item_estoque ? (
@@ -123,7 +125,7 @@ export default function VendaDetailPage() {
                               to={`/itens-estoque/${iv.item_estoque.id}`}
                               className="font-medium text-ink hover:text-brand-700"
                             >
-                              {iv.item_estoque.nome_completo}
+                              {iv.item_estoque.nome_produto}
                             </Link>
                           ) : (
                             "—"
@@ -143,6 +145,16 @@ export default function VendaDetailPage() {
                         </td>
                         <td className="text-right font-numeric tabular-nums text-xs">
                           {formatarMoeda(iv.valor_venda_euro, "EUR")}
+                        </td>
+                        <td className="text-right font-numeric tabular-nums text-xs">
+                          {iv.custo?.valorReal != null
+                            ? formatarMoeda(iv.custo.valorReal, "BRL")
+                            : "—"}
+                        </td>
+                        <td className="text-right font-numeric tabular-nums text-xs">
+                          {iv.lucroCalculado?.lucroReal != null
+                            ? formatarMoeda(iv.lucroCalculado.lucroReal, "BRL")
+                            : "—"}
                         </td>
                       </tr>
                     ))}

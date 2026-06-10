@@ -6,6 +6,7 @@ import {
   IconArrows,
   IconBox,
   IconCart,
+  IconCheck,
   IconChevronLeft,
   IconChevronRight,
   IconDashboard,
@@ -15,7 +16,6 @@ import {
   IconPin,
   IconShoe,
   IconSwap,
-  IconTag,
   IconTruck,
   IconUser,
   IconUsers,
@@ -47,7 +47,6 @@ const menu: MenuGroup[] = [
     items: [
       { to: "/modelos-produto", label: "Modelos de produto", icon: <IconShoe /> },
       { to: "/itens-estoque", label: "Itens de estoque", icon: <IconBox /> },
-      { to: "/marcas", label: "Marcas", icon: <IconTag /> },
       { to: "/categorias", label: "Categorias", icon: <IconFolder /> },
       { to: "/imagens", label: "Imagens", icon: <IconImage /> },
     ],
@@ -63,6 +62,8 @@ const menu: MenuGroup[] = [
     label: "Operação",
     items: [
       { to: "/locais-estoque", label: "Locais de estoque", icon: <IconPin /> },
+      { to: "/conferencia-estoque", label: "Conferência de estoque", icon: <IconCheck /> },
+      { to: "/ordens-compra", label: "Ordens de compra", icon: <IconCart /> },
       { to: "/fornecedores", label: "Fornecedores", icon: <IconTruck /> },
       { to: "/movimentacoes", label: "Movimentações", icon: <IconArrows /> },
       { to: "/cambios-moeda", label: "Câmbio de moeda", icon: <IconSwap /> },
