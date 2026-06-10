@@ -17,9 +17,8 @@ import {
   normalizeNumeracaoUsInput,
   normalizeSizeValue,
   parseNumeracaoUs,
-  preencherEquivalenciasPorBr,
-  preencherEquivalenciasPorEu,
-  preencherEquivalenciasPorUs,
+  aplicarEquivalenciaBrEuForm,
+  numeracaoUsAoMudarTipo,
   type UsSizeVariant,
 } from "../../utils/sizeConversion";
 import type { ItemEstoqueUpdate, SistemaNumeracao, StatusItem } from "../../types/entities";
@@ -33,7 +32,7 @@ type FormState = {
   numeracao_br: string;
   numeracao_eu: string;
   numeracao_us: string;
-  us_variant: UsSizeVariant;
+  us_variant: UsSizeVariant | "";
   sistema_numeracao: SistemaNumeracao;
   status_item: StatusItem;
   observacoes: string;
@@ -114,7 +113,10 @@ export default function ItemEstoqueFormPage() {
     const br = normalizeSizeValue(form.numeracao_br);
     const eu = normalizeSizeValue(form.numeracao_eu);
     const usNum = normalizeSizeValue(form.numeracao_us);
-    const us = usNum !== null ? { value: usNum, variant: form.us_variant } : null;
+    const us =
+      usNum !== null && form.us_variant
+        ? { value: usNum, variant: form.us_variant }
+        : null;
     const nome = montarNomeProdutoComNumeracoes(modeloSelecionado.nome_modelo, br, eu, us);
     setForm((s) => (s.nome_produto === nome ? s : { ...s, nome_produto: nome }));
   }, [
@@ -139,49 +141,43 @@ export default function ItemEstoqueFormPage() {
 
   const handleBrChange = (value: string) => {
     setForm((s) => {
-      const next = { ...s, numeracao_br: value };
-      const br = normalizeSizeValue(value);
-      if (br !== null) {
-        const eq = preencherEquivalenciasPorBr(br);
-        if (eq) return { ...next, ...eq, numeracao_br: value };
-      }
-      return next;
+      const eq = aplicarEquivalenciaBrEuForm("br", value);
+      if (!eq) return { ...s, numeracao_br: value, numeracao_us: "" };
+      return { ...s, ...eq, numeracao_br: value, numeracao_us: "" };
     });
   };
 
   const handleEuChange = (value: string) => {
     setForm((s) => {
-      const next = { ...s, numeracao_eu: value };
-      const eu = normalizeSizeValue(value);
-      if (eu !== null) {
-        const eq = preencherEquivalenciasPorEu(eu);
-        if (eq) return { ...next, ...eq, numeracao_eu: value };
-      }
-      return next;
-    });
-  };
-
-  const handleUsChange = (value: string) => {
-    setForm((s) => {
-      const next = { ...s, numeracao_us: value };
-      const usNum = normalizeSizeValue(value);
-      if (usNum !== null) {
-        const eq = preencherEquivalenciasPorUs(usNum, s.us_variant);
-        if (eq) return { ...next, ...eq, numeracao_us: value };
-      }
-      return next;
+      const eq = aplicarEquivalenciaBrEuForm("eu", value);
+      if (!eq) return { ...s, numeracao_eu: value, numeracao_us: "" };
+      return { ...s, ...eq, numeracao_eu: value, numeracao_us: "" };
     });
   };
 
   const handleUsVariantChange = (variant: UsSizeVariant) => {
+    setForm((s) => ({
+      ...s,
+      us_variant: variant,
+      numeracao_us: numeracaoUsAoMudarTipo(
+        s.numeracao_br,
+        s.numeracao_eu,
+        s.numeracao_us,
+        s.us_variant,
+        variant,
+      ),
+    }));
+  };
+
+  const handleSistemaChange = (sistema: SistemaNumeracao) => {
     setForm((s) => {
-      const next = { ...s, us_variant: variant };
-      const usNum = normalizeSizeValue(s.numeracao_us);
-      if (usNum !== null) {
-        const eq = preencherEquivalenciasPorUs(usNum, variant);
-        if (eq) return { ...next, ...eq, numeracao_us: s.numeracao_us };
+      if (sistema === "outro" || sistema === "us") {
+        return { ...s, sistema_numeracao: sistema, numeracao_us: "" };
       }
-      return next;
+      const valorCampo = sistema === "br" ? s.numeracao_br : s.numeracao_eu;
+      const eq = aplicarEquivalenciaBrEuForm(sistema, valorCampo);
+      if (!eq) return { ...s, sistema_numeracao: sistema, numeracao_us: "" };
+      return { ...s, ...eq, sistema_numeracao: sistema, numeracao_us: "" };
     });
   };
 
@@ -270,10 +266,10 @@ export default function ItemEstoqueFormPage() {
               statusItem={form.status_item}
               onBrChange={handleBrChange}
               onEuChange={handleEuChange}
-              onUsChange={handleUsChange}
               onUsVariantChange={handleUsVariantChange}
-              onSistemaChange={(v) => upd("sistema_numeracao", v)}
+              onSistemaChange={handleSistemaChange}
               onStatusChange={(v) => upd("status_item", v)}
+              usPreenchidoPorTipo
             />
           </SectionCard>
 

@@ -18,9 +18,8 @@ import {
   montarNomeProdutoComNumeracoes,
   normalizeNumeracaoUsInput,
   normalizeSizeValue,
-  preencherEquivalenciasPorBr,
-  preencherEquivalenciasPorEu,
-  preencherEquivalenciasPorUs,
+  aplicarEquivalenciaBrEuForm,
+  numeracaoUsAoMudarTipo,
   type UsSizeVariant,
 } from "../../utils/sizeConversion";
 
@@ -44,7 +43,7 @@ type FormState = {
   numeracao_br: string;
   numeracao_eu: string;
   numeracao_us: string;
-  us_variant: UsSizeVariant;
+  us_variant: UsSizeVariant | "";
   sistema_numeracao: SistemaNumeracao;
   observacoes_item: string;
   data_compra: string;
@@ -67,7 +66,7 @@ const vazio: FormState = {
   numeracao_br: "",
   numeracao_eu: "",
   numeracao_us: "",
-  us_variant: "mens",
+  us_variant: "" as UsSizeVariant | "",
   sistema_numeracao: "br",
   observacoes_item: "",
   data_compra: hojeIso(),
@@ -101,7 +100,10 @@ export default function OrdemCompraFormPage() {
     const br = normalizeSizeValue(form.numeracao_br);
     const eu = normalizeSizeValue(form.numeracao_eu);
     const usNum = normalizeSizeValue(form.numeracao_us);
-    const us = usNum !== null ? { value: usNum, variant: form.us_variant } : null;
+    const us =
+      usNum !== null && form.us_variant
+        ? { value: usNum, variant: form.us_variant }
+        : null;
     const nome = montarNomeProdutoComNumeracoes(modeloSelecionado.nome_modelo, br, eu, us);
     setForm((s) => (s.nome_produto === nome ? s : { ...s, nome_produto: nome }));
   }, [
@@ -126,49 +128,43 @@ export default function OrdemCompraFormPage() {
 
   const handleBrChange = (value: string) => {
     setForm((s) => {
-      const next = { ...s, numeracao_br: value };
-      const br = normalizeSizeValue(value);
-      if (br !== null) {
-        const eq = preencherEquivalenciasPorBr(br);
-        if (eq) return { ...next, ...eq, numeracao_br: value };
-      }
-      return next;
+      const eq = aplicarEquivalenciaBrEuForm("br", value);
+      if (!eq) return { ...s, numeracao_br: value, numeracao_us: "" };
+      return { ...s, ...eq, numeracao_br: value, numeracao_us: "" };
     });
   };
 
   const handleEuChange = (value: string) => {
     setForm((s) => {
-      const next = { ...s, numeracao_eu: value };
-      const eu = normalizeSizeValue(value);
-      if (eu !== null) {
-        const eq = preencherEquivalenciasPorEu(eu);
-        if (eq) return { ...next, ...eq, numeracao_eu: value };
-      }
-      return next;
-    });
-  };
-
-  const handleUsChange = (value: string) => {
-    setForm((s) => {
-      const next = { ...s, numeracao_us: value };
-      const usNum = normalizeSizeValue(value);
-      if (usNum !== null) {
-        const eq = preencherEquivalenciasPorUs(usNum, s.us_variant);
-        if (eq) return { ...next, ...eq, numeracao_us: value };
-      }
-      return next;
+      const eq = aplicarEquivalenciaBrEuForm("eu", value);
+      if (!eq) return { ...s, numeracao_eu: value, numeracao_us: "" };
+      return { ...s, ...eq, numeracao_eu: value, numeracao_us: "" };
     });
   };
 
   const handleUsVariantChange = (variant: UsSizeVariant) => {
+    setForm((s) => ({
+      ...s,
+      us_variant: variant,
+      numeracao_us: numeracaoUsAoMudarTipo(
+        s.numeracao_br,
+        s.numeracao_eu,
+        s.numeracao_us,
+        s.us_variant,
+        variant,
+      ),
+    }));
+  };
+
+  const handleSistemaChange = (sistema: SistemaNumeracao) => {
     setForm((s) => {
-      const next = { ...s, us_variant: variant };
-      const usNum = normalizeSizeValue(s.numeracao_us);
-      if (usNum !== null) {
-        const eq = preencherEquivalenciasPorUs(usNum, variant);
-        if (eq) return { ...next, ...eq, numeracao_us: s.numeracao_us };
+      if (sistema === "outro" || sistema === "us") {
+        return { ...s, sistema_numeracao: sistema, numeracao_us: "" };
       }
-      return next;
+      const valorCampo = sistema === "br" ? s.numeracao_br : s.numeracao_eu;
+      const eq = aplicarEquivalenciaBrEuForm(sistema, valorCampo);
+      if (!eq) return { ...s, sistema_numeracao: sistema, numeracao_us: "" };
+      return { ...s, ...eq, sistema_numeracao: sistema, numeracao_us: "" };
     });
   };
 
@@ -207,13 +203,20 @@ export default function OrdemCompraFormPage() {
         throw new Error("Informe o valor pago na moeda original.");
       }
 
-      const numeracaoUs = form.numeracao_us.trim()
-        ? normalizeNumeracaoUsInput(
-            form.us_variant === "mens"
-              ? form.numeracao_us
-              : `${form.numeracao_us}${form.us_variant === "y" ? "Y" : "W"}`,
-          )
-        : null;
+      if (!form.us_variant) {
+        throw new Error("Selecione o tipo US (M, Y ou W).");
+      }
+      if (!form.numeracao_us.trim()) {
+        throw new Error(
+          "Informe BR ou EU válidos e selecione o tipo US para preencher a numeração americana.",
+        );
+      }
+
+      const numeracaoUs = normalizeNumeracaoUsInput(
+        form.us_variant === "mens"
+          ? form.numeracao_us
+          : `${form.numeracao_us}${form.us_variant === "y" ? "Y" : "W"}`,
+      );
 
       const resultado = await ordensCompraService.criarComItem({
         sku: form.sku.trim(),
@@ -288,9 +291,9 @@ export default function OrdemCompraFormPage() {
             sistemaNumeracao={form.sistema_numeracao}
             onBrChange={handleBrChange}
             onEuChange={handleEuChange}
-            onUsChange={handleUsChange}
             onUsVariantChange={handleUsVariantChange}
-            onSistemaChange={(v) => upd("sistema_numeracao", v)}
+            onSistemaChange={handleSistemaChange}
+            usPreenchidoPorTipo
             showStatus={false}
           />
         </SectionCard>

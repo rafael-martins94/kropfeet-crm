@@ -24,16 +24,20 @@ export type SizeConvertibleItem = {
   nome_produto?: string | null;
 };
 
+/** Tabela oficial BR ↔ EU ↔ US (Y infantil + M/W adulto). */
 export const SHOE_SIZE_EQUIVALENCE_TABLE = [
-  { br: 34, eu: 35.5, us_m: 3.5, us_w: 5, us_y: 3.5 },
-  { br: 34.5, eu: 36, us_m: 4, us_w: 5.5, us_y: 4 },
-  { br: 35, eu: 36.5, us_m: 4.5, us_w: 6, us_y: 4.5 },
-  { br: 35.5, eu: 37, us_m: 5, us_w: 6.5, us_y: 5 },
-  { br: 36, eu: 37.5, us_m: 5.5, us_w: 7, us_y: 5.5 },
-  { br: 37, eu: 38.5, us_m: 6, us_w: 7.5, us_y: 6 },
-  { br: 37.5, eu: 39, us_m: 6.5, us_w: 8, us_y: 6.5 },
-  { br: 38, eu: 39.5, us_m: 7, us_w: 8.5, us_y: 7 },
-  { br: 38.5, eu: 40, us_m: 7.5, us_w: 9, us_y: null },
+  { br: 31, eu: 32, us_m: null, us_w: null, us_y: 1 },
+  { br: 32.5, eu: 33.5, us_m: null, us_w: null, us_y: 2 },
+  { br: 33, eu: 34, us_m: null, us_w: null, us_y: 2.5 },
+  { br: 33.5, eu: 35, us_m: null, us_w: null, us_y: 3 },
+  { br: 34, eu: 35.5, us_m: null, us_w: null, us_y: 3.5 },
+  { br: 34.5, eu: 36, us_m: null, us_w: null, us_y: 4 },
+  { br: 35, eu: 36.5, us_m: null, us_w: null, us_y: 4.5 },
+  { br: 35.5, eu: 37.5, us_m: null, us_w: null, us_y: 5 },
+  { br: 36, eu: 38, us_m: null, us_w: null, us_y: 5.5 },
+  { br: 37, eu: 38.5, us_m: null, us_w: null, us_y: 6 },
+  { br: 37.5, eu: 39, us_m: null, us_w: null, us_y: 6.5 },
+  { br: 38, eu: 40, us_m: null, us_w: null, us_y: 7 },
   { br: 39, eu: 40.5, us_m: 8, us_w: 9.5, us_y: null },
   { br: 39.5, eu: 41, us_m: 8.5, us_w: 10, us_y: null },
   { br: 40, eu: 41.5, us_m: 9, us_w: 10.5, us_y: null },
@@ -48,6 +52,38 @@ export const SHOE_SIZE_EQUIVALENCE_TABLE = [
   { br: 45, eu: 46.5, us_m: 14, us_w: 15.5, us_y: null },
   { br: 46, eu: 47.5, us_m: 15, us_w: 16.5, us_y: null },
 ] as const satisfies readonly ShoeSizeEquivalence[];
+
+/** Equivalência entre variantes US na mesma linha (M ↔ W ↔ Y). */
+export type UsSizeCrossEquivalence = {
+  us_m: number;
+  us_w: number;
+  us_y: number | null;
+};
+
+export const US_SIZE_CROSS_EQUIVALENCE_TABLE = [
+  { us_m: 3.5, us_w: 5, us_y: 3.5 },
+  { us_m: 4, us_w: 5.5, us_y: 4 },
+  { us_m: 4.5, us_w: 6, us_y: 4.5 },
+  { us_m: 5, us_w: 6.5, us_y: 5 },
+  { us_m: 5.5, us_w: 7, us_y: 5.5 },
+  { us_m: 6, us_w: 7.5, us_y: 6 },
+  { us_m: 6.5, us_w: 8, us_y: 6.5 },
+  { us_m: 7, us_w: 8.5, us_y: 7 },
+  { us_m: 7.5, us_w: 9, us_y: null },
+  { us_m: 8, us_w: 9.5, us_y: null },
+  { us_m: 8.5, us_w: 10, us_y: null },
+  { us_m: 9, us_w: 10.5, us_y: null },
+  { us_m: 9.5, us_w: 11, us_y: null },
+  { us_m: 10, us_w: 11.5, us_y: null },
+  { us_m: 10.5, us_w: 12, us_y: null },
+  { us_m: 11, us_w: 12.5, us_y: null },
+  { us_m: 11.5, us_w: 13, us_y: null },
+  { us_m: 12, us_w: 13.5, us_y: null },
+  { us_m: 12.5, us_w: 14, us_y: null },
+  { us_m: 13, us_w: 14.5, us_y: null },
+  { us_m: 14, us_w: 15.5, us_y: null },
+  { us_m: 15, us_w: 16.5, us_y: null },
+] as const satisfies readonly UsSizeCrossEquivalence[];
 
 const EPSILON = 0.0001;
 
@@ -302,22 +338,22 @@ export function getSizeByDisplaySystem(
  */
 export function parseUltimoBracketUs(
   nomeCompleto: string | null | undefined,
-): { value: number; variant: "mens" | "w" | "y" } | null {
+): { value: number; variant: UsSizeVariant } | null {
   if (!nomeCompleto?.trim()) return null;
   const re = /\[\s*US\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*([WY])?\s*\]/gi;
-  let last: { value: number; variant: "mens" | "w" | "y" } | null = null;
+  let last: { value: number; variant: UsSizeVariant } | null = null;
   let m: RegExpExecArray | null;
   while ((m = re.exec(nomeCompleto)) !== null) {
     const n = Number(m[1].replace(",", "."));
     if (!Number.isFinite(n)) continue;
     const suf = (m[2] ?? "").toUpperCase();
-    const variant = suf === "Y" ? "y" : suf === "W" ? "w" : "mens";
+    const variant: UsSizeVariant = suf === "Y" ? "y" : suf === "W" ? "w" : "mens";
     last = { value: n, variant };
   }
   return last;
 }
 
-function formatUsNumericLabel(value: number, variant: "mens" | "w" | "y"): string {
+function formatUsNumericLabel(value: number, variant: UsSizeVariant): string {
   const n = formatDecimalBrStyle(value);
   if (variant === "w") return `US ${n}W`;
   if (variant === "y") return `US ${n}Y`;
@@ -335,9 +371,9 @@ export function getUsDisplayLabel(item: SizeConvertibleItem): string {
   if (parsed) return formatUsNumericLabel(parsed.value, parsed.variant);
 
   const eq = getAllSizeEquivalences(item);
+  if (eq.us_y !== null) return formatUsNumericLabel(eq.us_y, "y");
   if (eq.us_m !== null) return formatUsNumericLabel(eq.us_m, "mens");
   if (eq.us_w !== null) return formatUsNumericLabel(eq.us_w, "w");
-  if (eq.us_y !== null) return formatUsNumericLabel(eq.us_y, "y");
   return "—";
 }
 
@@ -610,16 +646,18 @@ export type NumeracaoEquivalenciaPreenchida = {
   us_variant: UsSizeVariant;
 };
 
+function usValueFromRow(row: ShoeSizeEquivalence, usVariant: UsSizeVariant): number | null {
+  if (usVariant === "w" && row.us_w !== null) return row.us_w;
+  if (usVariant === "y" && row.us_y !== null) return row.us_y;
+  if (usVariant === "mens" && row.us_m !== null) return row.us_m;
+  return row.us_y ?? row.us_m ?? row.us_w;
+}
+
 function rowParaNumeracaoForm(
   row: ShoeSizeEquivalence,
   usVariant: UsSizeVariant,
 ): NumeracaoEquivalenciaPreenchida {
-  const usValue =
-    usVariant === "w" && row.us_w !== null
-      ? row.us_w
-      : usVariant === "y" && row.us_y !== null
-        ? row.us_y
-        : row.us_m;
+  const usValue = usValueFromRow(row, usVariant);
 
   return {
     numeracao_br: row.br !== null ? formatDecimalBrStyle(row.br) : "",
@@ -629,16 +667,22 @@ function rowParaNumeracaoForm(
   };
 }
 
-export function preencherEquivalenciasPorBr(br: number): NumeracaoEquivalenciaPreenchida | null {
+export function preencherEquivalenciasPorBr(
+  br: number,
+  usVariant: UsSizeVariant = "mens",
+): NumeracaoEquivalenciaPreenchida | null {
   const row = findEquivalenceRowByBr(br);
   if (!row) return null;
-  return rowParaNumeracaoForm(row, "mens");
+  return rowParaNumeracaoForm(row, usVariant);
 }
 
-export function preencherEquivalenciasPorEu(eu: number): NumeracaoEquivalenciaPreenchida | null {
+export function preencherEquivalenciasPorEu(
+  eu: number,
+  usVariant: UsSizeVariant = "mens",
+): NumeracaoEquivalenciaPreenchida | null {
   const row = findEquivalenceRowByEu(eu);
   if (!row) return null;
-  return rowParaNumeracaoForm(row, "mens");
+  return rowParaNumeracaoForm(row, usVariant);
 }
 
 export function preencherEquivalenciasPorUs(
@@ -648,6 +692,133 @@ export function preencherEquivalenciasPorUs(
   const row = findEquivalenceRowByUs(value, variant);
   if (!row) return null;
   return rowParaNumeracaoForm(row, variant);
+}
+
+type OrigemNumeracaoForm = "br" | "eu" | "us";
+
+/** Preenche apenas BR ↔ EU; não preenche numeração US. */
+export function aplicarEquivalenciaBrEuForm(
+  origem: "br" | "eu",
+  valorCampo: string,
+): {
+  numeracao_br: string;
+  numeracao_eu: string;
+  sistema_numeracao: "br" | "eu";
+} | null {
+  if (origem === "br") {
+    const br = normalizeSizeValue(valorCampo);
+    if (br === null) return null;
+    const row = findEquivalenceRowByBr(br);
+    if (!row) return null;
+    return {
+      numeracao_br: valorCampo,
+      numeracao_eu: row.eu !== null ? formatDecimalBrStyle(row.eu) : "",
+      sistema_numeracao: "br",
+    };
+  }
+
+  const eu = normalizeSizeValue(valorCampo);
+  if (eu === null) return null;
+  const row = findEquivalenceRowByEu(eu);
+  if (!row) return null;
+  return {
+    numeracao_br: row.br !== null ? formatDecimalBrStyle(row.br) : "",
+    numeracao_eu: valorCampo,
+    sistema_numeracao: "eu",
+  };
+}
+
+/** Preenche numeração US a partir de BR/EU já informados e do tipo US selecionado. */
+export function preencherNumeracaoUsPorTipo(
+  numeracaoBr: string,
+  numeracaoEu: string,
+  usVariant: UsSizeVariant,
+): string | null {
+  const br = normalizeSizeValue(numeracaoBr);
+  const eu = normalizeSizeValue(numeracaoEu);
+  const row =
+    (br !== null ? findEquivalenceRowByBr(br) : null) ??
+    (eu !== null ? findEquivalenceRowByEu(eu) : null);
+  if (!row) return null;
+  const usValue = usValueFromRow(row, usVariant);
+  return usValue !== null ? compactNumber(usValue) : null;
+}
+
+function usCrossValueFromRow(row: UsSizeCrossEquivalence, variant: UsSizeVariant): number | null {
+  if (variant === "mens") return row.us_m;
+  if (variant === "w") return row.us_w;
+  return row.us_y;
+}
+
+function findUsCrossRow(value: number, variant: UsSizeVariant): UsSizeCrossEquivalence | null {
+  return (
+    US_SIZE_CROSS_EQUIVALENCE_TABLE.find((row) => {
+      const col = usCrossValueFromRow(row, variant);
+      return col !== null && sameSize(col, value);
+    }) ?? null
+  );
+}
+
+/** Converte numeração US entre M, W e Y usando a tabela cruzada americana. */
+export function converterNumeracaoUsPorTipo(
+  numeracaoUs: string,
+  fromVariant: UsSizeVariant,
+  toVariant: UsSizeVariant,
+): string | null {
+  const value = normalizeSizeValue(numeracaoUs);
+  if (value === null) return null;
+  if (fromVariant === toVariant) return compactNumber(value);
+
+  const row = findUsCrossRow(value, fromVariant);
+  if (!row) return null;
+
+  const target = usCrossValueFromRow(row, toVariant);
+  return target !== null ? compactNumber(target) : null;
+}
+
+/** Ao mudar o tipo US: converte pela tabela M/W/Y; se não houver par, usa BR/EU. */
+export function numeracaoUsAoMudarTipo(
+  numeracaoBr: string,
+  numeracaoEu: string,
+  numeracaoUs: string,
+  fromVariant: UsSizeVariant | "",
+  toVariant: UsSizeVariant,
+): string {
+  const usNum = normalizeSizeValue(numeracaoUs);
+  if (usNum !== null && fromVariant) {
+    const converted = converterNumeracaoUsPorTipo(numeracaoUs, fromVariant, toVariant);
+    if (converted !== null) return converted;
+  }
+  return preencherNumeracaoUsPorTipo(numeracaoBr, numeracaoEu, toVariant) ?? "";
+}
+
+/** Preenche BR/EU/US a partir de um campo editado, respeitando o tipo US (M/Y/W). */
+export function aplicarEquivalenciaNumeracaoForm(
+  origem: OrigemNumeracaoForm,
+  valorCampo: string,
+  usVariant: UsSizeVariant,
+): (NumeracaoEquivalenciaPreenchida & { sistema_numeracao: OrigemNumeracaoForm }) | null {
+  if (origem === "br") {
+    const br = normalizeSizeValue(valorCampo);
+    if (br === null) return null;
+    const eq = preencherEquivalenciasPorBr(br, usVariant);
+    if (!eq) return null;
+    return { ...eq, numeracao_br: valorCampo, sistema_numeracao: "br" };
+  }
+
+  if (origem === "eu") {
+    const eu = normalizeSizeValue(valorCampo);
+    if (eu === null) return null;
+    const eq = preencherEquivalenciasPorEu(eu, usVariant);
+    if (!eq) return null;
+    return { ...eq, numeracao_eu: valorCampo, sistema_numeracao: "eu" };
+  }
+
+  const usNum = normalizeSizeValue(valorCampo);
+  if (usNum === null) return null;
+  const eq = preencherEquivalenciasPorUs(usNum, usVariant);
+  if (!eq) return null;
+  return { ...eq, numeracao_us: valorCampo, sistema_numeracao: "us" };
 }
 
 /** Monta `{modelo} # [BR…] [EU…] [US…]` no formato Tiny. */

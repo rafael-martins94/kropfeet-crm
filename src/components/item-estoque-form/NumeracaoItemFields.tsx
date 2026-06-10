@@ -1,29 +1,33 @@
-import { FormInput } from "../FormField";
+import { FormInput, FieldWrapper } from "../FormField";
 import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
 import { cn } from "../../utils/cn";
 import type { SistemaNumeracao, StatusItem } from "../../types/entities";
 import type { UsSizeVariant } from "../../utils/sizeConversion";
 
+const NUMERACAO_INPUT_WIDTH = "w-[4.75rem]";
+
 type NumeracaoItemFieldsProps = {
   numeracaoBr: string;
   numeracaoEu: string;
   numeracaoUs: string;
-  usVariant: UsSizeVariant;
+  usVariant: UsSizeVariant | "";
   sistemaNumeracao: SistemaNumeracao;
   onBrChange: (value: string) => void;
   onEuChange: (value: string) => void;
-  onUsChange: (value: string) => void;
+  onUsChange?: (value: string) => void;
   onUsVariantChange: (variant: UsSizeVariant) => void;
   onSistemaChange: (value: SistemaNumeracao) => void;
+  /** US preenchido automaticamente ao selecionar o tipo (campo somente leitura). */
+  usPreenchidoPorTipo?: boolean;
   showStatus?: boolean;
   statusItem?: StatusItem;
   onStatusChange?: (value: StatusItem) => void;
 };
 
 const US_VARIANT_OPCOES = [
-  { value: "mens", label: "M (masculino)" },
-  { value: "y", label: "Y (infantil)" },
-  { value: "w", label: "W (feminino)" },
+  { value: "mens", label: "M" },
+  { value: "y", label: "Y" },
+  { value: "w", label: "W" },
 ] as const;
 
 const SISTEMA_OPCOES = [
@@ -57,42 +61,53 @@ export function NumeracaoItemFields({
   onUsVariantChange,
   onSistemaChange,
   onStatusChange,
+  usPreenchidoPorTipo = false,
   showStatus = true,
 }: NumeracaoItemFieldsProps) {
   return (
-    <div
-      className={cn(
-        "grid grid-cols-1 gap-4",
-        showStatus ? "sm:grid-cols-3 lg:grid-cols-6" : "sm:grid-cols-2 lg:grid-cols-5",
-      )}
-    >
-      <FormInput
-        label="Numeração BR"
-        value={numeracaoBr}
-        onChange={(e) => onBrChange(e.target.value)}
-        inputMode="decimal"
-      />
-      <FormInput
-        label="Numeração EU"
-        value={numeracaoEu}
-        onChange={(e) => onEuChange(e.target.value)}
-        inputMode="decimal"
-      />
-      <FormInput
-        label="Numeração US"
-        value={numeracaoUs}
-        onChange={(e) => onUsChange(e.target.value)}
-        inputMode="decimal"
-        placeholder="Ex.: 10, 6,5"
-      />
-      <SearchableSelectDropdown
-        label="Tipo US"
-        value={usVariant}
-        onChange={(v) => onUsVariantChange(v as UsSizeVariant)}
-        options={[...US_VARIANT_OPCOES]}
-        emptyLabel="— Selecione —"
-        searchPlaceholder="Buscar tipo…"
-      />
+    <div className="flex flex-wrap items-end gap-y-4">
+      <div className="flex flex-wrap items-end gap-x-4">
+        <FormInput
+          label="BR"
+          value={numeracaoBr}
+          onChange={(e) => onBrChange(e.target.value)}
+          inputMode="decimal"
+          wrapperClassName={cn(NUMERACAO_INPUT_WIDTH, "shrink-0")}
+        />
+        <FormInput
+          label="EU"
+          value={numeracaoEu}
+          onChange={(e) => onEuChange(e.target.value)}
+          inputMode="decimal"
+          wrapperClassName={cn(NUMERACAO_INPUT_WIDTH, "shrink-0")}
+        />
+        <FieldWrapper id="numeracao-us" label="US" className="shrink-0">
+          <div className="flex items-center gap-1.5">
+            <input
+              id="numeracao-us"
+              value={numeracaoUs}
+              onChange={onUsChange ? (e) => onUsChange(e.target.value) : undefined}
+              readOnly={usPreenchidoPorTipo}
+              inputMode="decimal"
+              placeholder={usPreenchidoPorTipo ? "—" : "10"}
+              className={cn(
+                "input-base",
+                NUMERACAO_INPUT_WIDTH,
+                usPreenchidoPorTipo && "bg-surface-muted/60",
+              )}
+            />
+            <SearchableSelectDropdown
+              value={usVariant || ""}
+              onChange={(v) => onUsVariantChange(v as UsSizeVariant)}
+              options={[...US_VARIANT_OPCOES]}
+              emptyLabel="Tipo"
+              searchPlaceholder="Tipo…"
+              triggerClassName="w-[7rem] shrink-0 px-2"
+              className="w-[7rem] shrink-0"
+            />
+          </div>
+        </FieldWrapper>
+      </div>
       <SearchableSelectDropdown
         label="Sistema de numeração"
         value={sistemaNumeracao}
@@ -100,6 +115,7 @@ export function NumeracaoItemFields({
         options={[...SISTEMA_OPCOES]}
         emptyLabel="— Selecione —"
         searchPlaceholder="Buscar sistema…"
+        className="ml-6 min-w-[9rem] shrink-0 sm:ml-10"
       />
       {showStatus && statusItem !== undefined && onStatusChange ? (
         <SearchableSelectDropdown
@@ -109,6 +125,7 @@ export function NumeracaoItemFields({
           options={STATUS_OPCOES}
           emptyLabel="— Selecione —"
           searchPlaceholder="Buscar status…"
+          className="ml-4 min-w-[10rem] shrink-0 sm:ml-6"
         />
       ) : null}
     </div>
