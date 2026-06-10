@@ -26,6 +26,7 @@ import ModelosListPage from "./pages/modelos-produto/ModelosListPage";
 import ModeloFormPage from "./pages/modelos-produto/ModeloFormPage";
 import ModeloDetailPage from "./pages/modelos-produto/ModeloDetailPage";
 
+import ConferenciasListPage from "./pages/conferencia-estoque/ConferenciasListPage";
 import ConferenciaEstoquePage from "./pages/conferencia-estoque/ConferenciaEstoquePage";
 import ItensEstoqueListPage from "./pages/itens-estoque/ItensEstoqueListPage";
 import ItemEstoqueFormPage from "./pages/itens-estoque/ItemEstoqueFormPage";
@@ -87,7 +88,8 @@ export default function App() {
             <Route path="/modelos-produto/:id" element={<ModeloDetailPage />} />
             <Route path="/modelos-produto/:id/editar" element={<ModeloFormPage />} />
 
-            <Route path="/conferencia-estoque" element={<ConferenciaEstoquePage />} />
+            <Route path="/conferencia-estoque" element={<ConferenciasListPage />} />
+            <Route path="/conferencia-estoque/:id" element={<ConferenciaEstoquePage />} />
             <Route path="/itens-estoque" element={<ItensEstoqueListPage />} />
             <Route path="/itens-estoque/novo" element={<Navigate to="/ordens-compra/novo" replace />} />
             <Route path="/itens-estoque/:id" element={<ItemEstoqueDetailPage />} />

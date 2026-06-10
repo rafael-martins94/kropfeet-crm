@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { StatusItem } from "../types/entities";
+import type { Conferencia, PaginatedResult, StatusConferencia, StatusItem } from "../types/entities";
 
 export type SituacaoConferenciaFiltro = "" | "pendentes" | "conferidos";
 
@@ -7,12 +7,12 @@ export const situacaoConferenciaOpcoes: Array<{
   value: SituacaoConferenciaFiltro;
   label: string;
 }> = [
-  { value: "", label: "Todos os itens" },
-  { value: "pendentes", label: "Pendentes de conferência" },
-  { value: "conferidos", label: "Conferidos hoje" },
+  { value: "", label: "Todos" },
+  { value: "pendentes", label: "Pendente" },
+  { value: "conferidos", label: "Conferido" },
 ];
 
-export interface ConferenciaHojeInfo {
+export interface ConferenciaItemInfo {
   id: string;
   conferidoEm: string;
   idUsuario: string;
@@ -20,81 +20,144 @@ export interface ConferenciaHojeInfo {
   statusAnterior: StatusItem | null;
 }
 
-export interface ConferenciaHistoricoDia {
-  data: string;
-  totalItens: number;
-}
-
-function dataHojeIso(): string {
-  return new Date().toISOString().slice(0, 10);
+export interface ConferenciaResumo extends Conferencia {
+  totalItensConferidos: number;
+  nomeUsuario: string | null;
 }
 
 export const conferenciasEstoqueService = {
-  conferirItem: async (idItem: string, idLocal?: string | null): Promise<string> => {
+  listar: async (params?: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: StatusConferencia | "";
+  }): Promise<PaginatedResult<ConferenciaResumo>> => {
+    const page = params?.page ?? 1;
+    const pageSize = params?.pageSize ?? 25;
+    const termo = params?.search?.trim();
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from("conferencias")
+      .select("*", { count: "exact" })
+      .order("criado_em", { ascending: false });
+
+    if (params?.status) {
+      query = query.eq("status", params.status);
+    }
+
+    if (termo) {
+      const padrao = `%${termo.replace(/%/g, "")}%`;
+      query = query.ilike("nome", padrao);
+    }
+
+    const { data, error, count } = await query.range(from, to);
+    if (error) throw error;
+
+    const conferencias = data ?? [];
+    const ids = conferencias.map((c) => c.id);
+    const idsUsuarios = [...new Set(conferencias.map((c) => c.id_usuario))];
+
+    const [contagens, nomesPorUsuario] = await Promise.all([
+      conferenciasEstoqueService.contagemItensPorConferencia(ids),
+      conferenciasEstoqueService.nomesUsuarios(idsUsuarios),
+    ]);
+
+    return {
+      data: conferencias.map((c) => ({
+        ...c,
+        totalItensConferidos: contagens.get(c.id) ?? 0,
+        nomeUsuario: nomesPorUsuario.get(c.id_usuario) ?? null,
+      })),
+      total: count ?? 0,
+      page,
+      pageSize,
+    };
+  },
+
+  obter: async (id: string): Promise<ConferenciaResumo | null> => {
+    const { data, error } = await supabase.from("conferencias").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    const [contagens, nomesPorUsuario] = await Promise.all([
+      conferenciasEstoqueService.contagemItensPorConferencia([data.id]),
+      conferenciasEstoqueService.nomesUsuarios([data.id_usuario]),
+    ]);
+
+    return {
+      ...data,
+      totalItensConferidos: contagens.get(data.id) ?? 0,
+      nomeUsuario: nomesPorUsuario.get(data.id_usuario) ?? null,
+    };
+  },
+
+  criar: async (nome: string): Promise<string> => {
+    const { data, error } = await supabase.rpc("criar_conferencia_estoque", {
+      p_nome: nome.trim(),
+    });
+    if (error) throw error;
+    return data as string;
+  },
+
+  fechar: async (idConferencia: string): Promise<void> => {
+    const { error } = await supabase.rpc("fechar_conferencia_estoque", {
+      p_id_conferencia: idConferencia,
+    });
+    if (error) throw error;
+  },
+
+  conferirItem: async (
+    idItem: string,
+    idConferencia: string,
+    idLocal?: string | null,
+  ): Promise<string> => {
     const { data, error } = await supabase.rpc("conferir_item_estoque", {
       p_id_item: idItem,
+      p_id_conferencia: idConferencia,
       p_id_local: idLocal ?? undefined,
     });
     if (error) throw error;
     return data as string;
   },
 
-  desfazerConferencia: async (idItem: string): Promise<void> => {
+  desfazerConferencia: async (idItem: string, idConferencia: string): Promise<void> => {
     const { error } = await supabase.rpc("desfazer_conferencia_item", {
       p_id_item: idItem,
+      p_id_conferencia: idConferencia,
     });
     if (error) throw error;
   },
 
-  idsItensConferidosNaData: async (data: string): Promise<string[]> => {
-    const { data: rows, error } = await supabase
+  idsItensConferidosNaConferencia: async (idConferencia: string): Promise<string[]> => {
+    const { data, error } = await supabase
       .from("conferencias_estoque")
       .select("id_item_estoque")
-      .eq("data_conferencia", data);
+      .eq("id_conferencia", idConferencia);
 
     if (error) throw error;
-    return (rows ?? []).map((r) => r.id_item_estoque);
+    return (data ?? []).map((r) => r.id_item_estoque);
   },
 
-  mapaConferidosHoje: async (idsItens: string[]): Promise<Map<string, ConferenciaHojeInfo>> => {
-    const mapa = new Map<string, ConferenciaHojeInfo>();
+  mapaConferidosNaConferencia: async (
+    idsItens: string[],
+    idConferencia: string,
+  ): Promise<Map<string, ConferenciaItemInfo>> => {
+    const mapa = new Map<string, ConferenciaItemInfo>();
     if (idsItens.length === 0) return mapa;
 
     const { data, error } = await supabase
       .from("conferencias_estoque")
       .select("id, conferido_em, id_usuario, id_item_estoque, status_item_anterior")
-      .eq("data_conferencia", dataHojeIso())
+      .eq("id_conferencia", idConferencia)
       .in("id_item_estoque", idsItens);
 
     if (error) throw error;
 
     const rows = data ?? [];
     const idsUsuarios = [...new Set(rows.map((r) => r.id_usuario))];
-    const nomesPorUsuario = new Map<string, string>();
-
-    if (idsUsuarios.length > 0) {
-      const { data: perfis, error: perfisError } = await (
-        supabase as unknown as {
-          from: (t: string) => {
-            select: (c: string) => {
-              in: (c: string, v: string[]) => Promise<{
-                data: Array<{ id: string; nome: string }> | null;
-                error: unknown;
-              }>;
-            };
-          };
-        }
-      )
-        .from("perfis_usuario")
-        .select("id, nome")
-        .in("id", idsUsuarios);
-
-      if (!perfisError) {
-        for (const p of perfis ?? []) {
-          nomesPorUsuario.set(p.id, p.nome);
-        }
-      }
-    }
+    const nomesPorUsuario = await conferenciasEstoqueService.nomesUsuarios(idsUsuarios);
 
     for (const row of rows) {
       mapa.set(row.id_item_estoque, {
@@ -109,29 +172,51 @@ export const conferenciasEstoqueService = {
     return mapa;
   },
 
-  /** Totais de itens conferidos agrupados por dia, do mais recente ao mais antigo. */
-  historicoResumoPorData: async (): Promise<ConferenciaHistoricoDia[]> => {
-    const contagem = new Map<string, number>();
-    const chunkSize = 1000;
+  contagemItensPorConferencia: async (idsConferencias: string[]): Promise<Map<string, number>> => {
+    const mapa = new Map<string, number>();
+    if (idsConferencias.length === 0) return mapa;
 
-    for (let offset = 0; ; offset += chunkSize) {
-      const { data, error } = await supabase
-        .from("conferencias_estoque")
-        .select("data_conferencia")
-        .order("data_conferencia", { ascending: false })
-        .range(offset, offset + chunkSize - 1);
+    const { data, error } = await supabase
+      .from("conferencias_estoque")
+      .select("id_conferencia")
+      .in("id_conferencia", idsConferencias);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      const lote = data ?? [];
-      for (const row of lote) {
-        contagem.set(row.data_conferencia, (contagem.get(row.data_conferencia) ?? 0) + 1);
-      }
-      if (lote.length < chunkSize) break;
+    for (const row of data ?? []) {
+      if (!row.id_conferencia) continue;
+      mapa.set(row.id_conferencia, (mapa.get(row.id_conferencia) ?? 0) + 1);
     }
 
-    return [...contagem.entries()]
-      .map(([data, totalItens]) => ({ data, totalItens }))
-      .sort((a, b) => b.data.localeCompare(a.data));
+    return mapa;
+  },
+
+  nomesUsuarios: async (idsUsuarios: string[]): Promise<Map<string, string>> => {
+    const mapa = new Map<string, string>();
+    if (idsUsuarios.length === 0) return mapa;
+
+    const { data, error } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            in: (c: string, v: string[]) => Promise<{
+              data: Array<{ id: string; nome: string }> | null;
+              error: unknown;
+            }>;
+          };
+        };
+      }
+    )
+      .from("perfis_usuario")
+      .select("id, nome")
+      .in("id", idsUsuarios);
+
+    if (!error) {
+      for (const p of data ?? []) {
+        mapa.set(p.id, p.nome);
+      }
+    }
+
+    return mapa;
   },
 };

@@ -43,6 +43,9 @@ export type VendaUpdate = Tables["vendas"]["Update"];
 export type ItemVenda = Tables["itens_venda"]["Row"];
 export type MovimentacaoEstoque = Tables["movimentacoes_estoque"]["Row"];
 
+export type Conferencia = Tables["conferencias"]["Row"];
+export type ConferenciaInsert = Tables["conferencias"]["Insert"];
+
 export type ConferenciaEstoque = Tables["conferencias_estoque"]["Row"];
 export type ConferenciaEstoqueInsert = Tables["conferencias_estoque"]["Insert"];
 
@@ -70,6 +73,7 @@ export interface PerfilUsuarioUpdate {
   ativo?: boolean;
 }
 
+export type StatusConferencia = Database["public"]["Enums"]["status_conferencia_enum"];
 export type StatusItem = Database["public"]["Enums"]["status_item_enum"];
 export type SistemaNumeracao = Database["public"]["Enums"]["sistema_numeracao_enum"];
 export type StatusVenda = Database["public"]["Enums"]["status_venda_enum"];

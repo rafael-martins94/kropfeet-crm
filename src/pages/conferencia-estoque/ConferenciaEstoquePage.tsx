@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
 import { ItensEstoqueFiltrosToolbar } from "../../components/itens-estoque/ItensEstoqueFiltrosToolbar";
-import { ItensEstoqueHeaderControls } from "../../components/itens-estoque/ItensEstoqueHeaderControls";
 import { PageHeader } from "../../components/PageHeader";
-import { SecondaryButton } from "../../components/PrimaryButton";
+import { DangerButton, SecondaryButton } from "../../components/PrimaryButton";
 import { Pagination } from "../../components/Pagination";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
@@ -12,7 +12,8 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { IconCheck } from "../../components/Icons";
 import {
   conferenciasEstoqueService,
-  type ConferenciaHojeInfo,
+  type ConferenciaItemInfo,
+  type ConferenciaResumo,
 } from "../../services/conferencias-estoque";
 import {
   itensEstoqueService,
@@ -32,9 +33,10 @@ import {
   getSizeByDisplaySystem,
   getUsDisplayLabel,
 } from "../../utils/sizeConversion";
-import { ConferenciaHistoricoModal } from "./ConferenciaHistoricoModal";
 
 export default function ConferenciaEstoquePage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const filtros = useItensEstoqueFiltros();
   const { perfil, user } = useAuth();
   const nomeUsuarioAtual =
@@ -42,33 +44,52 @@ export default function ConferenciaEstoquePage() {
 
   const [locaisPorItem, setLocaisPorItem] = useState<Record<string, string>>({});
   const [statusPorItem, setStatusPorItem] = useState<Record<string, StatusItem>>({});
-  const [conferidosHoje, setConferidosHoje] = useState<Map<string, ConferenciaHojeInfo>>(
-    () => new Map(),
-  );
+  const [conferidos, setConferidos] = useState<Map<string, ConferenciaItemInfo>>(() => new Map());
   const [conferindoId, setConferindoId] = useState<string | null>(null);
   const [localUpdatingId, setLocalUpdatingId] = useState<string | null>(null);
   const [erroInline, setErroInline] = useState<string | null>(null);
   const [situacaoConferencia, setSituacaoConferencia] = useState<SituacaoConferenciaFiltro>("");
-  const [historicoAberto, setHistoricoAberto] = useState(false);
+  const [fechando, setFechando] = useState(false);
+  const [conferenciaLocal, setConferenciaLocal] = useState<ConferenciaResumo | null>(null);
+
+  const {
+    data: conferencia,
+    loading: loadingConferencia,
+    error: erroConferencia,
+    reload: recarregarConferencia,
+  } = useAsync(
+    () => (id ? conferenciasEstoqueService.obter(id) : Promise.resolve(null)),
+    [id],
+  );
+
+  useEffect(() => {
+    if (conferencia) setConferenciaLocal(conferencia);
+  }, [conferencia]);
+
+  const conferenciaAberta = conferenciaLocal?.status === "aberta";
 
   const paramsListagem = useMemo(
     () => ({
       ...filtros.paramsListagem,
       idCategoria: undefined,
+      regiaoEstoque: undefined,
       situacaoConferencia: situacaoConferencia || undefined,
+      idConferencia: id,
     }),
-    [filtros.paramsListagem, situacaoConferencia],
+    [filtros.paramsListagem, situacaoConferencia, id],
   );
 
   const { data, loading, error } = useAsync(
     () =>
-      itensEstoqueService.listarComRelacoes({
-        page: filtros.page,
-        pageSize: 50,
-        ...paramsListagem,
-        ordenacao: { coluna: "sku", ascendente: true },
-      }),
-    [filtros.page, paramsListagem],
+      id
+        ? itensEstoqueService.listarComRelacoes({
+            page: filtros.page,
+            pageSize: 50,
+            ...paramsListagem,
+            ordenacao: { coluna: "sku", ascendente: true },
+          })
+        : Promise.resolve({ data: [], total: 0, page: 1, pageSize: 50 }),
+    [filtros.page, paramsListagem, id],
   );
 
   const rows = data?.data ?? [];
@@ -76,9 +97,7 @@ export default function ConferenciaEstoquePage() {
   const rowsExibicao = useMemo(
     () =>
       rows.map((row) =>
-        statusPorItem[row.id]
-          ? { ...row, status_item: statusPorItem[row.id] }
-          : row,
+        statusPorItem[row.id] ? { ...row, status_item: statusPorItem[row.id] } : row,
       ),
     [rows, statusPorItem],
   );
@@ -100,32 +119,36 @@ export default function ConferenciaEstoquePage() {
     });
   }, [rows]);
 
-  const carregarConferidos = useCallback(async (ids: string[]) => {
-    if (ids.length === 0) {
-      setConferidosHoje(new Map());
-      return;
-    }
-    try {
-      const mapa = await conferenciasEstoqueService.mapaConferidosHoje(ids);
-      setConferidosHoje((prev) => {
-        const next = new Map<string, ConferenciaHojeInfo>();
-        for (const id of ids) {
-          const doServidor = mapa.get(id);
-          if (doServidor) next.set(id, doServidor);
-          else if (prev.has(id)) next.set(id, prev.get(id)!);
-        }
-        return next;
-      });
-    } catch {
-      /* mantém mapa anterior em falha silenciosa de leitura */
-    }
-  }, []);
+  const carregarConferidos = useCallback(
+    async (ids: string[]) => {
+      if (!id || ids.length === 0) {
+        setConferidos(new Map());
+        return;
+      }
+      try {
+        const mapa = await conferenciasEstoqueService.mapaConferidosNaConferencia(ids, id);
+        setConferidos((prev) => {
+          const next = new Map<string, ConferenciaItemInfo>();
+          for (const itemId of ids) {
+            const doServidor = mapa.get(itemId);
+            if (doServidor) next.set(itemId, doServidor);
+            else if (prev.has(itemId)) next.set(itemId, prev.get(itemId)!);
+          }
+          return next;
+        });
+      } catch {
+        /* mantém mapa anterior em falha silenciosa de leitura */
+      }
+    },
+    [id],
+  );
 
   useEffect(() => {
     void carregarConferidos(rows.map((r) => r.id));
   }, [rows, carregarConferidos]);
 
   const alterarLocalNaLinha = async (idItem: string, idLocal: string) => {
+    if (!conferenciaAberta) return;
     setLocaisPorItem((prev) => ({ ...prev, [idItem]: idLocal }));
     setErroInline(null);
     setLocalUpdatingId(idItem);
@@ -158,37 +181,41 @@ export default function ConferenciaEstoquePage() {
   };
 
   const conferirItem = async (item: ItemEstoqueDetalhado) => {
-    if (conferidosHoje.has(item.id) || conferindoId === item.id) return;
+    if (!id || !conferenciaAberta || conferidos.has(item.id) || conferindoId === item.id) return;
     setErroInline(null);
     setConferindoId(item.id);
 
     const statusAnterior = item.status_item;
-    const conferidoOtimista: ConferenciaHojeInfo = {
+    const conferidoOtimista: ConferenciaItemInfo = {
       id: "otimista",
       conferidoEm: new Date().toISOString(),
       idUsuario: user?.id ?? "",
       nomeUsuario: nomeUsuarioAtual,
       statusAnterior,
     };
-    setConferidosHoje((prev) => new Map(prev).set(item.id, conferidoOtimista));
+    setConferidos((prev) => new Map(prev).set(item.id, conferidoOtimista));
     aplicarStatusLocal(item.id, "em_estoque");
 
     try {
       const idLocal = locaisPorItem[item.id] ?? item.id_local_estoque ?? null;
-      const idConferencia = await conferenciasEstoqueService.conferirItem(
+      const idConferenciaItem = await conferenciasEstoqueService.conferirItem(
         item.id,
+        id,
         idLocal || null,
       );
-      setConferidosHoje((prev) => {
+      setConferidos((prev) => {
         const next = new Map(prev);
         next.set(item.id, {
           ...conferidoOtimista,
-          id: idConferencia,
+          id: idConferenciaItem,
         });
         return next;
       });
+      setConferenciaLocal((prev) =>
+        prev ? { ...prev, totalItensConferidos: prev.totalItensConferidos + 1 } : prev,
+      );
     } catch (e) {
-      setConferidosHoje((prev) => {
+      setConferidos((prev) => {
         const next = new Map(prev);
         next.delete(item.id);
         return next;
@@ -201,13 +228,14 @@ export default function ConferenciaEstoquePage() {
   };
 
   const desfazerConferencia = async (item: ItemEstoqueDetalhado) => {
-    const conferido = conferidosHoje.get(item.id);
+    if (!id || !conferenciaAberta) return;
+    const conferido = conferidos.get(item.id);
     if (!conferido || conferindoId === item.id) return;
     setErroInline(null);
     setConferindoId(item.id);
 
     const snapshotConferido = conferido;
-    setConferidosHoje((prev) => {
+    setConferidos((prev) => {
       const next = new Map(prev);
       next.delete(item.id);
       return next;
@@ -215,9 +243,14 @@ export default function ConferenciaEstoquePage() {
     aplicarStatusLocal(item.id, snapshotConferido.statusAnterior);
 
     try {
-      await conferenciasEstoqueService.desfazerConferencia(item.id);
+      await conferenciasEstoqueService.desfazerConferencia(item.id, id);
+      setConferenciaLocal((prev) =>
+        prev
+          ? { ...prev, totalItensConferidos: Math.max(0, prev.totalItensConferidos - 1) }
+          : prev,
+      );
     } catch (e) {
-      setConferidosHoje((prev) => new Map(prev).set(item.id, snapshotConferido));
+      setConferidos((prev) => new Map(prev).set(item.id, snapshotConferido));
       aplicarStatusLocal(item.id, "em_estoque");
       setErroInline(mensagemErro(e));
     } finally {
@@ -226,166 +259,228 @@ export default function ConferenciaEstoquePage() {
   };
 
   const alternarConferencia = (item: ItemEstoqueDetalhado) => {
-    if (conferidosHoje.has(item.id)) {
+    if (!conferenciaAberta) return;
+    if (conferidos.has(item.id)) {
       void desfazerConferencia(item);
     } else {
       void conferirItem(item);
     }
   };
 
+  const fecharConferencia = async () => {
+    if (!id || !conferenciaAberta || fechando) return;
+    const confirmar = window.confirm(
+      "Fechar esta conferência? Depois de fechada, não será mais possível conferir ou desfazer itens.",
+    );
+    if (!confirmar) return;
+
+    setFechando(true);
+    setErroInline(null);
+    try {
+      await conferenciasEstoqueService.fechar(id);
+      setConferenciaLocal((prev) =>
+        prev ? { ...prev, status: "fechada", fechado_em: new Date().toISOString() } : prev,
+      );
+      recarregarConferencia();
+    } catch (e) {
+      setErroInline(mensagemErro(e));
+    } finally {
+      setFechando(false);
+    }
+  };
+
   const columns: Column<ItemEstoqueDetalhado>[] = [
-      {
-        key: "check",
-        header: <span className="sr-only">Conferir</span>,
-        width: "56px",
-        className: "align-middle",
-        render: (it) => {
-          const conferido = conferidosHoje.get(it.id);
-          const emAndamento = conferindoId === it.id;
-          const tooltip = conferido
+    {
+      key: "check",
+      header: <span className="sr-only">Conferir</span>,
+      width: "56px",
+      className: "align-middle",
+      render: (it) => {
+        const conferido = conferidos.get(it.id);
+        const emAndamento = conferindoId === it.id;
+        const tooltip = !conferenciaAberta
+          ? "Conferência fechada"
+          : conferido
             ? `Conferido ${formatarDataHora(conferido.conferidoEm)}${
                 conferido.nomeUsuario ? ` por ${conferido.nomeUsuario}` : ""
               }. Clique para desfazer.`
             : "Clique na linha para conferir";
 
-          if (conferido) {
-            return (
-              <div
-                className={cn(
-                  "inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-500/30 transition-transform",
-                  emAndamento && "animate-pulse opacity-70",
-                  !emAndamento && "hover:scale-105 hover:ring-2 hover:ring-emerald-300/60",
-                )}
-                title={tooltip}
-                aria-label={`Conferido: ${it.sku}. Clique para desfazer.`}
-              >
-                <IconCheck width={20} height={20} strokeWidth={2.6} />
-              </div>
-            );
-          }
-
+        if (conferido) {
           return (
-            <span
+            <div
               className={cn(
-                "inline-block h-10 w-10 rounded-full bg-zinc-300 ring-1 ring-zinc-400/40",
+                "inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-500/30 transition-transform",
                 emAndamento && "animate-pulse opacity-70",
+                conferenciaAberta && !emAndamento && "hover:scale-105 hover:ring-2 hover:ring-emerald-300/60",
               )}
               title={tooltip}
-              aria-hidden
-            />
-          );
-        },
-      },
-      {
-        key: "sku",
-        header: "SKU",
-        width: "118px",
-        render: (it) => (
-          <span className="block max-w-[7rem] truncate font-numeric tabular-nums text-xs">{it.sku}</span>
-        ),
-      },
-      {
-        key: "produto",
-        header: "Produto",
-        headerClassName: "min-w-[11rem]",
-        className: "min-w-[11rem] max-w-[min(34vw,17rem)]",
-        render: (it) => (
-          <span className="block truncate text-sm font-medium text-ink" title={it.nome_produto}>
-            {it.nome_produto}
-          </span>
-        ),
-      },
-      {
-        key: "numeracao",
-        header: "NUM",
-        width: "96px",
-        render: (it) => {
-          const principal =
-            filtros.displaySizeSystem === "us"
-              ? getUsDisplayLabel(it)
-              : formatSizeLabel(
-                  getSizeByDisplaySystem(it, filtros.displaySizeSystem),
-                  filtros.displaySizeSystem,
-                );
-          const secundarias = getSecondaryEquivalenceLabelsAfterPrimary(
-            filtros.displaySizeSystem,
-            it,
-          );
-          const tooltipEq = secundarias.length > 0 ? secundarias.join(" • ") : undefined;
-
-          return (
-            <span
-              className={cn(
-                "inline-block max-w-[6rem] truncate text-sm font-medium tabular-nums text-ink-muted",
-                tooltipEq && "cursor-help",
-              )}
-              title={tooltipEq}
+              aria-label={`Conferido: ${it.sku}. ${conferenciaAberta ? "Clique para desfazer." : ""}`}
             >
-              {principal}
-            </span>
+              <IconCheck width={20} height={20} strokeWidth={2.6} />
+            </div>
           );
-        },
+        }
+
+        return (
+          <span
+            className={cn(
+              "inline-block h-10 w-10 rounded-full bg-zinc-300 ring-1 ring-zinc-400/40",
+              emAndamento && "animate-pulse opacity-70",
+            )}
+            title={tooltip}
+            aria-hidden
+          />
+        );
       },
-      {
-        key: "local",
-        header: "Local",
-        headerClassName: "min-w-[11rem]",
-        className: "min-w-[11rem]",
-        render: (it) => (
-          <div className="min-w-[10rem]" onClick={(e) => e.stopPropagation()}>
-            <SearchableSelectDropdown
-              value={locaisPorItem[it.id] ?? it.id_local_estoque ?? ""}
-              options={filtros.opcoesLocalLinha}
-              loading={localUpdatingId === it.id}
-              searchPlaceholder="Buscar local…"
-              triggerClassName="w-full min-w-0"
-              className="w-full min-w-0"
-              onChange={(v) => {
-                void alterarLocalNaLinha(it.id, v);
-              }}
-            />
-          </div>
-        ),
+    },
+    {
+      key: "sku",
+      header: "SKU",
+      width: "118px",
+      render: (it) => (
+        <span className="block max-w-[7rem] truncate font-numeric tabular-nums text-xs">{it.sku}</span>
+      ),
+    },
+    {
+      key: "produto",
+      header: "Produto",
+      headerClassName: "min-w-[11rem]",
+      className: "min-w-[11rem] max-w-[min(34vw,17rem)]",
+      render: (it) => (
+        <span className="block truncate text-sm font-medium text-ink" title={it.nome_produto}>
+          {it.nome_produto}
+        </span>
+      ),
+    },
+    {
+      key: "numeracao",
+      header: "NUM",
+      width: "96px",
+      render: (it) => {
+        const principal =
+          filtros.displaySizeSystem === "us"
+            ? getUsDisplayLabel(it)
+            : formatSizeLabel(
+                getSizeByDisplaySystem(it, filtros.displaySizeSystem),
+                filtros.displaySizeSystem,
+              );
+        const secundarias = getSecondaryEquivalenceLabelsAfterPrimary(
+          filtros.displaySizeSystem,
+          it,
+        );
+        const tooltipEq = secundarias.length > 0 ? secundarias.join(" • ") : undefined;
+
+        return (
+          <span
+            className={cn(
+              "inline-block max-w-[6rem] truncate text-sm font-medium tabular-nums text-ink-muted",
+              tooltipEq && "cursor-help",
+            )}
+            title={tooltipEq}
+          >
+            {principal}
+          </span>
+        );
       },
-      {
-        key: "status",
-        header: "Status",
-        width: "140px",
-        render: (it) => <StatusBadge value={it.status_item} />,
-      },
-    ];
+    },
+    {
+      key: "local",
+      header: "Local",
+      headerClassName: "min-w-[11rem]",
+      className: "min-w-[11rem]",
+      render: (it) => (
+        <div className="min-w-[10rem]" onClick={(e) => e.stopPropagation()}>
+          <SearchableSelectDropdown
+            value={locaisPorItem[it.id] ?? it.id_local_estoque ?? ""}
+            options={filtros.opcoesLocalLinha}
+            loading={localUpdatingId === it.id}
+            searchPlaceholder="Buscar local…"
+            triggerClassName="w-full min-w-0"
+            className="w-full min-w-0"
+            disabled={!conferenciaAberta}
+            onChange={(v) => {
+              void alterarLocalNaLinha(it.id, v);
+            }}
+          />
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      width: "140px",
+      render: (it) => <StatusBadge value={it.status_item} />,
+    },
+  ];
+
+  if (!id) {
+    return (
+      <div className="p-5 text-sm text-red-700">
+        Conferência não informada.{" "}
+        <Link to="/conferencia-estoque" className="underline">
+          Voltar para a lista
+        </Link>
+      </div>
+    );
+  }
+
+  if (erroConferencia) {
+    return <div className="p-5 text-sm text-red-700">Erro: {erroConferencia.message}</div>;
+  }
+
+  if (!loadingConferencia && !conferencia) {
+    return (
+      <div className="p-5 text-sm text-ink-muted">
+        Conferência não encontrada.{" "}
+        <Link to="/conferencia-estoque" className="text-brand-600 underline">
+          Voltar para a lista
+        </Link>
+      </div>
+    );
+  }
+
+  const titulo = conferenciaLocal?.nome ?? "Conferência";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
-        title="Conferência de estoque"
+        title={titulo}
         titleAccessory={
-          <ItensEstoqueHeaderControls
-            displaySizeSystem={filtros.displaySizeSystem}
-            onDisplaySizeSystemChange={(v) => {
-              filtros.setDisplaySizeSystem(v);
-              filtros.resetPage();
-            }}
-            regiaoEstoque={filtros.regiaoEstoque}
-            onRegiaoEstoqueChange={(novaRegiao) => {
-              filtros.setRegiaoEstoque(novaRegiao);
-              filtros.aplicarFiltroLocaisPorRegiao(novaRegiao);
-              filtros.resetPage();
-            }}
-          />
+          conferenciaLocal ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge value={conferenciaLocal.status} />
+              <span className="text-sm text-ink-soft">
+                {conferenciaLocal.totalItensConferidos.toLocaleString("pt-BR")} itens conferidos
+              </span>
+            </div>
+          ) : null
         }
-        breadcrumbs={[{ label: "Operação" }, { label: "Conferência de estoque" }]}
+        breadcrumbs={[
+          { label: "Operação" },
+          { label: "Conferência de estoque", to: "/conferencia-estoque" },
+          { label: titulo },
+        ]}
         actions={
-          <SecondaryButton type="button" onClick={() => setHistoricoAberto(true)}>
-            Histórico de conferências
-          </SecondaryButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <SecondaryButton type="button" onClick={() => navigate("/conferencia-estoque")}>
+              Voltar
+            </SecondaryButton>
+            {conferenciaAberta ? (
+              <DangerButton type="button" loading={fechando} onClick={() => void fecharConferencia()}>
+                Fechar conferência
+              </DangerButton>
+            ) : null}
+          </div>
         }
       />
 
-      <ConferenciaHistoricoModal
-        open={historicoAberto}
-        onClose={() => setHistoricoAberto(false)}
-      />
+      {!conferenciaAberta ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Esta conferência está fechada. Os itens conferidos permanecem registrados, mas não é possível
+          conferir ou desfazer itens.
+        </div>
+      ) : null}
 
       <SectionCard
         noPadding
@@ -447,13 +542,13 @@ export default function ConferenciaEstoquePage() {
                 columns={columns}
                 rows={rowsExibicao}
                 rowKey={(it) => it.id}
-                loading={loading}
+                loading={loading || loadingConferencia}
                 emptyTitle="Nenhum item encontrado"
-                onRowClick={alternarConferencia}
+                onRowClick={conferenciaAberta ? alternarConferencia : undefined}
                 rowClassName={(it) =>
                   cn(
-                    "cursor-pointer hover:bg-surface-muted/60",
-                    conferidosHoje.has(it.id) && "bg-emerald-50/40 hover:bg-emerald-50/60",
+                    conferenciaAberta && "cursor-pointer hover:bg-surface-muted/60",
+                    conferidos.has(it.id) && "bg-emerald-50/40 hover:bg-emerald-50/60",
                   )
                 }
               />

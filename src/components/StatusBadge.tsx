@@ -44,6 +44,8 @@ const mapaPadrao: Record<string, Tom> = {
   paga: "sucesso",
   cancelada: "erro",
   devolvida: "neutro",
+  aberta: "sucesso",
+  fechada: "zinco",
   ativo: "sucesso",
   sucesso: "sucesso",
   erro: "erro",

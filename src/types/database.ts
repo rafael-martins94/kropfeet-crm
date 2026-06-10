@@ -84,12 +84,40 @@ export type Database = {
         }
         Relationships: []
       }
+      conferencias: {
+        Row: {
+          criado_em: string
+          fechado_em: string | null
+          id: string
+          id_usuario: string
+          nome: string
+          status: Database["public"]["Enums"]["status_conferencia_enum"]
+        }
+        Insert: {
+          criado_em?: string
+          fechado_em?: string | null
+          id?: string
+          id_usuario: string
+          nome: string
+          status?: Database["public"]["Enums"]["status_conferencia_enum"]
+        }
+        Update: {
+          criado_em?: string
+          fechado_em?: string | null
+          id?: string
+          id_usuario?: string
+          nome?: string
+          status?: Database["public"]["Enums"]["status_conferencia_enum"]
+        }
+        Relationships: []
+      }
       conferencias_estoque: {
         Row: {
           conferido_em: string
           criado_em: string
           data_conferencia: string
           id: string
+          id_conferencia: string | null
           id_item_estoque: string
           id_local_estoque: string | null
           id_usuario: string
@@ -100,6 +128,7 @@ export type Database = {
           criado_em?: string
           data_conferencia?: string
           id?: string
+          id_conferencia?: string | null
           id_item_estoque: string
           id_local_estoque?: string | null
           id_usuario: string
@@ -110,12 +139,20 @@ export type Database = {
           criado_em?: string
           data_conferencia?: string
           id?: string
+          id_conferencia?: string | null
           id_item_estoque?: string
           id_local_estoque?: string | null
           id_usuario?: string
           status_item_anterior?: Database["public"]["Enums"]["status_item_enum"] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "conferencias_estoque_id_conferencia_fkey"
+            columns: ["id_conferencia"]
+            isOneToOne: false
+            referencedRelation: "conferencias"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conferencias_estoque_id_item_estoque_fkey"
             columns: ["id_item_estoque"]
@@ -671,11 +708,20 @@ export type Database = {
         Returns: { id: string; modelos: number; itens: number }[]
       }
       conferir_item_estoque: {
-        Args: { p_id_item: string; p_id_local?: string }
+        Args: {
+          p_id_conferencia: string
+          p_id_item: string
+          p_id_local?: string
+        }
         Returns: string
       }
+      criar_conferencia_estoque: { Args: { p_nome: string }; Returns: string }
       desfazer_conferencia_item: {
-        Args: { p_id_item: string }
+        Args: { p_id_conferencia: string; p_id_item: string }
+        Returns: undefined
+      }
+      fechar_conferencia_estoque: {
+        Args: { p_id_conferencia: string }
         Returns: undefined
       }
       criar_ordem_compra_com_item: {
@@ -716,6 +762,7 @@ export type Database = {
       origem_cadastro_enum: "manual" | "tiny" | "importacao_planilha" | "api"
       sistema_numeracao_enum: "br" | "eu" | "us" | "outro"
       situacao_fornecedor_enum: "ativo" | "inativo"
+      status_conferencia_enum: "aberta" | "fechada"
       status_item_enum:
         | "devolvido"
         | "em_estoque"

@@ -119,8 +119,10 @@ export const itensEstoqueService = {
       ordenacao?: { coluna: ColunaOrdemItemEstoque; ascendente: boolean };
       displaySizeSystem?: DisplaySizeSystem;
       numeracao?: string;
-      /** Filtro da tela de conferência: pendentes ou conferidos no dia atual. */
+      /** Filtro da tela de conferência: pendentes ou conferidos na sessão. */
       situacaoConferencia?: SituacaoConferenciaFiltro;
+      /** UUID da sessão de conferência ativa. */
+      idConferencia?: string;
     },
   ) => {
     const page = params?.page ?? 1;
@@ -137,13 +139,13 @@ export const itensEstoqueService = {
     const filtroNumeracao = params?.numeracao?.trim();
     const displaySizeSystem = params?.displaySizeSystem ?? "br";
     const situacaoConferencia = params?.situacaoConferencia ?? "";
-    const dataConferenciaHoje = new Date().toISOString().slice(0, 10);
+    const idConferencia = params?.idConferencia;
     const ordenarSkuEmMemoria = coluna === "sku";
     const processarEmMemoria = Boolean(filtroNumeracao) || ordenarSkuEmMemoria;
 
-    const idsConferidosHoje =
-      situacaoConferencia === "pendentes"
-        ? await conferenciasEstoqueService.idsItensConferidosNaData(dataConferenciaHoje)
+    const idsConferidosNaSessao =
+      situacaoConferencia === "pendentes" && idConferencia
+        ? await conferenciasEstoqueService.idsItensConferidosNaConferencia(idConferencia)
         : [];
 
     const modeloEmbed =
@@ -155,8 +157,8 @@ export const itensEstoqueService = {
         ? "local:locais_estoque!inner(id, nome, codigo, pais, tipo_regiao)"
         : "local:locais_estoque(id, nome, codigo, pais, tipo_regiao)";
     const conferenciaEmbed =
-      situacaoConferencia === "conferidos"
-        ? "conferencias_estoque!inner(id, data_conferencia)"
+      situacaoConferencia === "conferidos" && idConferencia
+        ? "conferencias_estoque!inner(id, id_conferencia)"
         : null;
 
     const buildQuery = () => {
@@ -214,10 +216,13 @@ export const itensEstoqueService = {
         query = query.in("local.pais", REGIAO_PARA_PAISES_LOCAL[filtroRegiao]);
       }
 
-      if (situacaoConferencia === "conferidos") {
-        query = query.eq("conferencias_estoque.data_conferencia", dataConferenciaHoje);
-      } else if (situacaoConferencia === "pendentes" && idsConferidosHoje.length > 0) {
-        query = query.not("id", "in", `(${idsConferidosHoje.join(",")})`);
+      if (situacaoConferencia === "conferidos" && idConferencia) {
+        query = query.eq("conferencias_estoque.id_conferencia", idConferencia);
+      } else if (
+        situacaoConferencia === "pendentes" &&
+        idsConferidosNaSessao.length > 0
+      ) {
+        query = query.not("id", "in", `(${idsConferidosNaSessao.join(",")})`);
       }
 
       if (termo) {
