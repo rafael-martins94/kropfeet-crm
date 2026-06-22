@@ -9,11 +9,13 @@ import { modelosProdutoService } from "../../services/modelos-produto";
 import { marcasService } from "../../services/marcas";
 import { categoriasService } from "../../services/categorias";
 import { useAsync } from "../../hooks/useAsync";
+import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { formatarDataHora, traduzirEnum } from "../../utils/format";
 
 export default function ModeloDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const returnToLista = useListReturnTo("/modelos-produto");
 
   const modelo = useAsync(
     () => (id ? modelosProdutoService.obter(id) : Promise.resolve(null)),
@@ -43,7 +45,7 @@ export default function ModeloDetailPage() {
     if (!window.confirm(`Excluir modelo "${modelo.data.nome_modelo}"?`)) return;
     try {
       await modelosProdutoService.deletar(id);
-      navigate("/modelos-produto");
+      navigate(returnToLista);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Falha ao excluir.");
     }
@@ -55,16 +57,20 @@ export default function ModeloDetailPage() {
         title={modelo.data?.nome_modelo ?? "Modelo"}
         breadcrumbs={[
           { label: "Catálogo" },
-          { label: "Modelos", to: "/modelos-produto" },
+          { label: "Modelos", to: returnToLista },
           { label: modelo.data?.nome_modelo ?? "…" },
         ]}
-        backTo="/modelos-produto"
+        backTo={returnToLista}
         actions={
           modelo.data ? (
             <>
               <SecondaryButton
                 icon={<IconEdit width={16} height={16} />}
-                onClick={() => navigate(`/modelos-produto/${modelo.data!.id}/editar`)}
+                onClick={() =>
+                  navigate(`/modelos-produto/${modelo.data!.id}/editar`, {
+                    state: { returnTo: returnToLista },
+                  })
+                }
               >
                 Editar
               </SecondaryButton>

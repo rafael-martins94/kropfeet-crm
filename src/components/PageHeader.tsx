@@ -5,6 +5,7 @@ import { IconChevronLeft } from "./Icons";
 interface Crumb {
   label: string;
   to?: string;
+  state?: unknown;
 }
 
 interface PageHeaderProps {
@@ -13,6 +14,7 @@ interface PageHeaderProps {
   breadcrumbs?: Crumb[];
   actions?: ReactNode;
   backTo?: string;
+  backState?: unknown;
 }
 
 export function PageHeader({
@@ -21,6 +23,7 @@ export function PageHeader({
   breadcrumbs,
   actions,
   backTo,
+  backState,
 }: PageHeaderProps) {
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -30,7 +33,7 @@ export function PageHeader({
             {breadcrumbs.map((c, i) => (
               <span key={`${c.label}-${i}`} className="flex items-center gap-1.5">
                 {c.to ? (
-                  <Link to={c.to} className="hover:text-brand-600 transition-colors">
+                  <Link to={c.to} state={c.state} className="hover:text-brand-600 transition-colors">
                     {c.label}
                   </Link>
                 ) : (
@@ -47,6 +50,7 @@ export function PageHeader({
           {backTo ? (
             <Link
               to={backTo}
+              state={backState}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink-muted transition hover:border-brand-400 hover:text-brand-700"
               aria-label="Voltar"
             >

@@ -11,6 +11,7 @@ import { fornecedoresService } from "../../services/fornecedores";
 import { locaisEstoqueService } from "../../services/locais-estoque";
 import { ordensCompraService } from "../../services/ordens-compra";
 import { useAsync } from "../../hooks/useAsync";
+import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { cn } from "../../utils/cn";
 import { formatarData, formatarDataHora, formatarMoeda } from "../../utils/format";
 import {
@@ -22,6 +23,7 @@ import {
 export default function ItemEstoqueDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const returnToLista = useListReturnTo("/itens-estoque");
 
   const item = useAsync(
     () => (id ? itensEstoqueService.obter(id) : Promise.resolve(null)),
@@ -87,15 +89,19 @@ export default function ItemEstoqueDetailPage() {
         }
         breadcrumbs={[
           { label: "Catálogo" },
-          { label: "Itens de estoque", to: "/itens-estoque" },
+          { label: "Itens de estoque", to: returnToLista },
           { label: item.data?.sku ?? "…" },
         ]}
-        backTo="/itens-estoque"
+        backTo={returnToLista}
         actions={
           item.data ? (
             <SecondaryButton
               icon={<IconEdit width={16} height={16} />}
-              onClick={() => navigate(`/itens-estoque/${item.data!.id}/editar`)}
+              onClick={() =>
+                navigate(`/itens-estoque/${item.data!.id}/editar`, {
+                  state: { returnTo: returnToLista },
+                })
+              }
             >
               Editar
             </SecondaryButton>

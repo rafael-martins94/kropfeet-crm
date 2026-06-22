@@ -13,6 +13,7 @@ import { itensEstoqueService } from "../../services/itens-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { locaisEstoqueService } from "../../services/locais-estoque";
 import { useAsync } from "../../hooks/useAsync";
+import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { limparParaBanco } from "../../utils/format";
 import {
   montarNomeProdutoComNumeracoes,
@@ -83,6 +84,8 @@ function preencherUsSeTipoSelecionado(
 export default function ItemEstoqueFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const returnToLista = useListReturnTo("/itens-estoque");
+  const detalheState = id ? { returnTo: returnToLista } : undefined;
 
   const [form, setForm] = useState<FormState>(vazio);
   const [modeloVinculado, setModeloVinculado] = useState<ModeloProduto | null>(null);
@@ -277,7 +280,7 @@ export default function ItemEstoqueFormPage() {
       } as unknown as ItemEstoqueUpdate;
 
       await itensEstoqueService.atualizar(id, payload);
-      navigate(`/itens-estoque/${id}`);
+      navigate(`/itens-estoque/${id}`, { state: detalheState });
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao salvar.");
     } finally {
@@ -298,10 +301,10 @@ export default function ItemEstoqueFormPage() {
         }
         breadcrumbs={[
           { label: "Catálogo" },
-          { label: "Itens de estoque", to: "/itens-estoque" },
+          { label: "Itens de estoque", to: returnToLista },
           { label: form.sku || "Editar" },
         ]}
-        backTo={id ? `/itens-estoque/${id}` : "/itens-estoque"}
+        backTo={returnToLista}
       />
 
       {loadingInicial ? (
@@ -381,7 +384,7 @@ export default function ItemEstoqueFormPage() {
           <div className="flex items-center justify-end gap-2 border-t border-line pt-4">
             <SecondaryButton
               type="button"
-              onClick={() => navigate(id ? `/itens-estoque/${id}` : "/itens-estoque")}
+              onClick={() => navigate(returnToLista)}
             >
               Cancelar
             </SecondaryButton>

@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
@@ -11,60 +10,39 @@ import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { IconEdit, IconEye, IconPlus } from "../../components/Icons";
 import { modelosProdutoService, type ModeloProdutoDetalhado } from "../../services/modelos-produto";
-import { marcasService } from "../../services/marcas";
-import { categoriasService } from "../../services/categorias";
 import { useAsync } from "../../hooks/useAsync";
-import { useDebounce } from "../../hooks/useDebounce";
+import { useListDetailNavigation } from "../../hooks/useListDetailNavigation";
+import { useModelosProdutoFiltros } from "../../hooks/useModelosProdutoFiltros";
 import { formatarDataHora } from "../../utils/format";
 import { cn } from "../../utils/cn";
 
 export default function ModelosListPage() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [idMarca, setIdMarca] = useState("");
-  const [idCategoria, setIdCategoria] = useState("");
-  const searchDebounced = useDebounce(search, 400);
-
-  const marcas = useAsync(() => marcasService.listarTodas(), []);
-  const categorias = useAsync(() => categoriasService.listarTodas(), []);
-
-  const opcoesMarca = useMemo(
-    () => [
-      { value: "", label: "Todas as marcas" },
-      ...(marcas.data ?? []).map((m) => ({ value: m.id, label: m.nome })),
-    ],
-    [marcas.data],
-  );
-
-  const opcoesCategoria = useMemo(
-    () => [
-      { value: "", label: "Todas as categorias" },
-      ...(categorias.data ?? []).map((c) => ({ value: c.id, label: c.nome })),
-    ],
-    [categorias.data],
-  );
+  const filtros = useModelosProdutoFiltros();
+  const { toDetail } = useListDetailNavigation();
+  const linkModelo = (path: string) => toDetail(path);
 
   const { data, loading, error } = useAsync(
     () =>
       modelosProdutoService.listarComRelacoes({
-        page,
+        page: filtros.page,
         pageSize: 20,
-        search: searchDebounced,
-        idMarca: idMarca || undefined,
-        idCategoria: idCategoria || undefined,
+        ...filtros.paramsListagem,
       }),
-    [page, searchDebounced, idMarca, idCategoria],
+    [filtros.page, filtros.paramsListagem],
   );
 
   const columns: Column<ModeloProdutoDetalhado>[] = [
     {
       key: "nome",
       header: "Modelo",
-      render: (m) => (
+      render: (m) => {
+        const detalhe = linkModelo(`/modelos-produto/${m.id}`);
+        return (
         <div className="min-w-0">
           <Link
-            to={`/modelos-produto/${m.id}`}
+            to={detalhe.to}
+            state={detalhe.options?.state}
             className="block truncate font-medium text-ink hover:text-brand-700"
           >
             {m.nome_modelo}
@@ -73,7 +51,8 @@ export default function ModelosListPage() {
             <p className="mt-0.5 truncate text-xs text-ink-soft">{m.cor}</p>
           ) : null}
         </div>
-      ),
+        );
+      },
     },
     {
       key: "marca",
@@ -126,12 +105,16 @@ export default function ModelosListPage() {
       header: <span className="sr-only">Ações</span>,
       width: "96px",
       className: "text-right",
-      render: (m) => (
+      render: (m) => {
+        const detalhe = linkModelo(`/modelos-produto/${m.id}`);
+        const editar = linkModelo(`/modelos-produto/${m.id}/editar`);
+        return (
         <div className="flex justify-end gap-1">
-          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(`/modelos-produto/${m.id}`)}><IconEye width={16} height={16} /></button>
-          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(`/modelos-produto/${m.id}/editar`)}><IconEdit width={16} height={16} /></button>
+          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(detalhe.to, detalhe.options)}><IconEye width={16} height={16} /></button>
+          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(editar.to, editar.options)}><IconEdit width={16} height={16} /></button>
         </div>
-      ),
+        );
+      },
     },
   ];
 
@@ -167,40 +150,33 @@ export default function ModelosListPage() {
               >
                 <SearchInput
                   placeholder="Buscar por nome, slug, código, cor…"
-                  value={search}
+                  value={filtros.search}
                   onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
+                    filtros.setSearch(e.target.value);
                   }}
                   wrapperClassName="min-w-0 w-full"
                 />
                 <SearchableSelectDropdown
                   label="Marca"
-                  value={idMarca}
-                  options={opcoesMarca}
+                  value={filtros.idMarca}
+                  options={filtros.opcoesMarca}
                   emptyLabel="Todas as marcas"
-                  loading={marcas.loading}
+                  loading={filtros.marcas.loading}
                   searchPlaceholder="Buscar marca…"
                   triggerClassName="w-full min-w-0"
                   className="min-w-0 w-full"
-                  onChange={(v) => {
-                    setIdMarca(v);
-                    setPage(1);
-                  }}
+                  onChange={filtros.setIdMarca}
                 />
                 <SearchableSelectDropdown
                   label="Categoria"
-                  value={idCategoria}
-                  options={opcoesCategoria}
+                  value={filtros.idCategoria}
+                  options={filtros.opcoesCategoria}
                   emptyLabel="Todas as categorias"
-                  loading={categorias.loading}
+                  loading={filtros.categorias.loading}
                   searchPlaceholder="Buscar categoria…"
                   triggerClassName="w-full min-w-0"
                   className="min-w-0 w-full"
-                  onChange={(v) => {
-                    setIdCategoria(v);
-                    setPage(1);
-                  }}
+                  onChange={filtros.setIdCategoria}
                 />
                 <div className="flex items-end justify-end pb-2 text-xs text-ink-soft lg:pb-0 lg:pl-2">
                   {data ? `${data.total.toLocaleString("pt-BR")} modelos` : ""}
@@ -227,7 +203,7 @@ export default function ModelosListPage() {
                 page={data.page}
                 pageSize={data.pageSize}
                 total={data.total}
-                onPageChange={setPage}
+                onPageChange={filtros.setPage}
               />
             ) : null
           }

@@ -14,6 +14,7 @@ import { categoriasService } from "../../services/categorias";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { imagensModeloProdutoService } from "../../services/imagens-modelo-produto";
 import { useAsync } from "../../hooks/useAsync";
+import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { mensagemErroSalvarModeloProduto } from "../../utils/errors";
 import { limparParaBanco } from "../../utils/format";
 import type { ModeloProdutoInsert, ModeloProdutoUpdate } from "../../types/entities";
@@ -61,6 +62,8 @@ export default function ModeloFormPage() {
   const { id } = useParams<{ id: string }>();
   const edicao = Boolean(id);
   const navigate = useNavigate();
+  const returnToLista = useListReturnTo("/modelos-produto");
+  const detalheState = edicao && id ? { returnTo: returnToLista } : undefined;
 
   const [form, setForm] = useState<FormState>({
     nome_modelo: "",
@@ -138,7 +141,7 @@ export default function ModeloFormPage() {
         await modelosProdutoService.atualizar(id, dadosComuns as ModeloProdutoUpdate);
         await sincronizarImagens(id, imagensPendentes, indicePrincipalPendente);
         setImagensPendentes([]);
-        navigate(`/modelos-produto/${id}`, { replace: true });
+        navigate(`/modelos-produto/${id}`, { replace: true, state: detalheState });
         return;
       }
 
@@ -162,10 +165,10 @@ export default function ModeloFormPage() {
         title={edicao ? "Editar modelo" : "Novo modelo de produto"}
         breadcrumbs={[
           { label: "Catálogo" },
-          { label: "Modelos", to: "/modelos-produto" },
+          { label: "Modelos", to: returnToLista },
           { label: edicao ? "Editar" : "Novo" },
         ]}
-        backTo={edicao && id ? `/modelos-produto/${id}` : "/modelos-produto"}
+        backTo={returnToLista}
       />
 
       {loadingInicial ? (
@@ -259,9 +262,7 @@ export default function ModeloFormPage() {
           <div className="flex items-center justify-end gap-2 border-t border-line pt-4">
             <SecondaryButton
               type="button"
-              onClick={() =>
-                navigate(edicao && id ? `/modelos-produto/${id}` : "/modelos-produto")
-              }
+              onClick={() => navigate(returnToLista)}
             >
               Cancelar
             </SecondaryButton>

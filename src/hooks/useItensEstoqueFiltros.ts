@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FILTRO_CATEGORIA_SEM,
   FILTRO_LOCAL_SEM,
@@ -7,26 +8,79 @@ import {
 } from "../services/itens-estoque";
 import { categoriasService } from "../services/categorias";
 import { locaisEstoqueService } from "../services/locais-estoque";
+import type { StatusItem } from "../types/entities";
+import {
+  readCsvEnumParam,
+  readCsvParam,
+  readEnumParam,
+  readIntParam,
+  useReplaceSearchParams,
+  writeCsvParam,
+  writeEnumParam,
+  writeIntParam,
+  writeParam,
+} from "../utils/listUrlParams";
+import type { DisplaySizeSystem } from "../utils/sizeConversion";
 import { useAsync } from "./useAsync";
 import { useDebounce } from "./useDebounce";
-import type { StatusItem } from "../types/entities";
-import type { DisplaySizeSystem } from "../utils/sizeConversion";
+
+const STATUS_ITENS: StatusItem[] = [
+  "devolvido",
+  "em_estoque",
+  "em_processo_de_compra",
+  "fora_de_estoque",
+  "inativo",
+  "reservado",
+  "transferencia",
+  "vendido",
+];
+
+const REGIOES_ESTOQUE = ["", "br", "eu"] as const satisfies readonly RegiaoEstoqueFiltro[];
+const SISTEMAS_NUMERACAO = ["br", "eu", "us"] as const satisfies readonly DisplaySizeSystem[];
 
 export function useItensEstoqueFiltros() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<StatusItem[]>([]);
-  const [categoriaIds, setCategoriaIds] = useState<string[]>([]);
-  const [localEstoqueIds, setLocalEstoqueIds] = useState<string[]>([]);
-  const [regiaoEstoque, setRegiaoEstoque] = useState<RegiaoEstoqueFiltro>("");
-  const [displaySizeSystem, setDisplaySizeSystem] = useState<DisplaySizeSystem>("br");
-  const [numeracaoFiltro, setNumeracaoFiltro] = useState("");
+  const [searchParams] = useSearchParams();
+  const patchParams = useReplaceSearchParams();
+  const searchParamsKey = searchParams.toString();
+
+  const page = readIntParam(searchParams, "page", 1);
+  const searchFromUrl = searchParams.get("q") ?? "";
+  const regiaoEstoque = readEnumParam(searchParams, "regiao", REGIOES_ESTOQUE, "");
+  const displaySizeSystem = readEnumParam(searchParams, "tam", SISTEMAS_NUMERACAO, "br");
+  const numeracaoFromUrl = searchParams.get("num") ?? "";
+
+  const status = useMemo(
+    () => readCsvEnumParam(searchParams, "status", STATUS_ITENS),
+    [searchParamsKey],
+  );
+  const categoriaIds = useMemo(
+    () => readCsvParam(searchParams, "categoria"),
+    [searchParamsKey],
+  );
+
+  const [search, setSearchState] = useState(searchFromUrl);
+  const [numeracaoFiltro, setNumeracaoFiltroState] = useState(numeracaoFromUrl);
+
+  useEffect(() => {
+    setSearchState(searchFromUrl);
+  }, [searchFromUrl]);
+
+  useEffect(() => {
+    setNumeracaoFiltroState(numeracaoFromUrl);
+  }, [numeracaoFromUrl]);
 
   const searchDebounced = useDebounce(search, 400);
   const numeracaoFiltroDebounced = useDebounce(numeracaoFiltro, 250);
 
   const categoriasLista = useAsync(() => categoriasService.listarTodas(), []);
   const locaisLista = useAsync(() => locaisEstoqueService.listarTodos(), []);
+
+  const localEstoqueIds = useMemo(() => {
+    if (regiaoEstoque !== "" && locaisLista.data) {
+      return idsLocaisPorRegiao(locaisLista.data, regiaoEstoque);
+    }
+    return readCsvParam(searchParams, "local");
+  }, [searchParamsKey, regiaoEstoque, locaisLista.data]);
 
   const opcoesCategoriaFiltro = useMemo(
     () => [
@@ -54,20 +108,77 @@ export function useItensEstoqueFiltros() {
     [locaisLista.data],
   );
 
-  const aplicarFiltroLocaisPorRegiao = (regiao: RegiaoEstoqueFiltro) => {
-    if (regiao === "") {
-      setLocalEstoqueIds([]);
-      return;
-    }
-    setLocalEstoqueIds(idsLocaisPorRegiao(locaisLista.data ?? [], regiao));
+  const resetPage = () => {
+    patchParams((next) => {
+      next.delete("page");
+    });
   };
 
-  useEffect(() => {
-    if (regiaoEstoque === "" || !locaisLista.data) return;
-    setLocalEstoqueIds(idsLocaisPorRegiao(locaisLista.data, regiaoEstoque));
-  }, [locaisLista.data, regiaoEstoque]);
+  const setPage = (p: number) => {
+    patchParams((next) => {
+      writeIntParam(next, "page", p);
+    });
+  };
 
-  const resetPage = () => setPage(1);
+  const setSearch = (value: string) => {
+    setSearchState(value);
+    patchParams((next) => {
+      writeParam(next, "q", value.trim() || null);
+      next.delete("page");
+    });
+  };
+
+  const setStatus = (values: StatusItem[]) => {
+    patchParams((next) => {
+      writeCsvParam(next, "status", values);
+      next.delete("page");
+    });
+  };
+
+  const setCategoriaIds = (values: string[]) => {
+    patchParams((next) => {
+      writeCsvParam(next, "categoria", values);
+      next.delete("page");
+    });
+  };
+
+  const setLocalEstoqueIds = (values: string[]) => {
+    patchParams((next) => {
+      writeCsvParam(next, "local", values);
+      next.delete("page");
+    });
+  };
+
+  const setRegiaoEstoque = (regiao: RegiaoEstoqueFiltro) => {
+    patchParams((next) => {
+      writeEnumParam(next, "regiao", regiao, "");
+      if (regiao === "") {
+        writeCsvParam(next, "local", []);
+      } else {
+        next.delete("local");
+      }
+      next.delete("page");
+    });
+  };
+
+  const aplicarFiltroLocaisPorRegiao = (regiao: RegiaoEstoqueFiltro) => {
+    setRegiaoEstoque(regiao);
+  };
+
+  const setDisplaySizeSystem = (value: DisplaySizeSystem) => {
+    patchParams((next) => {
+      writeEnumParam(next, "tam", value, "br");
+      next.delete("page");
+    });
+  };
+
+  const setNumeracaoFiltro = (value: string) => {
+    setNumeracaoFiltroState(value);
+    patchParams((next) => {
+      writeParam(next, "num", value.trim() || null);
+      next.delete("page");
+    });
+  };
 
   const paramsListagem = useMemo(
     () => ({

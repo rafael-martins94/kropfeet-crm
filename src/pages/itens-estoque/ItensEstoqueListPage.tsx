@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
 import { ItensEstoqueFiltrosToolbar } from "../../components/itens-estoque/ItensEstoqueFiltrosToolbar";
 import { ItensEstoqueHeaderControls } from "../../components/itens-estoque/ItensEstoqueHeaderControls";
@@ -12,15 +12,23 @@ import { StatusItemFilterDropdown } from "../../components/StatusItemFilterDropd
 import { IconEdit, IconEye, IconPlus, IconTrash } from "../../components/Icons";
 import {
   itensEstoqueService,
+  COLUNAS_ORDEM_ITEM_ESTOQUE,
   type ColunaOrdemItemEstoque,
   type ItemEstoqueDetalhado,
 } from "../../services/itens-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { useAsync } from "../../hooks/useAsync";
 import { useItensEstoqueFiltros } from "../../hooks/useItensEstoqueFiltros";
+import { useListDetailNavigation } from "../../hooks/useListDetailNavigation";
 import type { StatusItem } from "../../types/entities";
 import { cn } from "../../utils/cn";
 import { mensagemErro } from "../../utils/errors";
+import {
+  readEnumParam,
+  useReplaceSearchParams,
+  writeEnumParam,
+  writeParam,
+} from "../../utils/listUrlParams";
 import {
   formatSizeLabel,
   getSecondaryEquivalenceLabelsAfterPrimary,
@@ -32,14 +40,17 @@ function FotoProduto({
   url,
   nome,
   to,
+  linkState,
 }: {
   url: string | null | undefined;
   nome: string;
-  to: string;
+  to: To;
+  linkState?: NavigateOptions;
 }) {
   return (
     <Link
       to={to}
+      state={linkState?.state}
       className="inline-flex shrink-0"
       title={nome}
       onClick={(e) => e.stopPropagation()}
@@ -120,9 +131,32 @@ const statusOpcoesAlteracao: Array<{ value: StatusItem; label: string }> = [
 export default function ItensEstoqueListPage() {
   const navigate = useNavigate();
   const filtros = useItensEstoqueFiltros();
+  const { toDetail } = useListDetailNavigation();
+  const linkItem = (path: string) => toDetail(path);
+  const [searchParams] = useSearchParams();
+  const patchParams = useReplaceSearchParams();
 
-  const [colunaOrdem, setColunaOrdem] = useState<ColunaOrdemItemEstoque>("atualizado_em");
-  const [ordemAscendente, setOrdemAscendente] = useState(false);
+  const colunaOrdem = readEnumParam(
+    searchParams,
+    "ordem",
+    COLUNAS_ORDEM_ITEM_ESTOQUE,
+    "atualizado_em",
+  );
+  const dirParam = searchParams.get("dir");
+  const ordemAscendente =
+    dirParam === "asc" ? true : dirParam === "desc" ? false : colunaOrdem !== "atualizado_em";
+
+  const setOrdenacao = (coluna: ColunaOrdemItemEstoque, ascendente: boolean) => {
+    patchParams((next) => {
+      writeEnumParam(next, "ordem", coluna, "atualizado_em");
+      if (coluna === "atualizado_em" && !ascendente) {
+        next.delete("dir");
+      } else {
+        writeParam(next, "dir", ascendente ? "asc" : "desc");
+      }
+      next.delete("page");
+    });
+  };
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [statusMassa, setStatusMassa] = useState<StatusItem>("em_estoque");
@@ -152,12 +186,10 @@ export default function ItensEstoqueListPage() {
   );
 
   const alterarOrdem = (coluna: ColunaOrdemItemEstoque) => {
-    filtros.resetPage();
     if (colunaOrdem === coluna) {
-      setOrdemAscendente((a) => !a);
+      setOrdenacao(coluna, !ordemAscendente);
     } else {
-      setColunaOrdem(coluna);
-      setOrdemAscendente(coluna === "atualizado_em" ? false : true);
+      setOrdenacao(coluna, coluna === "atualizado_em" ? false : true);
     }
   };
 
@@ -303,13 +335,17 @@ export default function ItensEstoqueListPage() {
       headerClassName: "w-[4.5rem] px-2",
       width: "72px",
       className: "w-[4.5rem] shrink-0 px-2 align-middle",
-      render: (it) => (
+      render: (it) => {
+        const detalhe = linkItem(`/itens-estoque/${it.id}`);
+        return (
         <FotoProduto
           url={it.id_modelo_produto ? thumbs.data?.[it.id_modelo_produto] : null}
           nome={it.nome_produto}
-          to={`/itens-estoque/${it.id}`}
+          to={detalhe.to}
+          linkState={detalhe.options}
         />
-      ),
+        );
+      },
     },
     {
       key: "sku",
@@ -342,15 +378,19 @@ export default function ItensEstoqueListPage() {
       ),
       headerClassName: "align-top whitespace-normal min-w-[14rem] max-w-[min(42vw,22rem)]",
       className: "min-w-[14rem] max-w-[min(42vw,22rem)]",
-      render: (it) => (
+      render: (it) => {
+        const detalhe = linkItem(`/itens-estoque/${it.id}`);
+        return (
         <Link
-          to={`/itens-estoque/${it.id}`}
+          to={detalhe.to}
+          state={detalhe.options?.state}
           className="block truncate text-sm font-medium text-ink hover:text-brand-700"
           title={it.nome_produto}
         >
           {it.nome_produto}
         </Link>
-      ),
+        );
+      },
     },
     {
       key: "numeracao",
@@ -444,12 +484,16 @@ export default function ItensEstoqueListPage() {
       header: <span className="sr-only">Ações</span>,
       width: "96px",
       className: "text-right",
-      render: (it) => (
+      render: (it) => {
+        const detalhe = linkItem(`/itens-estoque/${it.id}`);
+        const editar = linkItem(`/itens-estoque/${it.id}/editar`);
+        return (
         <div className="flex justify-end gap-1">
-          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(`/itens-estoque/${it.id}`)}><IconEye width={16} height={16} /></button>
-          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(`/itens-estoque/${it.id}/editar`)}><IconEdit width={16} height={16} /></button>
+          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(detalhe.to, detalhe.options)}><IconEye width={16} height={16} /></button>
+          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(editar.to, editar.options)}><IconEdit width={16} height={16} /></button>
         </div>
-      ),
+        );
+      },
     },
   ];
 
@@ -462,13 +506,10 @@ export default function ItensEstoqueListPage() {
             displaySizeSystem={filtros.displaySizeSystem}
             onDisplaySizeSystemChange={(v) => {
               filtros.setDisplaySizeSystem(v);
-              filtros.resetPage();
             }}
             regiaoEstoque={filtros.regiaoEstoque}
             onRegiaoEstoqueChange={(novaRegiao) => {
               filtros.setRegiaoEstoque(novaRegiao);
-              filtros.aplicarFiltroLocaisPorRegiao(novaRegiao);
-              filtros.resetPage();
             }}
           />
         }
@@ -494,27 +535,22 @@ export default function ItensEstoqueListPage() {
               search={filtros.search}
               onSearchChange={(v) => {
                 filtros.setSearch(v);
-                filtros.resetPage();
               }}
               status={filtros.status}
               onStatusChange={(v) => {
                 filtros.setStatus(v);
-                filtros.resetPage();
               }}
               localEstoqueIds={filtros.localEstoqueIds}
               onLocalEstoqueIdsChange={(v) => {
                 filtros.setLocalEstoqueIds(v);
-                filtros.resetPage();
               }}
               categoriaIds={filtros.categoriaIds}
               onCategoriaIdsChange={(v) => {
                 filtros.setCategoriaIds(v);
-                filtros.resetPage();
               }}
               numeracaoFiltro={filtros.numeracaoFiltro}
               onNumeracaoFiltroChange={(v) => {
                 filtros.setNumeracaoFiltro(v);
-                filtros.resetPage();
               }}
               opcoesLocalFiltro={filtros.opcoesLocalFiltro}
               opcoesCategoriaFiltro={filtros.opcoesCategoriaFiltro}
