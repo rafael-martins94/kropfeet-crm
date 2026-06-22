@@ -125,6 +125,18 @@ export function normalizeSizeValue(value: number | string | null | undefined): n
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** Inferência automática do sistema de numeração a partir dos campos preenchidos. */
+export function inferirSistemaNumeracao(
+  br: number | null,
+  eu: number | null,
+  us: string | null,
+): "br" | "eu" | "us" | "outro" {
+  if (br !== null) return "br";
+  if (eu !== null) return "eu";
+  if (us !== null && us.trim() !== "") return "us";
+  return "outro";
+}
+
 /** Lê `numeracao_us` do banco: número + sufixo opcional Y/W (sem sufixo = masculino). */
 export function parseNumeracaoUs(
   value: number | string | null | undefined,

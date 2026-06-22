@@ -29,10 +29,7 @@ export function mensagemErroSalvarModeloProduto(e: unknown): string {
     );
   }
   if (m.includes("modelos_produto_slug_unico")) {
-    return "Já existe outro modelo com este slug. Ajuste o campo slug.";
-  }
-  if (m.includes("modelos_produto_codigo_referencia_unico")) {
-    return "Já existe outro modelo com este código de referência.";
+    return "Já existe outro modelo com identificador semelhante. Altere o nome do modelo.";
   }
   if (m.includes("modelos_produto_id_tiny_pai_unico")) {
     return "Outro modelo já está vinculado a este produto pai no Tiny.";

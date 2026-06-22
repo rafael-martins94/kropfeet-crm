@@ -2,9 +2,11 @@ import { useMemo } from "react";
 import { FormInput } from "../FormField";
 import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
 import { ModeloImagensGaleria } from "./ModeloImagensGaleria";
+import { IconEdit } from "../Icons";
 import { useAsync } from "../../hooks/useAsync";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import type { ModeloProduto } from "../../types/entities";
+import { cn } from "../../utils/cn";
 
 type IdentificacaoItemFieldsProps = {
   sku: React.ReactNode;
@@ -14,6 +16,8 @@ type IdentificacaoItemFieldsProps = {
   idLocalEstoque: string;
   codigoFornecedor: string;
   modelos: ModeloProduto[];
+  /** Modelo já carregado pelo pai (evita busca duplicada na edição). */
+  modeloVinculado?: ModeloProduto | null;
   fornecedores: Array<{ id: string; nome: string }>;
   locais: Array<{ id: string; nome: string }>;
   loadingModelos?: boolean;
@@ -24,6 +28,9 @@ type IdentificacaoItemFieldsProps = {
   onLocalChange: (id: string) => void;
   onCodigoFornecedorChange: (value: string) => void;
   showFornecedor?: boolean;
+  showEditarModelo?: boolean;
+  /** Layout otimizado para a tela de edição de item. */
+  layoutEdicao?: boolean;
 };
 
 export function IdentificacaoItemFields({
@@ -34,6 +41,7 @@ export function IdentificacaoItemFields({
   idLocalEstoque,
   codigoFornecedor,
   modelos,
+  modeloVinculado,
   fornecedores,
   locais,
   loadingModelos,
@@ -44,8 +52,27 @@ export function IdentificacaoItemFields({
   onLocalChange,
   onCodigoFornecedorChange,
   showFornecedor = true,
+  showEditarModelo = true,
+  layoutEdicao = false,
 }: IdentificacaoItemFieldsProps) {
   const thumbs = useAsync(() => modelosProdutoService.listarUrlsPrincipaisPorModelo(), []);
+  const modeloAusenteNaLista =
+    Boolean(idModeloProduto) && !modelos.some((m) => m.id === idModeloProduto);
+  const modeloRemoto = useAsync(
+    () => {
+      if (modeloVinculado) return Promise.resolve(modeloVinculado);
+      if (!modeloAusenteNaLista || !idModeloProduto) return Promise.resolve(null);
+      return modelosProdutoService.obter(idModeloProduto);
+    },
+    [idModeloProduto, modelos, modeloVinculado, modeloAusenteNaLista],
+  );
+
+  const modelosCompletos = useMemo(() => {
+    const extra = modeloVinculado ?? modeloRemoto.data;
+    if (!extra || modelos.some((m) => m.id === extra.id)) return modelos;
+    return [...modelos, extra];
+  }, [modelos, modeloVinculado, modeloRemoto.data]);
+
   const imagensModelo = useAsync(
     () =>
       idModeloProduto
@@ -54,33 +81,61 @@ export function IdentificacaoItemFields({
     [idModeloProduto],
   );
 
-  const modeloSelecionado = modelos.find((m) => m.id === idModeloProduto);
+  const modeloSelecionado = modelosCompletos.find((m) => m.id === idModeloProduto);
 
   const opcoesModelo = useMemo(
     () =>
-      modelos.map((m) => ({
+      modelosCompletos.map((m) => ({
         value: m.id,
         label: m.nome_modelo,
         imageUrl: thumbs.data?.[m.id] ?? null,
       })),
-    [modelos, thumbs.data],
+    [modelosCompletos, thumbs.data],
   );
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_min(320px,36%)] lg:gap-10 lg:items-start">
       {/* Campos — coluna esquerda */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
-        <div className="flex flex-col gap-5 sm:col-span-2 sm:flex-row sm:items-end sm:gap-5">
+        {layoutEdicao && nomeProduto ? (
+          <div className="sm:col-span-2 rounded-xl border border-line bg-surface-subtle/50 px-4 py-3">
+            <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+              Nome do produto
+            </p>
+            <p className="mt-1 text-sm font-medium leading-relaxed text-ink">{nomeProduto}</p>
+            <p className="mt-1 text-xs text-ink-soft">
+              Atualizado automaticamente a partir do modelo e das numerações.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-5 sm:col-span-2 sm:flex-row sm:items-end sm:gap-3">
           <div className="shrink-0">{sku}</div>
-          <SearchableSelectDropdown
-            label="Modelo de produto"
-            value={idModeloProduto}
-            onChange={onModeloChange}
-            options={opcoesModelo}
-            loading={loadingModelos || thumbs.loading}
-            emptyLabel="— Selecione o modelo —"
-            className="min-w-0 flex-1"
-          />
+          <div className="flex min-w-0 flex-1 items-end gap-2">
+            <SearchableSelectDropdown
+              label="Modelo de produto"
+              value={idModeloProduto}
+              onChange={onModeloChange}
+              options={opcoesModelo}
+              loading={loadingModelos || thumbs.loading || modeloRemoto.loading}
+              emptyLabel="— Selecione o modelo —"
+              className="min-w-0 flex-1"
+            />
+            {showEditarModelo && idModeloProduto ? (
+              <a
+                href={`/modelos-produto/${idModeloProduto}/editar`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "btn-secondary mb-0 inline-flex h-[38px] shrink-0 items-center gap-1.5 px-3",
+                )}
+                title="Editar modelo em nova aba"
+              >
+                <IconEdit width={16} height={16} />
+                <span className="hidden sm:inline">Editar</span>
+              </a>
+            ) : null}
+          </div>
         </div>
 
         {showFornecedor ? (
@@ -107,29 +162,28 @@ export function IdentificacaoItemFields({
           ]}
           loading={loadingLocais}
           emptyLabel="— Nenhum —"
-          className={showFornecedor ? undefined : "sm:col-span-2"}
         />
 
         <FormInput
-          label="Código do fornecedor"
+          label="Referência do modelo"
           required
           value={codigoFornecedor}
           onChange={(e) => onCodigoFornecedorChange(e.target.value)}
-          hint="Preenchido ao selecionar o modelo."
+          hint="Código do fabricante vinculado ao modelo selecionado."
           className="font-numeric tabular-nums"
         />
 
-        <div className="hidden sm:block" aria-hidden />
-
-        <FormInput
-          label="Nome produto"
-          required
-          readOnly
-          value={nomeProduto}
-          hint="Gerado a partir do modelo e numerações."
-          wrapperClassName="sm:col-span-2 pt-1"
-          className="bg-surface-muted/60"
-        />
+        {!layoutEdicao ? (
+          <FormInput
+            label="Nome produto"
+            required
+            readOnly
+            value={nomeProduto}
+            hint="Gerado a partir do modelo e numerações."
+            wrapperClassName="sm:col-span-2 pt-1"
+            className="bg-surface-muted/60"
+          />
+        ) : null}
       </div>
 
       {/* Fotos — coluna direita, maior */}

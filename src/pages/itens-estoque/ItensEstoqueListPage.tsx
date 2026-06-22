@@ -15,6 +15,7 @@ import {
   type ColunaOrdemItemEstoque,
   type ItemEstoqueDetalhado,
 } from "../../services/itens-estoque";
+import { modelosProdutoService } from "../../services/modelos-produto";
 import { useAsync } from "../../hooks/useAsync";
 import { useItensEstoqueFiltros } from "../../hooks/useItensEstoqueFiltros";
 import type { StatusItem } from "../../types/entities";
@@ -26,6 +27,44 @@ import {
   getSizeByDisplaySystem,
   getUsDisplayLabel,
 } from "../../utils/sizeConversion";
+
+function FotoProduto({
+  url,
+  nome,
+  to,
+}: {
+  url: string | null | undefined;
+  nome: string;
+  to: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="inline-flex shrink-0"
+      title={nome}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border border-line bg-surface-subtle">
+        {url ? (
+          <img
+            src={url}
+            alt=""
+            className="h-full w-full object-contain"
+            loading="lazy"
+          />
+        ) : (
+          <span className="text-ink-faint" aria-hidden>
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="m21 15-5-5L5 21" />
+            </svg>
+          </span>
+        )}
+      </span>
+    </Link>
+  );
+}
 
 function CabecalhoOrdenavel({
   label,
@@ -93,6 +132,8 @@ export default function ItensEstoqueListPage() {
 
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [erroStatusInline, setErroStatusInline] = useState<string | null>(null);
+
+  const thumbs = useAsync(() => modelosProdutoService.listarUrlsPrincipaisPorModelo(), []);
 
   const { data, loading, error, reload } = useAsync(
     () =>
@@ -257,6 +298,20 @@ export default function ItensEstoqueListPage() {
       ),
     },
     {
+      key: "foto",
+      header: <span className="sr-only">Foto</span>,
+      headerClassName: "w-[4.5rem] px-2",
+      width: "72px",
+      className: "w-[4.5rem] shrink-0 px-2 align-middle",
+      render: (it) => (
+        <FotoProduto
+          url={it.id_modelo_produto ? thumbs.data?.[it.id_modelo_produto] : null}
+          nome={it.nome_produto}
+          to={`/itens-estoque/${it.id}`}
+        />
+      ),
+    },
+    {
       key: "sku",
       header: (
         <CabecalhoOrdenavel
@@ -267,10 +322,11 @@ export default function ItensEstoqueListPage() {
           onOrdem={alterarOrdem}
         />
       ),
-      headerClassName: "align-top whitespace-normal",
-      width: "118px",
+      headerClassName: "align-top whitespace-normal w-[5.5rem] px-2",
+      width: "88px",
+      className: "w-[5.5rem] shrink-0 px-2",
       render: (it) => (
-        <span className="block max-w-[7rem] truncate font-numeric tabular-nums text-xs">{it.sku}</span>
+        <span className="block truncate font-numeric tabular-nums text-xs">{it.sku}</span>
       ),
     },
     {
@@ -284,8 +340,8 @@ export default function ItensEstoqueListPage() {
           onOrdem={alterarOrdem}
         />
       ),
-      headerClassName: "align-top whitespace-normal min-w-[11rem] max-w-[min(34vw,17rem)]",
-      className: "min-w-[11rem] max-w-[min(34vw,17rem)]",
+      headerClassName: "align-top whitespace-normal min-w-[14rem] max-w-[min(42vw,22rem)]",
+      className: "min-w-[14rem] max-w-[min(42vw,22rem)]",
       render: (it) => (
         <Link
           to={`/itens-estoque/${it.id}`}

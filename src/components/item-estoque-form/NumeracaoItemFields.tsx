@@ -16,7 +16,9 @@ type NumeracaoItemFieldsProps = {
   onEuChange: (value: string) => void;
   onUsChange?: (value: string) => void;
   onUsVariantChange: (variant: UsSizeVariant) => void;
-  onSistemaChange: (value: SistemaNumeracao) => void;
+  onSistemaChange?: (value: SistemaNumeracao) => void;
+  /** @deprecated Inferido automaticamente no save; mantido só para compatibilidade. */
+  showSistema?: boolean;
   /** US preenchido automaticamente ao selecionar o tipo (campo somente leitura). */
   usPreenchidoPorTipo?: boolean;
   showStatus?: boolean;
@@ -63,6 +65,7 @@ export function NumeracaoItemFields({
   onStatusChange,
   usPreenchidoPorTipo = false,
   showStatus = true,
+  showSistema = false,
 }: NumeracaoItemFieldsProps) {
   return (
     <div className="flex flex-nowrap items-end gap-x-4 overflow-x-auto pb-0.5">
@@ -106,15 +109,17 @@ export function NumeracaoItemFields({
           />
         </div>
       </FieldWrapper>
-      <SearchableSelectDropdown
-        label="Sistema de numeração"
-        value={sistemaNumeracao}
-        onChange={(v) => onSistemaChange(v as SistemaNumeracao)}
-        options={[...SISTEMA_OPCOES]}
-        emptyLabel="— Selecione —"
-        searchPlaceholder="Buscar sistema…"
-        className="ml-4 w-[9.5rem] shrink-0 sm:ml-8"
-      />
+      {showSistema && onSistemaChange ? (
+        <SearchableSelectDropdown
+          label="Sistema de numeração"
+          value={sistemaNumeracao}
+          onChange={(v) => onSistemaChange(v as SistemaNumeracao)}
+          options={[...SISTEMA_OPCOES]}
+          emptyLabel="— Selecione —"
+          searchPlaceholder="Buscar sistema…"
+          className="ml-4 w-[9.5rem] shrink-0 sm:ml-8"
+        />
+      ) : null}
       {showStatus && statusItem !== undefined && onStatusChange ? (
         <SearchableSelectDropdown
           label="Status"

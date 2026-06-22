@@ -126,6 +126,8 @@ export default function LocaisEstoqueListPage() {
                 rowKey={(l) => l.id}
                 loading={loading}
                 emptyTitle="Nenhum local de estoque"
+                onRowClick={(l) => navigate(`/locais-estoque/${l.id}`)}
+                rowClassName={() => "cursor-pointer"}
               />
             )
           }

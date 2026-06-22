@@ -20,7 +20,6 @@ export const modelosProdutoService = {
       searchColumns: [
         "nome_modelo",
         "slug",
-        "codigo_referencia",
         "codigo_fabricante",
         "cor",
       ],
@@ -59,7 +58,7 @@ export const modelosProdutoService = {
     if (termo) {
       const padrao = `%${termo.replace(/%/g, "")}%`;
       query = query.or(
-        `nome_modelo.ilike.${padrao},slug.ilike.${padrao},codigo_referencia.ilike.${padrao},codigo_fabricante.ilike.${padrao},cor.ilike.${padrao}`,
+        `nome_modelo.ilike.${padrao},slug.ilike.${padrao},codigo_fabricante.ilike.${padrao},cor.ilike.${padrao}`,
       );
     }
 

@@ -88,11 +88,11 @@ export default function CategoriaDetailPage() {
     },
     {
       key: "codigo",
-      header: "Referência",
+      header: "Cód. fabricante",
       width: "150px",
       render: (m) => (
         <span className="font-numeric tabular-nums text-xs text-ink-soft">
-          {m.codigo_referencia ?? m.codigo_fabricante ?? "—"}
+          {m.codigo_fabricante ?? "—"}
         </span>
       ),
     },

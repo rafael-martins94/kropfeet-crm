@@ -1,24 +1,49 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
 import { SearchInput } from "../../components/SearchInput";
+import { SearchableSelectDropdown } from "../../components/SearchableSelectDropdown";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { IconEdit, IconEye, IconPlus } from "../../components/Icons";
 import { modelosProdutoService, type ModeloProdutoDetalhado } from "../../services/modelos-produto";
+import { marcasService } from "../../services/marcas";
+import { categoriasService } from "../../services/categorias";
 import { useAsync } from "../../hooks/useAsync";
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatarDataHora } from "../../utils/format";
+import { cn } from "../../utils/cn";
 
 export default function ModelosListPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [idMarca, setIdMarca] = useState("");
+  const [idCategoria, setIdCategoria] = useState("");
   const searchDebounced = useDebounce(search, 400);
+
+  const marcas = useAsync(() => marcasService.listarTodas(), []);
+  const categorias = useAsync(() => categoriasService.listarTodas(), []);
+
+  const opcoesMarca = useMemo(
+    () => [
+      { value: "", label: "Todas as marcas" },
+      ...(marcas.data ?? []).map((m) => ({ value: m.id, label: m.nome })),
+    ],
+    [marcas.data],
+  );
+
+  const opcoesCategoria = useMemo(
+    () => [
+      { value: "", label: "Todas as categorias" },
+      ...(categorias.data ?? []).map((c) => ({ value: c.id, label: c.nome })),
+    ],
+    [categorias.data],
+  );
 
   const { data, loading, error } = useAsync(
     () =>
@@ -26,8 +51,10 @@ export default function ModelosListPage() {
         page,
         pageSize: 20,
         search: searchDebounced,
+        idMarca: idMarca || undefined,
+        idCategoria: idCategoria || undefined,
       }),
-    [page, searchDebounced],
+    [page, searchDebounced, idMarca, idCategoria],
   );
 
   const columns: Column<ModeloProdutoDetalhado>[] = [
@@ -42,15 +69,9 @@ export default function ModelosListPage() {
           >
             {m.nome_modelo}
           </Link>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-soft">
-            <span className="truncate">{m.slug}</span>
-            {m.cor ? (
-              <>
-                <span className="h-1 w-1 flex-shrink-0 rounded-full bg-line" />
-                <span className="truncate">{m.cor}</span>
-              </>
-            ) : null}
-          </div>
+          {m.cor ? (
+            <p className="mt-0.5 truncate text-xs text-ink-soft">{m.cor}</p>
+          ) : null}
         </div>
       ),
     },
@@ -72,11 +93,11 @@ export default function ModelosListPage() {
     },
     {
       key: "codigo",
-      header: "Referência",
+      header: "Cód. fabricante",
       width: "150px",
       render: (m) => (
         <span className="font-numeric tabular-nums text-xs text-ink-soft">
-          {m.codigo_referencia ?? m.codigo_fabricante ?? "—"}
+          {m.codigo_fabricante ?? "—"}
         </span>
       ),
     },
@@ -136,18 +157,54 @@ export default function ModelosListPage() {
       >
         <ScrollableListShell
           toolbar={
-            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <SearchInput
-                placeholder="Buscar por nome, slug, referência, cor…"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                wrapperClassName="w-full sm:max-w-sm"
-              />
-              <div className="text-xs text-ink-soft">
-                {data ? `${data.total.toLocaleString("pt-BR")} modelos` : ""}
+            <div className="border-b border-line px-5 py-4">
+              <div
+                className={cn(
+                  "grid min-w-0 items-end gap-x-3 gap-y-4",
+                  "[grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]",
+                  "lg:[grid-template-columns:minmax(0,2.1fr)_minmax(0,1.05fr)_minmax(0,1.05fr)_auto]",
+                )}
+              >
+                <SearchInput
+                  placeholder="Buscar por nome, slug, código, cor…"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  wrapperClassName="min-w-0 w-full"
+                />
+                <SearchableSelectDropdown
+                  label="Marca"
+                  value={idMarca}
+                  options={opcoesMarca}
+                  emptyLabel="Todas as marcas"
+                  loading={marcas.loading}
+                  searchPlaceholder="Buscar marca…"
+                  triggerClassName="w-full min-w-0"
+                  className="min-w-0 w-full"
+                  onChange={(v) => {
+                    setIdMarca(v);
+                    setPage(1);
+                  }}
+                />
+                <SearchableSelectDropdown
+                  label="Categoria"
+                  value={idCategoria}
+                  options={opcoesCategoria}
+                  emptyLabel="Todas as categorias"
+                  loading={categorias.loading}
+                  searchPlaceholder="Buscar categoria…"
+                  triggerClassName="w-full min-w-0"
+                  className="min-w-0 w-full"
+                  onChange={(v) => {
+                    setIdCategoria(v);
+                    setPage(1);
+                  }}
+                />
+                <div className="flex items-end justify-end pb-2 text-xs text-ink-soft lg:pb-0 lg:pl-2">
+                  {data ? `${data.total.toLocaleString("pt-BR")} modelos` : ""}
+                </div>
               </div>
             </div>
           }

@@ -92,10 +92,8 @@ export default function ModeloDetailPage() {
             >
               <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <Field label="Nome" value={modelo.data.nome_modelo} />
-                <Field label="Slug" value={modelo.data.slug} mono />
                 <Field label="Marca" value={marca.data?.nome ?? "—"} />
                 <Field label="Categoria" value={categoria.data?.nome ?? "—"} />
-                <Field label="Código de referência" value={modelo.data.codigo_referencia ?? "—"} mono />
                 <Field label="Código do fabricante" value={modelo.data.codigo_fabricante ?? "—"} mono />
                 <Field label="Cor" value={modelo.data.cor ?? "—"} />
                 <Field label="Gênero" value={modelo.data.genero ?? "—"} />

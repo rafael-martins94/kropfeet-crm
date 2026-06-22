@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormTextarea } from "../../components/FormField";
 import { IdentificacaoItemFields } from "../../components/item-estoque-form/IdentificacaoItemFields";
-import { NumeracaoItemFields } from "../../components/item-estoque-form/NumeracaoItemFields";
 import { SkuComGerador } from "../../components/item-estoque-form/SkuComGerador";
 import { CompraOrdemFields } from "../../components/ordens-compra/CompraOrdemFields";
+import { NumeracaoOrdemCompraFields } from "../../components/ordens-compra/NumeracaoOrdemCompraFields";
 import { PageHeader } from "../../components/PageHeader";
 import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
@@ -13,12 +13,12 @@ import { fornecedoresService } from "../../services/fornecedores";
 import { locaisEstoqueService } from "../../services/locais-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { ordensCompraService } from "../../services/ordens-compra";
-import type { SistemaNumeracao } from "../../types/entities";
 import {
   montarNomeProdutoComNumeracoes,
   normalizeNumeracaoUsInput,
   normalizeSizeValue,
   aplicarEquivalenciaBrEuForm,
+  inferirSistemaNumeracao,
   numeracaoUsAoMudarTipo,
   type UsSizeVariant,
 } from "../../utils/sizeConversion";
@@ -33,6 +33,15 @@ function numOuNulo(s: string): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
+function preencherUsSeTipoSelecionado(
+  numeracaoBr: string,
+  numeracaoEu: string,
+  usVariant: UsSizeVariant | "",
+): string {
+  if (!usVariant) return "";
+  return numeracaoUsAoMudarTipo(numeracaoBr, numeracaoEu, "", usVariant, usVariant);
+}
+
 type FormState = {
   sku: string;
   nome_produto: string;
@@ -44,7 +53,6 @@ type FormState = {
   numeracao_eu: string;
   numeracao_us: string;
   us_variant: UsSizeVariant | "";
-  sistema_numeracao: SistemaNumeracao;
   observacoes_item: string;
   data_compra: string;
   moeda_compra: string;
@@ -67,7 +75,6 @@ const vazio: FormState = {
   numeracao_eu: "",
   numeracao_us: "",
   us_variant: "" as UsSizeVariant | "",
-  sistema_numeracao: "br",
   observacoes_item: "",
   data_compra: hojeIso(),
   moeda_compra: "EUR",
@@ -129,16 +136,40 @@ export default function OrdemCompraFormPage() {
   const handleBrChange = (value: string) => {
     setForm((s) => {
       const eq = aplicarEquivalenciaBrEuForm("br", value);
-      if (!eq) return { ...s, numeracao_br: value, numeracao_us: "" };
-      return { ...s, ...eq, numeracao_br: value, numeracao_us: "" };
+      if (!eq) {
+        return {
+          ...s,
+          numeracao_br: value,
+          numeracao_us: preencherUsSeTipoSelecionado(value, s.numeracao_eu, s.us_variant),
+        };
+      }
+      const numeracaoEu = eq.numeracao_eu;
+      return {
+        ...s,
+        ...eq,
+        numeracao_br: value,
+        numeracao_us: preencherUsSeTipoSelecionado(value, numeracaoEu, s.us_variant),
+      };
     });
   };
 
   const handleEuChange = (value: string) => {
     setForm((s) => {
       const eq = aplicarEquivalenciaBrEuForm("eu", value);
-      if (!eq) return { ...s, numeracao_eu: value, numeracao_us: "" };
-      return { ...s, ...eq, numeracao_eu: value, numeracao_us: "" };
+      if (!eq) {
+        return {
+          ...s,
+          numeracao_eu: value,
+          numeracao_us: preencherUsSeTipoSelecionado(s.numeracao_br, value, s.us_variant),
+        };
+      }
+      const numeracaoBr = eq.numeracao_br;
+      return {
+        ...s,
+        ...eq,
+        numeracao_eu: value,
+        numeracao_us: preencherUsSeTipoSelecionado(numeracaoBr, value, s.us_variant),
+      };
     });
   };
 
@@ -154,18 +185,6 @@ export default function OrdemCompraFormPage() {
         variant,
       ),
     }));
-  };
-
-  const handleSistemaChange = (sistema: SistemaNumeracao) => {
-    setForm((s) => {
-      if (sistema === "outro" || sistema === "us") {
-        return { ...s, sistema_numeracao: sistema, numeracao_us: "" };
-      }
-      const valorCampo = sistema === "br" ? s.numeracao_br : s.numeracao_eu;
-      const eq = aplicarEquivalenciaBrEuForm(sistema, valorCampo);
-      if (!eq) return { ...s, sistema_numeracao: sistema, numeracao_us: "" };
-      return { ...s, ...eq, sistema_numeracao: sistema, numeracao_us: "" };
-    });
   };
 
   const handleValoresCalculados = useCallback(
@@ -218,16 +237,19 @@ export default function OrdemCompraFormPage() {
           : `${form.numeracao_us}${form.us_variant === "y" ? "Y" : "W"}`,
       );
 
+      const numeracaoBr = numOuNulo(form.numeracao_br);
+      const numeracaoEu = numOuNulo(form.numeracao_eu);
+
       const resultado = await ordensCompraService.criarComItem({
         sku: form.sku.trim(),
         nome_produto: form.nome_produto.trim(),
         id_modelo_produto: form.id_modelo_produto,
         id_local_estoque: form.id_local_estoque || null,
         codigo_fornecedor: form.codigo_fornecedor.trim(),
-        numeracao_br: numOuNulo(form.numeracao_br),
-        numeracao_eu: numOuNulo(form.numeracao_eu),
+        numeracao_br: numeracaoBr,
+        numeracao_eu: numeracaoEu,
         numeracao_us: numeracaoUs,
-        sistema_numeracao: form.sistema_numeracao,
+        sistema_numeracao: inferirSistemaNumeracao(numeracaoBr, numeracaoEu, numeracaoUs),
         observacoes_item: form.observacoes_item.trim() || null,
         id_fornecedor: form.id_fornecedor || null,
         data_compra: form.data_compra,
@@ -283,18 +305,14 @@ export default function OrdemCompraFormPage() {
         </SectionCard>
 
         <SectionCard title="Numeração">
-          <NumeracaoItemFields
+          <NumeracaoOrdemCompraFields
             numeracaoBr={form.numeracao_br}
             numeracaoEu={form.numeracao_eu}
             numeracaoUs={form.numeracao_us}
             usVariant={form.us_variant}
-            sistemaNumeracao={form.sistema_numeracao}
             onBrChange={handleBrChange}
             onEuChange={handleEuChange}
             onUsVariantChange={handleUsVariantChange}
-            onSistemaChange={handleSistemaChange}
-            usPreenchidoPorTipo
-            showStatus={false}
           />
         </SectionCard>
 

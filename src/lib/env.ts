@@ -12,6 +12,9 @@ export const env = {
   supabase: {
     url: readRequired("VITE_SUPABASE_URL"),
     anonKey: readRequired("VITE_SUPABASE_ANON_KEY"),
+    bucketImagens:
+      (import.meta.env.VITE_SUPABASE_BUCKET_IMAGENS as string | undefined)?.trim() ||
+      "imagens-modelos",
   },
 } as const;
 

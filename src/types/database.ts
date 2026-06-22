@@ -553,7 +553,6 @@ export type Database = {
           ativo: boolean
           atualizado_em: string
           codigo_fabricante: string | null
-          codigo_referencia: string | null
           cor: string | null
           criado_em: string
           descricao: string | null
@@ -570,7 +569,6 @@ export type Database = {
           ativo?: boolean
           atualizado_em?: string
           codigo_fabricante?: string | null
-          codigo_referencia?: string | null
           cor?: string | null
           criado_em?: string
           descricao?: string | null
@@ -587,7 +585,6 @@ export type Database = {
           ativo?: boolean
           atualizado_em?: string
           codigo_fabricante?: string | null
-          codigo_referencia?: string | null
           cor?: string | null
           criado_em?: string
           descricao?: string | null
