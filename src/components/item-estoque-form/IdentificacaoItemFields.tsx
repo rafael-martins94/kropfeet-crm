@@ -4,6 +4,7 @@ import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
 import { ModeloImagensGaleria } from "./ModeloImagensGaleria";
 import { IconEdit } from "../Icons";
 import { useAsync } from "../../hooks/useAsync";
+import { categoriasService } from "../../services/categorias";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import type { ModeloProduto } from "../../types/entities";
 import { cn } from "../../utils/cn";
@@ -56,6 +57,7 @@ export function IdentificacaoItemFields({
   layoutEdicao = false,
 }: IdentificacaoItemFieldsProps) {
   const thumbs = useAsync(() => modelosProdutoService.listarUrlsPrincipaisPorModelo(), []);
+  const categorias = useAsync(() => categoriasService.listarTodas(), []);
   const modeloAusenteNaLista =
     Boolean(idModeloProduto) && !modelos.some((m) => m.id === idModeloProduto);
   const modeloRemoto = useAsync(
@@ -82,6 +84,8 @@ export function IdentificacaoItemFields({
   );
 
   const modeloSelecionado = modelosCompletos.find((m) => m.id === idModeloProduto);
+  const nomeCategoria =
+    categorias.data?.find((c) => c.id === modeloSelecionado?.id_categoria)?.nome ?? "";
 
   const opcoesModelo = useMemo(
     () =>
@@ -138,6 +142,16 @@ export function IdentificacaoItemFields({
           </div>
         </div>
 
+        {layoutEdicao ? (
+          <FormInput
+            label="Categoria (modelo)"
+            readOnly
+            value={nomeCategoria || "—"}
+            hint="Definida no modelo vinculado."
+            className="bg-surface-muted/60"
+          />
+        ) : null}
+
         {showFornecedor ? (
           <SearchableSelectDropdown
             label="Fornecedor"
@@ -193,6 +207,7 @@ export function IdentificacaoItemFields({
           imagens={imagensModelo.data ?? []}
           nomeModelo={modeloSelecionado?.nome_modelo}
           loading={Boolean(idModeloProduto && imagensModelo.loading)}
+          aspectRatio={layoutEdicao ? "16/9" : "4/5"}
         />
       </aside>
     </div>

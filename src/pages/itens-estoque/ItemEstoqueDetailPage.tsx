@@ -10,6 +10,7 @@ import { modelosProdutoService } from "../../services/modelos-produto";
 import { fornecedoresService } from "../../services/fornecedores";
 import { locaisEstoqueService } from "../../services/locais-estoque";
 import { ordensCompraService } from "../../services/ordens-compra";
+import { categoriasService } from "../../services/categorias";
 import { useAsync } from "../../hooks/useAsync";
 import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { cn } from "../../utils/cn";
@@ -63,6 +64,13 @@ export default function ItemEstoqueDetailPage() {
         ? locaisEstoqueService.obter(item.data.id_local_estoque)
         : Promise.resolve(null),
     [item.data?.id_local_estoque],
+  );
+  const categoria = useAsync(
+    () =>
+      modelo.data?.id_categoria
+        ? categoriasService.obter(modelo.data.id_categoria)
+        : Promise.resolve(null),
+    [modelo.data?.id_categoria],
   );
 
   const temOrdem = Boolean(item.data?.id_ordem_compra && ordem.data);
@@ -180,6 +188,9 @@ export default function ItemEstoqueDetailPage() {
                   </F>
                   <F label="Código do fornecedor" mono>
                     {item.data.codigo_fornecedor ?? "—"}
+                  </F>
+                  <F label="Categoria (modelo)">
+                    {categoria.loading ? "…" : categoria.data?.nome ?? "—"}
                   </F>
                   {!temOrdem && fornecedor.data ? (
                     <F label="Fornecedor (legado)">
