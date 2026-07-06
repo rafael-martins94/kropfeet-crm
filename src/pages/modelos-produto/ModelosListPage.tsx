@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
@@ -32,7 +33,27 @@ export default function ModelosListPage() {
     [filtros.page, filtros.paramsListagem],
   );
 
+  const thumbs = useAsync(() => modelosProdutoService.listarUrlsPrincipaisPorModelo(), []);
+
   const columns: Column<ModeloProdutoDetalhado>[] = [
+    {
+      key: "foto",
+      header: <span className="sr-only">Foto</span>,
+      headerClassName: "w-[4.5rem] px-2",
+      width: "72px",
+      className: "w-[4.5rem] shrink-0 px-2 align-middle",
+      render: (m) => {
+        const detalhe = linkModelo(`/modelos-produto/${m.id}`);
+        return (
+          <FotoThumbnailHover
+            url={thumbs.data?.[m.id]}
+            alt={m.nome_modelo}
+            to={detalhe.to}
+            linkState={detalhe.options}
+          />
+        );
+      },
+    },
     {
       key: "nome",
       header: "Modelo",
@@ -79,12 +100,6 @@ export default function ModelosListPage() {
           {m.codigo_fabricante ?? "—"}
         </span>
       ),
-    },
-    {
-      key: "origem",
-      header: "Origem",
-      width: "120px",
-      render: (m) => <StatusBadge value={m.origem_cadastro} />,
     },
     {
       key: "ativo",

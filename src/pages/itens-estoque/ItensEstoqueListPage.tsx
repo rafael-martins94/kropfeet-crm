@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams, type NavigateOptions, type To } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
 import { ItensEstoqueFiltrosToolbar } from "../../components/itens-estoque/ItensEstoqueFiltrosToolbar";
 import { ItensEstoqueHeaderControls } from "../../components/itens-estoque/ItensEstoqueHeaderControls";
 import { PageHeader } from "../../components/PageHeader";
@@ -35,47 +36,6 @@ import {
   getSizeByDisplaySystem,
   getUsDisplayLabel,
 } from "../../utils/sizeConversion";
-
-function FotoProduto({
-  url,
-  nome,
-  to,
-  linkState,
-}: {
-  url: string | null | undefined;
-  nome: string;
-  to: To;
-  linkState?: NavigateOptions;
-}) {
-  return (
-    <Link
-      to={to}
-      state={linkState?.state}
-      className="inline-flex shrink-0"
-      title={nome}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border border-line bg-surface-subtle">
-        {url ? (
-          <img
-            src={url}
-            alt=""
-            className="h-full w-full object-contain"
-            loading="lazy"
-          />
-        ) : (
-          <span className="text-ink-faint" aria-hidden>
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="m21 15-5-5L5 21" />
-            </svg>
-          </span>
-        )}
-      </span>
-    </Link>
-  );
-}
 
 function CabecalhoOrdenavel({
   label,
@@ -338,9 +298,9 @@ export default function ItensEstoqueListPage() {
       render: (it) => {
         const detalhe = linkItem(`/itens-estoque/${it.id}`);
         return (
-        <FotoProduto
+        <FotoThumbnailHover
           url={it.id_modelo_produto ? thumbs.data?.[it.id_modelo_produto] : null}
-          nome={it.nome_produto}
+          alt={it.nome_produto}
           to={detalhe.to}
           linkState={detalhe.options}
         />

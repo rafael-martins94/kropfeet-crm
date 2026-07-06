@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
 import { ItensEstoqueFiltrosToolbar } from "../../components/itens-estoque/ItensEstoqueFiltrosToolbar";
 import { PageHeader } from "../../components/PageHeader";
 import { DangerButton, SecondaryButton } from "../../components/PrimaryButton";
@@ -19,6 +20,7 @@ import {
   itensEstoqueService,
   type ItemEstoqueDetalhado,
 } from "../../services/itens-estoque";
+import { modelosProdutoService } from "../../services/modelos-produto";
 import { useAsync } from "../../hooks/useAsync";
 import { useItensEstoqueFiltros } from "../../hooks/useItensEstoqueFiltros";
 import { useAuth } from "../../contexts/AuthContext";
@@ -93,6 +95,8 @@ export default function ConferenciaEstoquePage() {
   );
 
   const rows = data?.data ?? [];
+
+  const thumbs = useAsync(() => modelosProdutoService.listarUrlsPrincipaisPorModelo(), []);
 
   const rowsExibicao = useMemo(
     () =>
@@ -333,6 +337,20 @@ export default function ConferenciaEstoquePage() {
           />
         );
       },
+    },
+    {
+      key: "foto",
+      header: <span className="sr-only">Foto</span>,
+      headerClassName: "w-[4.5rem] px-2",
+      width: "72px",
+      className: "w-[4.5rem] shrink-0 px-2 align-middle",
+      render: (it) => (
+        <FotoThumbnailHover
+          url={it.id_modelo_produto ? thumbs.data?.[it.id_modelo_produto] : null}
+          alt={it.nome_produto}
+          to={`/itens-estoque/${it.id}`}
+        />
+      ),
     },
     {
       key: "sku",
