@@ -34,7 +34,6 @@ export async function upsertItemEstoquePorTiny(
     numeracao_eu: dados.numeracaoEu,
     numeracao_us: dados.numeracaoUs,
     sistema_numeracao: dados.sistemaNumeracao,
-    valor_pago_original: dados.valorPagoOriginal,
     data_cadastro_tiny: dados.dataCadastroTiny,
     observacoes: dados.observacoes,
     dados_tiny: dados.dadosTiny as Json,

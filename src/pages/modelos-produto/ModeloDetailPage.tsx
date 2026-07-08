@@ -100,7 +100,6 @@ export default function ModeloDetailPage() {
                 <Field label="Nome" value={modelo.data.nome_modelo} />
                 <Field label="Marca" value={marca.data?.nome ?? "—"} />
                 <Field label="Categoria" value={categoria.data?.nome ?? "—"} />
-                <Field label="Código do fabricante" value={modelo.data.codigo_fabricante ?? "—"} mono />
                 <Field label="Cor" value={modelo.data.cor ?? "—"} />
                 <Field label="Gênero" value={modelo.data.genero ?? "—"} />
                 <Field label="Origem do cadastro" value={<StatusBadge value={modelo.data.origem_cadastro} />} />

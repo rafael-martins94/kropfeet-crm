@@ -23,7 +23,6 @@ type FormState = {
   nome_modelo: string;
   id_marca: string;
   id_categoria: string;
-  codigo_fabricante: string;
   cor: string;
   genero: string;
   descricao: string;
@@ -66,11 +65,10 @@ export default function ModeloFormPage() {
   const detalheState = edicao && id ? { returnTo: returnToLista } : undefined;
 
   const [form, setForm] = useState<FormState>({
-    nome_modelo: "",
-    id_marca: "",
-    id_categoria: "",
-    codigo_fabricante: "",
-    cor: "",
+  nome_modelo: "",
+  id_marca: "",
+  id_categoria: "",
+  cor: "",
     genero: "",
     descricao: "",
   });
@@ -94,7 +92,6 @@ export default function ModeloFormPage() {
           nome_modelo: m.nome_modelo,
           id_marca: m.id_marca ?? "",
           id_categoria: m.id_categoria ?? "",
-          codigo_fabricante: m.codigo_fabricante ?? "",
           cor: m.cor ?? "",
           genero: m.genero ?? "",
           descricao: m.descricao ?? "",
@@ -130,7 +127,6 @@ export default function ModeloFormPage() {
         slug,
         id_marca: form.id_marca || null,
         id_categoria: form.id_categoria || null,
-        codigo_fabricante: form.codigo_fabricante,
         cor: form.cor,
         genero: form.genero,
         descricao: form.descricao,
@@ -221,12 +217,6 @@ export default function ModeloFormPage() {
                     value={form.genero}
                     onChange={(e) => upd("genero", e.target.value)}
                     options={GENEROS}
-                  />
-                  <FormInput
-                    label="Código do fabricante"
-                    value={form.codigo_fabricante}
-                    onChange={(e) => upd("codigo_fabricante", e.target.value)}
-                    wrapperClassName="sm:col-span-2"
                   />
                   <FormTextarea
                     label="Descrição"

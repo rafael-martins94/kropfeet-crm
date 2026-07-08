@@ -186,6 +186,33 @@ export type Database = {
         }
         Relationships: []
       }
+      fornecedor_tiny_ids: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          dados_tiny: Json | null
+          id: string
+          id_fornecedor: string
+          id_tiny: string
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          dados_tiny?: Json | null
+          id?: string
+          id_fornecedor: string
+          id_tiny: string
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          dados_tiny?: Json | null
+          id?: string
+          id_fornecedor?: string
+          id_tiny?: string
+        }
+        Relationships: []
+      }
       imagens_modelo_produto: {
         Row: {
           caminho_arquivo: string | null
@@ -243,7 +270,6 @@ export type Database = {
           sistema_numeracao: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_original: number | null
         }
         Insert: {
           atualizado_em?: string
@@ -265,7 +291,6 @@ export type Database = {
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_original?: number | null
         }
         Update: {
           atualizado_em?: string
@@ -287,7 +312,42 @@ export type Database = {
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku?: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
-          valor_pago_original?: number | null
+        }
+        Relationships: []
+      }
+      ordens_compra: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          data_compra: string
+          id: string
+          id_fornecedor: string | null
+          id_item_estoque: string
+          moeda_compra: string
+          observacoes: string | null
+          valor_custo: number
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          data_compra?: string
+          id?: string
+          id_fornecedor?: string | null
+          id_item_estoque: string
+          moeda_compra: string
+          observacoes?: string | null
+          valor_custo: number
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          data_compra?: string
+          id?: string
+          id_fornecedor?: string | null
+          id_item_estoque?: string
+          moeda_compra?: string
+          observacoes?: string | null
+          valor_custo?: number
         }
         Relationships: []
       }
@@ -418,7 +478,6 @@ export type Database = {
         Row: {
           ativo: boolean
           atualizado_em: string
-          codigo_fabricante: string | null
           cor: string | null
           criado_em: string
           descricao: string | null
@@ -434,7 +493,6 @@ export type Database = {
         Insert: {
           ativo?: boolean
           atualizado_em?: string
-          codigo_fabricante?: string | null
           cor?: string | null
           criado_em?: string
           descricao?: string | null
@@ -450,7 +508,6 @@ export type Database = {
         Update: {
           ativo?: boolean
           atualizado_em?: string
-          codigo_fabricante?: string | null
           cor?: string | null
           criado_em?: string
           descricao?: string | null

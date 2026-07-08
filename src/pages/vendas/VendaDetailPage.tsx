@@ -9,6 +9,7 @@ import { vendasService } from "../../services/vendas";
 import { clientesService } from "../../services/clientes";
 import { useAsync } from "../../hooks/useAsync";
 import { formatarDataHora, formatarMoeda } from "../../utils/format";
+import { obterCustoPrincipal } from "../../utils/custoItem";
 
 export default function VendaDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -112,12 +113,20 @@ export default function VendaDetailPage() {
                       <th>Moeda</th>
                       <th className="text-right">Valor BRL</th>
                       <th className="text-right">Valor EUR</th>
-                      <th className="text-right">Custo BRL</th>
-                      <th className="text-right">Lucro BRL</th>
+                      <th className="text-right">Custo</th>
+                      <th className="text-right">Lucro</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(itens.data ?? []).map((iv) => (
+                    {(itens.data ?? []).map((iv) => {
+                      const tipoRegiao = iv.item_estoque?.local?.tipo_regiao;
+                      const custoExibido = obterCustoPrincipal(iv.custo, tipoRegiao);
+                      const emEuro = tipoRegiao === "europa";
+                      const lucro =
+                        emEuro ? iv.lucroCalculado?.lucroEuro : iv.lucroCalculado?.lucroReal;
+                      const moedaLucro = emEuro ? "EUR" : "BRL";
+
+                      return (
                       <tr key={iv.id}>
                         <td>
                           {iv.item_estoque ? (
@@ -147,17 +156,16 @@ export default function VendaDetailPage() {
                           {formatarMoeda(iv.valor_venda_euro, "EUR")}
                         </td>
                         <td className="text-right font-numeric tabular-nums text-xs">
-                          {iv.custo?.valorReal != null
-                            ? formatarMoeda(iv.custo.valorReal, "BRL")
+                          {custoExibido
+                            ? formatarMoeda(custoExibido.valor, custoExibido.moeda)
                             : "—"}
                         </td>
                         <td className="text-right font-numeric tabular-nums text-xs">
-                          {iv.lucroCalculado?.lucroReal != null
-                            ? formatarMoeda(iv.lucroCalculado.lucroReal, "BRL")
-                            : "—"}
+                          {lucro != null ? formatarMoeda(lucro, moedaLucro) : "—"}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

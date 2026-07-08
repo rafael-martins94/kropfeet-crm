@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
 import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
 import { ItensEstoqueFiltrosToolbar } from "../../components/itens-estoque/ItensEstoqueFiltrosToolbar";
 import { PageHeader } from "../../components/PageHeader";
@@ -401,6 +402,19 @@ export default function ConferenciaEstoquePage() {
           </span>
         );
       },
+    },
+    {
+      key: "preco",
+      header: "Preço",
+      width: "104px",
+      className: "whitespace-nowrap",
+      render: (it) => (
+        <PrecoVendaItem
+          preco_venda={it.preco_venda}
+          moeda_venda={it.moeda_venda}
+          local={it.local}
+        />
+      ),
     },
     {
       key: "local",

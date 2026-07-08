@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ModeloImagensGaleria } from "../../components/item-estoque-form/ModeloImagensGaleria";
+import { HistoricoPrecoModal } from "../../components/itens-estoque/HistoricoPrecoModal";
+import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
 import { PageHeader } from "../../components/PageHeader";
-import { SecondaryButton } from "../../components/PrimaryButton";
+import { GhostButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import { IconEdit, IconEye } from "../../components/Icons";
+import { IconActivity, IconEdit, IconEye } from "../../components/Icons";
 import { itensEstoqueService } from "../../services/itens-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { fornecedoresService } from "../../services/fornecedores";
@@ -15,6 +18,8 @@ import { useAsync } from "../../hooks/useAsync";
 import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { cn } from "../../utils/cn";
 import { formatarData, formatarDataHora, formatarMoeda } from "../../utils/format";
+import { obterCustoPrincipal, resolverCustoItem } from "../../utils/custoItem";
+import { resolverMoedaVendaItem } from "../../utils/moedaItemEstoque";
 import {
   formatSizeLabel,
   getAllSizeEquivalences,
@@ -25,6 +30,7 @@ export default function ItemEstoqueDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const returnToLista = useListReturnTo("/itens-estoque");
+  const [historicoPrecoAberto, setHistoricoPrecoAberto] = useState(false);
 
   const item = useAsync(
     () => (id ? itensEstoqueService.obter(id) : Promise.resolve(null)),
@@ -74,10 +80,15 @@ export default function ItemEstoqueDetailPage() {
   );
 
   const temOrdem = Boolean(item.data?.id_ordem_compra && ordem.data);
-  const temCustoLegado =
-    !temOrdem &&
-    item.data?.valor_pago_original != null &&
-    item.data.valor_pago_original !== 0;
+  const moedaVendaExibida = item.data
+    ? resolverMoedaVendaItem(item.data.moeda_venda, local.data?.tipo_regiao)
+    : null;
+  const custoCompra = item.data
+    ? obterCustoPrincipal(
+        resolverCustoItem({ ...item.data, ordem_compra: ordem.data, local: local.data }),
+        local.data?.tipo_regiao,
+      )
+    : null;
 
   const equivalencias = item.data ? getAllSizeEquivalences(item.data) : null;
 
@@ -91,6 +102,11 @@ export default function ItemEstoqueDetailPage() {
               <span className="rounded-full border border-line bg-surface px-2.5 py-0.5 font-numeric text-xs font-semibold tabular-nums text-ink-muted">
                 SKU {item.data.sku}
               </span>
+              {item.data.preco_venda != null && moedaVendaExibida ? (
+                <span className="rounded-full border border-brand-200 bg-brand-50 px-2.5 py-0.5 font-numeric text-xs font-semibold tabular-nums text-brand-800">
+                  {formatarMoeda(item.data.preco_venda, moedaVendaExibida)}
+                </span>
+              ) : null}
               <StatusBadge value={item.data.status_item} />
             </div>
           ) : null
@@ -145,6 +161,23 @@ export default function ItemEstoqueDetailPage() {
                   <ChipNumeracao label="US" valor={getUsDisplayLabel(item.data)} />
                 </div>
 
+                <PrecoVendaItem
+                  preco_venda={item.data.preco_venda}
+                  moeda_venda={item.data.moeda_venda}
+                  tipoRegiaoLocal={local.data?.tipo_regiao}
+                  variant="destaque"
+                  acao={
+                    <GhostButton
+                      type="button"
+                      className="h-8 w-8 shrink-0 p-0"
+                      icon={<IconActivity width={16} height={16} />}
+                      title="Ver histórico de preço"
+                      aria-label="Ver histórico de preço"
+                      onClick={() => setHistoricoPrecoAberto(true)}
+                    />
+                  }
+                />
+
                 {modelo.data ? (
                   <div className="flex flex-col gap-3 rounded-xl border border-line bg-brand-50/35 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
@@ -193,7 +226,7 @@ export default function ItemEstoqueDetailPage() {
                     {categoria.loading ? "…" : categoria.data?.nome ?? "—"}
                   </F>
                   {!temOrdem && fornecedor.data ? (
-                    <F label="Fornecedor (legado)">
+                    <F label="Fornecedor">
                       <Link
                         to={`/fornecedores/${fornecedor.data.id}`}
                         className="text-brand-600 hover:text-brand-700"
@@ -223,6 +256,25 @@ export default function ItemEstoqueDetailPage() {
           </SectionCard>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <SectionCard title="Preço de venda">
+              <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <F label="Preço">
+                  {item.data.preco_venda != null && moedaVendaExibida
+                    ? formatarMoeda(item.data.preco_venda, moedaVendaExibida)
+                    : "—"}
+                </F>
+                <F label="Moeda">
+                  {item.data.moeda_venda ??
+                    (moedaVendaExibida
+                      ? `${moedaVendaExibida} (inferida pela região do local)`
+                      : "—")}
+                </F>
+              </dl>
+              <p className="mt-3 text-xs text-ink-soft">
+                Valor de venda deste par. Itens do mesmo modelo podem ter preços diferentes.
+              </p>
+            </SectionCard>
+
             {temOrdem && ordem.data ? (
               <SectionCard title="Origem da compra">
                 <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -246,41 +298,21 @@ export default function ItemEstoqueDetailPage() {
                       "—"
                     )}
                   </F>
+                  <F label="Código do fornecedor" mono>
+                    {item.data.codigo_fornecedor ?? "—"}
+                  </F>
                   <F label="Moeda">{ordem.data.moeda_compra}</F>
-                  <F label="Valor pago (original)">
-                    {formatarMoeda(ordem.data.valor_pago_original, ordem.data.moeda_compra)}
+                  <F label="Valor custo">
+                    {formatarMoeda(ordem.data.valor_custo, ordem.data.moeda_compra)}
                   </F>
-                  <F label="Câmbio → BRL" mono>
-                    {ordem.data.cambio_compra_para_real ?? "—"}
-                  </F>
-                  <F label="Valor pago (BRL)">
-                    {formatarMoeda(ordem.data.valor_pago_real, "BRL")}
-                  </F>
-                  <F label="Câmbio → EUR" mono>
-                    {ordem.data.cambio_compra_para_euro ?? "—"}
-                  </F>
-                  <F label="Valor pago (EUR)">
-                    {formatarMoeda(ordem.data.valor_pago_euro, "EUR")}
+                  <F label="Custo principal">
+                    {custoCompra ? formatarMoeda(custoCompra.valor, custoCompra.moeda) : "—"}
                   </F>
                 </dl>
               </SectionCard>
             ) : null}
 
-            {temCustoLegado ? (
-              <SectionCard title="Custo (Tiny)">
-                <dl className="grid grid-cols-1 gap-5">
-                  <F label="Valor de custo">
-                    {formatarMoeda(item.data.valor_pago_original, "BRL")}
-                  </F>
-                </dl>
-                <p className="mt-3 text-xs text-ink-soft">
-                  Custo importado do Tiny (legado). Itens sem ordem de compra não possuem detalhes de
-                  moeda ou câmbio.
-                </p>
-              </SectionCard>
-            ) : null}
-
-            <SectionCard title="Auditoria" className={cn(!temOrdem && !temCustoLegado && "lg:col-span-2")}>
+            <SectionCard title="Auditoria" className={cn(!temOrdem && "lg:col-span-2")}>
               <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <F label="Cadastro no Tiny">{formatarDataHora(item.data.data_cadastro_tiny)}</F>
                 <F label="Criado em">{formatarDataHora(item.data.criado_em)}</F>
@@ -299,6 +331,15 @@ export default function ItemEstoqueDetailPage() {
               </SectionCard>
             ) : null}
           </div>
+
+          <HistoricoPrecoModal
+            open={historicoPrecoAberto}
+            onClose={() => setHistoricoPrecoAberto(false)}
+            idItemEstoque={item.data.id}
+            sku={item.data.sku}
+            precoAtual={item.data.preco_venda}
+            moedaAtual={moedaVendaExibida}
+          />
         </div>
       )}
     </div>

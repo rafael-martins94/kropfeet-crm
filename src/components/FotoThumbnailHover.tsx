@@ -69,7 +69,7 @@ export function FotoThumbnailHover({
       aria-label={url ? `Ampliar foto de ${alt}` : undefined}
     >
       {url ? (
-        <img src={url} alt="" className="h-full w-full object-contain" loading="lazy" />
+        <img src={url} alt="" className="h-full w-full object-contain" loading="lazy" draggable={false} />
       ) : (
         <PlaceholderIcon className={size === "sm" ? "h-4 w-4 text-ink-faint" : "h-5 w-5 text-ink-faint"} />
       )}
@@ -96,7 +96,7 @@ export function FotoThumbnailHover({
           style={{ left: pos.x, top: pos.y, width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
           role="tooltip"
         >
-          <img src={url} alt={alt} className="h-full w-full object-contain" />
+          <img src={url} alt={alt} className="h-full w-full object-contain" draggable={false} />
         </div>
       ) : null}
     </>

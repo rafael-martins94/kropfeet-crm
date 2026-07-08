@@ -1,7 +1,8 @@
 import type { ItemEstoque } from "../types/entities";
 import type { OrdemCompra } from "../types/entities";
+import { inferirMoedaVendaPorRegiao } from "./moedaItemEstoque";
 
-export type FonteCustoItem = "ordem" | "legado_tiny";
+export type FonteCustoItem = "ordem";
 
 export interface CustoItemEstoque {
   fonte: FonteCustoItem;
@@ -11,14 +12,12 @@ export interface CustoItemEstoque {
   moedaOriginal: string | null;
 }
 
-type ItemComOrdem = Pick<ItemEstoque, "id_ordem_compra" | "valor_pago_original"> & {
-  ordem_compra?: Pick<
-    OrdemCompra,
-    "valor_pago_real" | "valor_pago_euro" | "valor_pago_original" | "moeda_compra"
-  > | null;
+type ItemComOrdem = Pick<ItemEstoque, "id_ordem_compra"> & {
+  local?: { tipo_regiao?: string | null } | null;
+  ordem_compra?: Pick<OrdemCompra, "valor_custo" | "moeda_compra"> | null;
 };
 
-/** Resolve custo do item: ordem de compra quando existir; senão valor Tiny legado (BRL implícito). */
+/** Resolve custo do item a partir da ordem de compra vinculada. */
 export function resolverCustoItem(item: ItemComOrdem | null | undefined): CustoItemEstoque | null {
   if (!item) return null;
 
@@ -26,24 +25,32 @@ export function resolverCustoItem(item: ItemComOrdem | null | undefined): CustoI
   if (item.id_ordem_compra && ordem) {
     return {
       fonte: "ordem",
-      valorReal: ordem.valor_pago_real,
-      valorEuro: ordem.valor_pago_euro,
-      valorOriginal: ordem.valor_pago_original,
+      valorReal: ordem.moeda_compra === "BRL" ? ordem.valor_custo : null,
+      valorEuro: ordem.moeda_compra === "EUR" ? ordem.valor_custo : null,
+      valorOriginal: ordem.valor_custo,
       moedaOriginal: ordem.moeda_compra,
     };
   }
 
-  if (item.valor_pago_original !== null && item.valor_pago_original !== undefined) {
-    return {
-      fonte: "legado_tiny",
-      valorReal: item.valor_pago_original,
-      valorEuro: null,
-      valorOriginal: item.valor_pago_original,
-      moedaOriginal: "BRL",
-    };
+  return null;
+}
+
+/** Valor e moeda de custo a exibir conforme a região do local. */
+export function obterCustoPrincipal(
+  custo: CustoItemEstoque | null | undefined,
+  tipoRegiao?: string | null,
+): { valor: number; moeda: string } | null {
+  if (!custo) return null;
+
+  const moeda = inferirMoedaVendaPorRegiao(tipoRegiao) ?? custo.moedaOriginal ?? "BRL";
+
+  if (moeda === "EUR") {
+    const valor = custo.valorEuro ?? (custo.moedaOriginal === "EUR" ? custo.valorOriginal : null);
+    return valor != null ? { valor, moeda: "EUR" } : null;
   }
 
-  return null;
+  const valor = custo.valorReal ?? (custo.moedaOriginal === "BRL" ? custo.valorOriginal : null);
+  return valor != null ? { valor, moeda: "BRL" } : null;
 }
 
 export function calcularLucroVenda(

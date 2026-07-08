@@ -49,6 +49,18 @@ export type ConferenciaInsert = Tables["conferencias"]["Insert"];
 export type ConferenciaEstoque = Tables["conferencias_estoque"]["Row"];
 export type ConferenciaEstoqueInsert = Tables["conferencias_estoque"]["Insert"];
 
+export type Vitrine = Tables["vitrines"]["Row"];
+export type VitrineInsert = Tables["vitrines"]["Insert"];
+export type VitrineUpdate = Tables["vitrines"]["Update"];
+
+export type VitrineItem = Tables["vitrine_itens"]["Row"];
+export type VitrineItemInsert = Tables["vitrine_itens"]["Insert"];
+export type VitrineItemUpdate = Tables["vitrine_itens"]["Update"];
+
+export type VitrineDestinoSaida = Tables["vitrine_destinos_saida"]["Row"];
+export type VitrineDestinoSaidaInsert = Tables["vitrine_destinos_saida"]["Insert"];
+export type VitrineDestinoSaidaUpdate = Tables["vitrine_destinos_saida"]["Update"];
+
 export type CambioMoeda = Tables["cambios_moeda"]["Row"];
 export type CambioMoedaInsert = Tables["cambios_moeda"]["Insert"];
 export type CambioMoedaUpdate = Tables["cambios_moeda"]["Update"];
@@ -75,6 +87,8 @@ export interface PerfilUsuarioUpdate {
 
 export type StatusConferencia = Database["public"]["Enums"]["status_conferencia_enum"];
 export type StatusItem = Database["public"]["Enums"]["status_item_enum"];
+export type StatusVitrine = Database["public"]["Enums"]["status_vitrine_enum"];
+export type EtapaVitrine = Database["public"]["Enums"]["etapa_vitrine_enum"];
 export type SistemaNumeracao = Database["public"]["Enums"]["sistema_numeracao_enum"];
 export type StatusVenda = Database["public"]["Enums"]["status_venda_enum"];
 export type CanalVenda = Database["public"]["Enums"]["canal_venda_enum"];

@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { urlImagemModelo } from "../utils/imagemModelo";
 import type {
   ImagemModeloProduto,
   ModeloProduto,
@@ -20,7 +21,6 @@ export const modelosProdutoService = {
       searchColumns: [
         "nome_modelo",
         "slug",
-        "codigo_fabricante",
         "cor",
       ],
       defaultOrderBy: "atualizado_em",
@@ -58,7 +58,7 @@ export const modelosProdutoService = {
     if (termo) {
       const padrao = `%${termo.replace(/%/g, "")}%`;
       query = query.or(
-        `nome_modelo.ilike.${padrao},slug.ilike.${padrao},codigo_fabricante.ilike.${padrao},cor.ilike.${padrao}`,
+        `nome_modelo.ilike.${padrao},slug.ilike.${padrao},cor.ilike.${padrao}`,
       );
     }
 
@@ -104,8 +104,40 @@ export const modelosProdutoService = {
     const map: Record<string, string> = {};
     for (const img of data ?? []) {
       if (map[img.id_modelo_produto]) continue;
-      const url = img.url_origem ?? img.caminho_arquivo;
+      const url = urlImagemModelo(img);
       if (url) map[img.id_modelo_produto] = url;
+    }
+    return map;
+  },
+
+  /** URLs principais apenas dos modelos informados (catálogo público). */
+  listarUrlsPorModelos: async (idsModelo: string[]): Promise<Record<string, string>> => {
+    const galeria = await modelosProdutoService.listarGaleriaUrlsPorModelos(idsModelo);
+    return Object.fromEntries(
+      Object.entries(galeria).map(([id, urls]) => [id, urls[0] ?? ""]).filter(([, url]) => url),
+    );
+  },
+
+  /** Todas as URLs de exibição por modelo, em ordem (principal primeiro). */
+  listarGaleriaUrlsPorModelos: async (idsModelo: string[]): Promise<Record<string, string[]>> => {
+    const ids = [...new Set(idsModelo)].filter(Boolean);
+    if (ids.length === 0) return {};
+
+    const { data, error } = await supabase
+      .from("imagens_modelo_produto")
+      .select("id_modelo_produto, url_origem, caminho_arquivo, imagem_principal, ordem_exibicao")
+      .in("id_modelo_produto", ids)
+      .order("imagem_principal", { ascending: false })
+      .order("ordem_exibicao", { ascending: true });
+
+    if (error) throw error;
+
+    const map: Record<string, string[]> = {};
+    for (const img of data ?? []) {
+      const url = urlImagemModelo(img);
+      if (!url) continue;
+      if (!map[img.id_modelo_produto]) map[img.id_modelo_produto] = [];
+      map[img.id_modelo_produto].push(url);
     }
     return map;
   },

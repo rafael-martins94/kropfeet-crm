@@ -9,7 +9,7 @@ interface Crumb {
 }
 
 interface PageHeaderProps {
-  title: string;
+  title: ReactNode;
   titleAccessory?: ReactNode;
   breadcrumbs?: Crumb[];
   actions?: ReactNode;
@@ -26,8 +26,8 @@ export function PageHeader({
   backState,
 }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
+    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+      <div>
         {breadcrumbs && breadcrumbs.length > 0 ? (
           <nav className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">
             {breadcrumbs.map((c, i) => (
@@ -57,8 +57,8 @@ export function PageHeader({
               <IconChevronLeft />
             </Link>
           ) : null}
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <h1 className="truncate font-display text-2xl font-semibold text-brand-700 sm:text-3xl">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-2xl font-semibold whitespace-nowrap text-brand-700 sm:text-3xl">
               {title}
             </h1>
             {titleAccessory}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormTextarea } from "../../components/FormField";
 import { IdentificacaoItemFields } from "../../components/item-estoque-form/IdentificacaoItemFields";
@@ -10,13 +10,15 @@ import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { useAsync } from "../../hooks/useAsync";
 import { fornecedoresService } from "../../services/fornecedores";
+import { itensEstoqueService } from "../../services/itens-estoque";
 import { locaisEstoqueService } from "../../services/locais-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { ordensCompraService } from "../../services/ordens-compra";
 import {
   montarNomeProdutoComNumeracoes,
-  normalizeNumeracaoUsInput,
+  normalizeNumeracaoUsFormInput,
   normalizeSizeValue,
+  parseNumeracaoUs,
   aplicarEquivalenciaBrEuForm,
   inferirSistemaNumeracao,
   numeracaoUsAoMudarTipo,
@@ -56,11 +58,7 @@ type FormState = {
   observacoes_item: string;
   data_compra: string;
   moeda_compra: string;
-  valor_pago_original: string;
-  valor_pago_real: string;
-  valor_pago_euro: string;
-  cambio_compra_para_real: string;
-  cambio_compra_para_euro: string;
+  valor_custo: string;
   observacoes_ordem: string;
 };
 
@@ -78,11 +76,7 @@ const vazio: FormState = {
   observacoes_item: "",
   data_compra: hojeIso(),
   moeda_compra: "EUR",
-  valor_pago_original: "",
-  valor_pago_real: "",
-  valor_pago_euro: "",
-  cambio_compra_para_real: "",
-  cambio_compra_para_euro: "",
+  valor_custo: "",
   observacoes_ordem: "",
 };
 
@@ -106,10 +100,10 @@ export default function OrdemCompraFormPage() {
     if (!modeloSelecionado) return;
     const br = normalizeSizeValue(form.numeracao_br);
     const eu = normalizeSizeValue(form.numeracao_eu);
-    const usNum = normalizeSizeValue(form.numeracao_us);
+    const usParsed = parseNumeracaoUs(form.numeracao_us);
     const us =
-      usNum !== null && form.us_variant
-        ? { value: usNum, variant: form.us_variant }
+      usParsed !== null && form.us_variant
+        ? { value: usParsed.value, variant: form.us_variant, childSuffix: usParsed.childSuffix }
         : null;
     const nome = montarNomeProdutoComNumeracoes(modeloSelecionado.nome_modelo, br, eu, us);
     setForm((s) => (s.nome_produto === nome ? s : { ...s, nome_produto: nome }));
@@ -125,11 +119,9 @@ export default function OrdemCompraFormPage() {
     setForm((s) => ({ ...s, [k]: v }));
 
   const handleModeloChange = (id: string) => {
-    const modelo = (modelos.data?.data ?? []).find((m) => m.id === id);
     setForm((s) => ({
       ...s,
       id_modelo_produto: id,
-      codigo_fornecedor: modelo?.codigo_fabricante ?? "",
     }));
   };
 
@@ -187,61 +179,67 @@ export default function OrdemCompraFormPage() {
     }));
   };
 
-  const handleValoresCalculados = useCallback(
-    (valores: {
-      valorReal: string;
-      valorEuro: string;
-      cambioReal: string;
-      cambioEuro: string;
-    }) => {
-      setForm((s) => ({
-        ...s,
-        valor_pago_real: valores.valorReal,
-        valor_pago_euro: valores.valorEuro,
-        cambio_compra_para_real: valores.cambioReal,
-        cambio_compra_para_euro: valores.cambioEuro,
-      }));
-    },
-    [],
-  );
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSalvando(true);
     setErro(null);
 
     try {
+      const sku = form.sku.trim();
+      if (!sku) {
+        throw new Error("Informe o SKU.");
+      }
+
+      if (!form.id_fornecedor) {
+        throw new Error("Selecione o fornecedor da compra.");
+      }
+
       if (!form.codigo_fornecedor.trim()) {
         throw new Error("Informe o código do fornecedor.");
       }
+
       if (!form.id_modelo_produto) {
         throw new Error("Selecione um modelo de produto.");
       }
-      const valorOriginal = numOuNulo(form.valor_pago_original);
-      if (valorOriginal === null) {
-        throw new Error("Informe o valor pago na moeda original.");
+
+      if (!form.nome_produto.trim()) {
+        throw new Error("Informe as numerações para gerar o nome do produto.");
+      }
+
+      const valorCusto = numOuNulo(form.valor_custo);
+      if (valorCusto === null || valorCusto < 0) {
+        throw new Error("Informe um valor de custo válido.");
+      }
+
+      if (!form.moeda_compra) {
+        throw new Error("Selecione a moeda da compra.");
+      }
+
+      if (!form.data_compra) {
+        throw new Error("Informe a data da compra.");
       }
 
       if (!form.us_variant) {
-        throw new Error("Selecione o tipo US (M, Y ou W).");
+        throw new Error("Selecione o tipo US (M, C/Y ou W).");
       }
+
       if (!form.numeracao_us.trim()) {
         throw new Error(
           "Informe BR ou EU válidos e selecione o tipo US para preencher a numeração americana.",
         );
       }
 
-      const numeracaoUs = normalizeNumeracaoUsInput(
-        form.us_variant === "mens"
-          ? form.numeracao_us
-          : `${form.numeracao_us}${form.us_variant === "y" ? "Y" : "W"}`,
-      );
-
+      const numeracaoUs = normalizeNumeracaoUsFormInput(form.numeracao_us, form.us_variant);
       const numeracaoBr = numOuNulo(form.numeracao_br);
       const numeracaoEu = numOuNulo(form.numeracao_eu);
 
+      const skuEmUso = await itensEstoqueService.skuExiste(sku);
+      if (skuEmUso) {
+        throw new Error(`SKU ${sku} já está em uso.`);
+      }
+
       const resultado = await ordensCompraService.criarComItem({
-        sku: form.sku.trim(),
+        sku,
         nome_produto: form.nome_produto.trim(),
         id_modelo_produto: form.id_modelo_produto,
         id_local_estoque: form.id_local_estoque || null,
@@ -251,14 +249,10 @@ export default function OrdemCompraFormPage() {
         numeracao_us: numeracaoUs,
         sistema_numeracao: inferirSistemaNumeracao(numeracaoBr, numeracaoEu, numeracaoUs),
         observacoes_item: form.observacoes_item.trim() || null,
-        id_fornecedor: form.id_fornecedor || null,
+        id_fornecedor: form.id_fornecedor,
         data_compra: form.data_compra,
         moeda_compra: form.moeda_compra,
-        valor_pago_original: valorOriginal,
-        cambio_compra_para_real: numOuNulo(form.cambio_compra_para_real),
-        cambio_compra_para_euro: numOuNulo(form.cambio_compra_para_euro),
-        valor_pago_real: numOuNulo(form.valor_pago_real),
-        valor_pago_euro: numOuNulo(form.valor_pago_euro),
+        valor_custo: valorCusto,
         observacoes_ordem: form.observacoes_ordem.trim() || null,
       });
 
@@ -282,8 +276,34 @@ export default function OrdemCompraFormPage() {
         backTo="/ordens-compra"
       />
 
+      <p className="mb-6 text-sm text-ink-soft">
+        Ao salvar, o sistema cria a ordem de compra e o item de estoque vinculado em uma única
+        operação.
+      </p>
+
       <form onSubmit={handleSubmit} className="space-y-6">
-        <SectionCard title="Identificação do item">
+        <SectionCard
+          title="Dados da compra"
+          description="Informações da ordem de compra com o fornecedor."
+        >
+          <CompraOrdemFields
+            dataCompra={form.data_compra}
+            moedaCompra={form.moeda_compra}
+            valorCusto={form.valor_custo}
+            idFornecedor={form.id_fornecedor}
+            fornecedores={fornecedores.data ?? []}
+            loadingFornecedores={fornecedores.loading}
+            onDataChange={(v) => upd("data_compra", v)}
+            onMoedaChange={(v) => upd("moeda_compra", v)}
+            onValorCustoChange={(v) => upd("valor_custo", v)}
+            onFornecedorChange={(v) => upd("id_fornecedor", v)}
+          />
+        </SectionCard>
+
+        <SectionCard
+          title="Item de estoque"
+          description="Produto que será cadastrado e vinculado a esta ordem."
+        >
           <IdentificacaoItemFields
             sku={<SkuComGerador value={form.sku} onChange={(v) => upd("sku", v)} required />}
             nomeProduto={form.nome_produto}
@@ -297,6 +317,8 @@ export default function OrdemCompraFormPage() {
             loadingModelos={modelos.loading}
             loadingFornecedores={fornecedores.loading}
             loadingLocais={locais.loading}
+            showFornecedor={false}
+            showEditarModelo
             onModeloChange={handleModeloChange}
             onFornecedorChange={(v) => upd("id_fornecedor", v)}
             onLocalChange={(v) => upd("id_local_estoque", v)}
@@ -313,22 +335,6 @@ export default function OrdemCompraFormPage() {
             onBrChange={handleBrChange}
             onEuChange={handleEuChange}
             onUsVariantChange={handleUsVariantChange}
-          />
-        </SectionCard>
-
-        <SectionCard title="Compra">
-          <CompraOrdemFields
-            dataCompra={form.data_compra}
-            moedaCompra={form.moeda_compra}
-            valorOriginal={form.valor_pago_original}
-            valorReal={form.valor_pago_real}
-            valorEuro={form.valor_pago_euro}
-            cambioReal={form.cambio_compra_para_real}
-            cambioEuro={form.cambio_compra_para_euro}
-            onDataChange={(v) => upd("data_compra", v)}
-            onMoedaChange={(v) => upd("moeda_compra", v)}
-            onValorOriginalChange={(v) => upd("valor_pago_original", v)}
-            onValoresCalculados={handleValoresCalculados}
           />
         </SectionCard>
 

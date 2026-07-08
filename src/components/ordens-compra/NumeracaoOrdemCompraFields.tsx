@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { FormInput } from "../FormField";
 import { cn } from "../../utils/cn";
-import type { UsSizeVariant } from "../../utils/sizeConversion";
+import { formatNumeracaoUsDisplay, type UsSizeVariant } from "../../utils/sizeConversion";
 
 const US_VARIANT_OPCOES: Array<{ value: UsSizeVariant; label: string; title: string }> = [
   { value: "mens", label: "M", title: "Masculino" },
-  { value: "y", label: "Y", title: "Infantil (Youth)" },
+  { value: "y", label: "Y", title: "Infantil (C/Y)" },
   { value: "w", label: "W", title: "Feminino" },
 ];
 
@@ -55,8 +55,7 @@ export function NumeracaoOrdemCompraFields({
   onEuChange,
   onUsVariantChange,
 }: NumeracaoOrdemCompraFieldsProps) {
-  const usLabel =
-    usVariant === "w" ? "W" : usVariant === "y" ? "Y" : usVariant === "mens" ? "M" : null;
+  const usDisplay = numeracaoUs ? formatNumeracaoUsDisplay(numeracaoUs, usVariant) : "";
 
   return (
     <div className="space-y-4">
@@ -131,10 +130,7 @@ export function NumeracaoOrdemCompraFields({
               >
                 {numeracaoUs ? (
                   <span className="font-numeric text-lg font-semibold tabular-nums text-ink">
-                    {numeracaoUs.replace(".", ",")}
-                    {usLabel && usLabel !== "M" ? (
-                      <span className="text-base text-ink-muted">{usLabel}</span>
-                    ) : null}
+                    {usDisplay}
                   </span>
                 ) : (
                   <span className="text-sm text-ink-faint">

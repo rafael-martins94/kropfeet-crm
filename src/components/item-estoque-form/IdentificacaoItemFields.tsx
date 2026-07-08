@@ -179,11 +179,11 @@ export function IdentificacaoItemFields({
         />
 
         <FormInput
-          label="Referência do modelo"
+          label="Código do fornecedor"
           required
           value={codigoFornecedor}
           onChange={(e) => onCodigoFornecedorChange(e.target.value)}
-          hint="Código do fabricante vinculado ao modelo selecionado."
+          hint="Referência do modelo no catálogo do fornecedor."
           className="font-numeric tabular-nums"
         />
 

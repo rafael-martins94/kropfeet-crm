@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
 import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
+import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
 import { ItensEstoqueFiltrosToolbar } from "../../components/itens-estoque/ItensEstoqueFiltrosToolbar";
 import { ItensEstoqueHeaderControls } from "../../components/itens-estoque/ItensEstoqueHeaderControls";
 import { PageHeader } from "../../components/PageHeader";
@@ -40,6 +41,7 @@ import {
 function CabecalhoOrdenavel({
   label,
   title,
+  nowrap,
   coluna,
   colunaAtiva,
   ascendente,
@@ -47,6 +49,7 @@ function CabecalhoOrdenavel({
 }: {
   label: string;
   title?: string;
+  nowrap?: boolean;
   coluna: ColunaOrdemItemEstoque;
   colunaAtiva: ColunaOrdemItemEstoque;
   ascendente: boolean;
@@ -58,12 +61,13 @@ function CabecalhoOrdenavel({
       type="button"
       title={title}
       className={cn(
-        "-mx-2 -my-1 inline-flex w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider transition-colors",
+        "-mx-2 -my-1 inline-flex w-full items-center gap-x-1.5 gap-y-0.5 rounded px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider transition-colors",
+        nowrap ? "flex-nowrap whitespace-nowrap" : "flex-wrap",
         ativo ? "text-ink" : "text-ink-soft hover:bg-brand-50/60 hover:text-ink",
       )}
       onClick={() => onOrdem(coluna)}
     >
-      <span className="leading-snug">{label}</span>
+      <span className={cn("leading-snug", nowrap && "whitespace-nowrap")}>{label}</span>
       {ativo ? (
         <span className="shrink-0 text-brand-600" aria-hidden>
           {ascendente ? "↑" : "↓"}
@@ -418,6 +422,29 @@ export default function ItensEstoqueListPage() {
             }}
           />
         </div>
+      ),
+    },
+    {
+      key: "preco",
+      header: (
+        <CabecalhoOrdenavel
+          label="Preço"
+          coluna="preco_venda"
+          colunaAtiva={colunaOrdem}
+          ascendente={ordemAscendente}
+          onOrdem={alterarOrdem}
+          nowrap
+        />
+      ),
+      headerClassName: "align-top whitespace-nowrap w-[6.5rem]",
+      width: "104px",
+      className: "whitespace-nowrap",
+      render: (it) => (
+        <PrecoVendaItem
+          preco_venda={it.preco_venda}
+          moeda_venda={it.moeda_venda}
+          local={it.local}
+        />
       ),
     },
     {

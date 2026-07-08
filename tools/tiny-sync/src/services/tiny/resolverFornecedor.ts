@@ -28,6 +28,28 @@ async function buscarNoBanco(
   supabase: SupabaseAppClient,
   idTiny: string,
 ): Promise<{ id: string; enriquecido: boolean } | null> {
+  const alias = await supabase
+    .from("fornecedor_tiny_ids")
+    .select("id_fornecedor")
+    .eq("id_tiny", idTiny)
+    .maybeSingle();
+  if (alias.error) throw alias.error;
+
+  if (alias.data?.id_fornecedor) {
+    const porAlias = await supabase
+      .from("fornecedores")
+      .select("id, dados_tiny")
+      .eq("id", alias.data.id_fornecedor)
+      .maybeSingle();
+    if (porAlias.error) throw porAlias.error;
+    if (porAlias.data) {
+      return {
+        id: porAlias.data.id,
+        enriquecido: porAlias.data.dados_tiny !== null,
+      };
+    }
+  }
+
   const r = await supabase
     .from("fornecedores")
     .select("id, dados_tiny")

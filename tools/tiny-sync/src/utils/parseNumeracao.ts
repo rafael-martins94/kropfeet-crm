@@ -8,7 +8,7 @@ export interface NumeracoesExtraidas {
 
 const REGEX_BR = /(?:\[\s*)?BR\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*\]?/i;
 const REGEX_EU = /(?:\[\s*)?EU\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*\]?/i;
-const REGEX_US = /(?:\[\s*)?US\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*([YyWw])?\s*\]?/i;
+const REGEX_US = /(?:\[\s*)?US\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*([CcYyWw])?\s*\]?/i;
 
 function extrairNumero(texto: string, regex: RegExp): number | null {
   const m = texto.match(regex);
@@ -24,6 +24,7 @@ function extrairUs(texto: string): string | null {
   if (!Number.isFinite(n)) return null;
   const numero = Number.isInteger(n) ? n.toFixed(0) : String(n);
   const suf = (m[2] ?? "").toUpperCase();
+  if (suf === "C") return `${numero}C`;
   if (suf === "Y") return `${numero}Y`;
   if (suf === "W") return `${numero}W`;
   return numero;
@@ -32,8 +33,8 @@ function extrairUs(texto: string): string | null {
 function limparNomeModelo(nomeOriginal: string): string {
   let nome = nomeOriginal;
 
-  nome = nome.replace(/\[\s*(?:BR|EU|US)\s*[:\-]?\s*\d+(?:[.,]\d+)?\s*[YyWw]?\s*\]/gi, " ");
-  nome = nome.replace(/\b(?:BR|EU|US)\s*[:\-]?\s*\d+(?:[.,]\d+)?\s*[YyWw]?\b/gi, " ");
+  nome = nome.replace(/\[\s*(?:BR|EU|US)\s*[:\-]?\s*\d+(?:[.,]\d+)?\s*[CcYyWw]?\s*\]/gi, " ");
+  nome = nome.replace(/\b(?:BR|EU|US)\s*[:\-]?\s*\d+(?:[.,]\d+)?\s*[CcYyWw]?\b/gi, " ");
 
   const idxHash = nome.indexOf("#");
   if (idxHash >= 0) nome = nome.slice(0, idxHash);

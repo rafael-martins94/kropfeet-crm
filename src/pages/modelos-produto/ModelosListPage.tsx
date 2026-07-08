@@ -92,16 +92,6 @@ export default function ModelosListPage() {
       ),
     },
     {
-      key: "codigo",
-      header: "Cód. fabricante",
-      width: "150px",
-      render: (m) => (
-        <span className="font-numeric tabular-nums text-xs text-ink-soft">
-          {m.codigo_fabricante ?? "—"}
-        </span>
-      ),
-    },
-    {
       key: "ativo",
       header: "Status",
       width: "100px",

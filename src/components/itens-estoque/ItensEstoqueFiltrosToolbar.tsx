@@ -66,7 +66,7 @@ export function ItensEstoqueFiltrosToolbar({
     <div className="border-b border-line px-5 py-4">
       <div className={gridClass}>
         <SearchInput
-          placeholder="Buscar por SKU, nome produto, código…"
+          placeholder="Buscar por SKU ou nome do produto…"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           wrapperClassName="min-w-0 w-full"

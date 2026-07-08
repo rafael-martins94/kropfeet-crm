@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FormTextarea } from "../../components/FormField";
+import { FormInput, FormTextarea } from "../../components/FormField";
 import { IdentificacaoItemFields } from "../../components/item-estoque-form/IdentificacaoItemFields";
 import { SkuComGerador } from "../../components/item-estoque-form/SkuComGerador";
 import { NumeracaoOrdemCompraFields } from "../../components/ordens-compra/NumeracaoOrdemCompraFields";
@@ -15,9 +15,11 @@ import { locaisEstoqueService } from "../../services/locais-estoque";
 import { useAsync } from "../../hooks/useAsync";
 import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { limparParaBanco } from "../../utils/format";
+import { inferirMoedaVendaPorRegiao } from "../../utils/moedaItemEstoque";
 import {
+  formatNumeracaoUsFormValue,
   montarNomeProdutoComNumeracoes,
-  normalizeNumeracaoUsInput,
+  normalizeNumeracaoUsFormInput,
   normalizeSizeValue,
   parseNumeracaoUs,
   aplicarEquivalenciaBrEuForm,
@@ -26,6 +28,8 @@ import {
   type UsSizeVariant,
 } from "../../utils/sizeConversion";
 import type { ItemEstoqueUpdate, ModeloProduto, StatusItem } from "../../types/entities";
+
+const MOEDAS_VENDA = ["EUR", "BRL"] as const;
 
 type FormState = {
   sku: string;
@@ -37,6 +41,8 @@ type FormState = {
   numeracao_eu: string;
   numeracao_us: string;
   us_variant: UsSizeVariant | "";
+  preco_venda: string;
+  moeda_venda: string;
   status_item: StatusItem;
   observacoes: string;
 };
@@ -62,6 +68,8 @@ const vazio: FormState = {
   numeracao_eu: "",
   numeracao_us: "",
   us_variant: "mens",
+  preco_venda: "",
+  moeda_venda: "",
   status_item: "em_estoque",
   observacoes: "",
 };
@@ -120,11 +128,19 @@ export default function ItemEstoqueFormPage() {
           id_modelo_produto: it.id_modelo_produto,
           id_local_estoque: it.id_local_estoque ?? "",
           codigo_fornecedor:
-            it.codigo_fornecedor?.trim() || modelo?.codigo_fabricante?.trim() || "",
+            it.codigo_fornecedor?.trim() || "",
           numeracao_br: it.numeracao_br?.toString() ?? "",
           numeracao_eu: it.numeracao_eu?.toString() ?? "",
-          numeracao_us: usParsed ? String(usParsed.value).replace(".", ",") : "",
+          numeracao_us: usParsed
+            ? formatNumeracaoUsFormValue(
+                usParsed.value,
+                usParsed.variant,
+                usParsed.childSuffix,
+              ).replace(".", ",")
+            : "",
           us_variant: usParsed?.variant ?? "mens",
+          preco_venda: it.preco_venda?.toString().replace(".", ",") ?? "",
+          moeda_venda: it.moeda_venda ?? "",
           status_item: it.status_item,
           observacoes: it.observacoes ?? "",
         });
@@ -141,10 +157,10 @@ export default function ItemEstoqueFormPage() {
     if (!modeloSelecionado) return;
     const br = normalizeSizeValue(form.numeracao_br);
     const eu = normalizeSizeValue(form.numeracao_eu);
-    const usNum = normalizeSizeValue(form.numeracao_us);
+    const usParsed = parseNumeracaoUs(form.numeracao_us);
     const us =
-      usNum !== null && form.us_variant
-        ? { value: usNum, variant: form.us_variant }
+      usParsed !== null && form.us_variant
+        ? { value: usParsed.value, variant: form.us_variant, childSuffix: usParsed.childSuffix }
         : null;
     const nome = montarNomeProdutoComNumeracoes(modeloSelecionado.nome_modelo, br, eu, us);
     setForm((s) => (s.nome_produto === nome ? s : { ...s, nome_produto: nome }));
@@ -172,7 +188,6 @@ export default function ItemEstoqueFormPage() {
       setForm((s) => ({
         ...s,
         id_modelo_produto: modeloId,
-        codigo_fornecedor: modeloLista.codigo_fabricante ?? s.codigo_fornecedor,
       }));
       return;
     }
@@ -186,7 +201,6 @@ export default function ItemEstoqueFormPage() {
           ? s
           : {
               ...s,
-              codigo_fornecedor: modelo.codigo_fabricante ?? s.codigo_fornecedor,
             },
       );
     });
@@ -255,12 +269,20 @@ export default function ItemEstoqueFormPage() {
       const numeracaoBr = numOuNulo(form.numeracao_br);
       const numeracaoEu = numOuNulo(form.numeracao_eu);
       const numeracaoUs = form.numeracao_us.trim()
-        ? normalizeNumeracaoUsInput(
-            form.us_variant === "mens"
-              ? form.numeracao_us
-              : `${form.numeracao_us}${form.us_variant === "y" ? "Y" : "W"}`,
-          )
+        ? normalizeNumeracaoUsFormInput(form.numeracao_us, form.us_variant || "mens")
         : null;
+
+      const precoVenda = numOuNulo(form.preco_venda);
+      const moedaInformada = form.moeda_venda.trim().toUpperCase();
+      const localSelecionado = (locais.data ?? []).find((l) => l.id === form.id_local_estoque);
+      if (moedaInformada && !MOEDAS_VENDA.includes(moedaInformada as (typeof MOEDAS_VENDA)[number])) {
+        throw new Error("Moeda inválida. Use EUR ou BRL.");
+      }
+      if (precoVenda != null && !moedaInformada && !inferirMoedaVendaPorRegiao(localSelecionado?.tipo_regiao)) {
+        throw new Error(
+          "Informe a moeda ou selecione um local de estoque na região Europa (EUR) ou Brasil (BRL).",
+        );
+      }
 
       const base = limparParaBanco({
         sku: form.sku,
@@ -269,6 +291,8 @@ export default function ItemEstoqueFormPage() {
         id_local_estoque: form.id_local_estoque || null,
         codigo_fornecedor: form.codigo_fornecedor,
         sistema_numeracao: inferirSistemaNumeracao(numeracaoBr, numeracaoEu, numeracaoUs),
+        preco_venda: precoVenda,
+        moeda_venda: precoVenda != null && moedaInformada ? moedaInformada : null,
         status_item: form.status_item,
         observacoes: form.observacoes,
       });
@@ -346,6 +370,30 @@ export default function ItemEstoqueFormPage() {
               onEuChange={handleEuChange}
               onUsVariantChange={handleUsVariantChange}
             />
+          </SectionCard>
+
+          <SectionCard title="Preço de venda">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <SearchableSelectDropdown
+                label="Moeda"
+                value={form.moeda_venda}
+                onChange={(v) => upd("moeda_venda", v)}
+                options={[
+                  { value: "", label: "Inferir pelo local (EUR/BRL)" },
+                  ...MOEDAS_VENDA.map((moeda) => ({ value: moeda, label: moeda })),
+                ]}
+                emptyLabel="Inferir pelo local"
+                searchPlaceholder="Buscar moeda…"
+              />
+              <FormInput
+                label="Preço"
+                value={form.preco_venda}
+                onChange={(e) => upd("preco_venda", e.target.value)}
+                inputMode="decimal"
+                placeholder="Ex.: 220"
+                hint="Sem moeda definida: Europa → EUR, Brasil → BRL."
+              />
+            </div>
           </SectionCard>
 
           <SectionCard title="Estado e observações">

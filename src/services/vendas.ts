@@ -6,7 +6,7 @@ import type {
   VendaInsert,
   VendaUpdate,
 } from "../types/entities";
-import { calcularLucroVenda, resolverCustoItem, type CustoItemEstoque } from "../utils/custoItem";
+import { calcularLucroVenda, obterCustoPrincipal, resolverCustoItem, type CustoItemEstoque } from "../utils/custoItem";
 import { atualizar, deletar, inserir, obterPorId } from "./base";
 
 export interface ItemVendaDetalhado {
@@ -27,11 +27,9 @@ export interface ItemVendaDetalhado {
     nome_produto: string;
     numeracao_br: number | null;
     id_ordem_compra: string | null;
-    valor_pago_original: number | null;
+    local?: { tipo_regiao: string | null } | null;
     ordem_compra?: {
-      valor_pago_real: number | null;
-      valor_pago_euro: number | null;
-      valor_pago_original: number;
+      valor_custo: number;
       moeda_compra: string;
     } | null;
   } | null;
@@ -99,9 +97,10 @@ export const vendasService = {
       .select(
         `*,
          item_estoque:itens_estoque(
-           id, sku, nome_produto, numeracao_br, id_ordem_compra, valor_pago_original,
+           id, sku, nome_produto, numeracao_br, id_ordem_compra,
+           local:locais_estoque!itens_estoque_id_local_estoque_fkey(tipo_regiao),
            ordem_compra:ordens_compra!itens_estoque_id_ordem_compra_fkey(
-             valor_pago_real, valor_pago_euro, valor_pago_original, moeda_compra
+             valor_custo, moeda_compra
            )
          )`,
       )

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { DangerButton, SecondaryButton } from "../../components/PrimaryButton";
@@ -151,6 +152,19 @@ export default function LocalEstoqueDetailPage() {
         <span className="font-numeric text-sm tabular-nums text-ink-muted">
           {getUsDisplayLabel(it)}
         </span>
+      ),
+    },
+    {
+      key: "preco",
+      header: "Preço",
+      width: "104px",
+      className: "whitespace-nowrap",
+      render: (it) => (
+        <PrecoVendaItem
+          preco_venda={it.preco_venda}
+          moeda_venda={it.moeda_venda}
+          tipoRegiaoLocal={data?.tipo_regiao}
+        />
       ),
     },
     {

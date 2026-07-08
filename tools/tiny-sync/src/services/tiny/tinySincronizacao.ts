@@ -13,6 +13,7 @@ import {
 } from "../supabase/repositorios/logsSincronizacao.js";
 import { obterOuCriarMarca } from "../supabase/repositorios/marcas.js";
 import { upsertModeloProduto } from "../supabase/repositorios/modelosProduto.js";
+import { upsertOrdemCompraTinyPorItem } from "../supabase/repositorios/ordensCompra.js";
 import {
   ENDPOINTS_TINY,
   iterarContatosTiny,
@@ -89,10 +90,14 @@ async function persistirProdutoTiny(produto: TinyProdutoDetalhe): Promise<"criad
     }
   }
 
-  const { resultado } = await upsertItemEstoquePorTiny(supabase, parsed.item, {
+  const { id: idItem, resultado } = await upsertItemEstoquePorTiny(supabase, parsed.item, {
     idModeloProduto: idModelo,
     idFornecedor,
     idLocalEstoque,
+  });
+
+  await upsertOrdemCompraTinyPorItem(supabase, idItem, parsed.item, {
+    idFornecedor,
   });
 
   return resultado;

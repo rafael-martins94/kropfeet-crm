@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { cn } from "../utils/cn";
 
 interface SectionCardProps {
-  title?: string;
+  title?: ReactNode;
+  titleAccessory?: ReactNode;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
@@ -13,6 +14,7 @@ interface SectionCardProps {
 
 export function SectionCard({
   title,
+  titleAccessory,
   description,
   actions,
   children,
@@ -34,8 +36,13 @@ export function SectionCard({
         >
           {title || description ? (
             <div className="min-w-0">
-              {title ? (
-                <h3 className="text-sm font-semibold text-ink truncate">{title}</h3>
+              {title || titleAccessory ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {title ? (
+                    <h3 className="text-sm font-semibold text-ink truncate">{title}</h3>
+                  ) : null}
+                  {titleAccessory}
+                </div>
               ) : null}
               {description ? (
                 <p className="text-xs text-ink-soft mt-0.5">{description}</p>

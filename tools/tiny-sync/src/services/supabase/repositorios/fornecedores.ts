@@ -6,19 +6,99 @@ import type { SupabaseAppClient } from "../clienteSupabase.js";
 type FornecedorInsert = Database["public"]["Tables"]["fornecedores"]["Insert"];
 type FornecedorUpdate = Database["public"]["Tables"]["fornecedores"]["Update"];
 
+interface FornecedorLocalizado {
+  id: string;
+  idTinyAtual: string | null;
+}
+
 export type ResultadoUpsertFornecedor = {
   id: string;
   operacao: "criado" | "atualizado";
 };
+
+function normalizarNomeFornecedor(valor: string): string {
+  return valor.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+async function buscarFornecedorPorId(
+  supabase: SupabaseAppClient,
+  id: string,
+): Promise<FornecedorLocalizado | null> {
+  const r = await supabase
+    .from("fornecedores")
+    .select("id, id_tiny")
+    .eq("id", id)
+    .maybeSingle();
+  if (r.error) throw r.error;
+  return r.data ? { id: r.data.id, idTinyAtual: r.data.id_tiny ?? null } : null;
+}
+
+async function buscarFornecedorPorAliasTiny(
+  supabase: SupabaseAppClient,
+  idTiny: string,
+): Promise<FornecedorLocalizado | null> {
+  const alias = await supabase
+    .from("fornecedor_tiny_ids")
+    .select("id_fornecedor")
+    .eq("id_tiny", idTiny)
+    .maybeSingle();
+  if (alias.error) throw alias.error;
+  if (!alias.data?.id_fornecedor) return null;
+  return buscarFornecedorPorId(supabase, alias.data.id_fornecedor);
+}
+
+async function registrarAliasTiny(
+  supabase: SupabaseAppClient,
+  idFornecedor: string,
+  idTiny: string | null,
+  dadosTiny?: Record<string, unknown> | null,
+): Promise<void> {
+  if (!idTiny) return;
+  const r = await supabase
+    .from("fornecedor_tiny_ids")
+    .upsert(
+      {
+        id_fornecedor: idFornecedor,
+        id_tiny: idTiny,
+        dados_tiny: (dadosTiny ?? null) as Json | null,
+        atualizado_em: new Date().toISOString(),
+      },
+      { onConflict: "id_tiny" },
+    );
+  if (r.error) throw r.error;
+}
+
+async function buscarPorNomeNormalizado(
+  supabase: SupabaseAppClient,
+  nome: string,
+): Promise<FornecedorLocalizado | null> {
+  const alvo = normalizarNomeFornecedor(nome);
+  const r = await supabase
+    .from("fornecedores")
+    .select("id, id_tiny, nome")
+    .ilike("nome", nome)
+    .limit(10);
+  if (r.error) throw r.error;
+  const encontrado = (r.data ?? []).find((f) => normalizarNomeFornecedor(f.nome) === alvo);
+  return encontrado
+    ? { id: encontrado.id, idTinyAtual: encontrado.id_tiny ?? null }
+    : null;
+}
 
 export async function upsertFornecedor(
   supabase: SupabaseAppClient,
   dados: DadosFornecedorParseados,
 ): Promise<string | null> {
   if (dados.idTiny) {
+    const porAlias = await buscarFornecedorPorAliasTiny(supabase, dados.idTiny);
+    if (porAlias) {
+      await registrarAliasTiny(supabase, porAlias.id, dados.idTiny);
+      return porAlias.id;
+    }
+
     const porIdTiny = await supabase
       .from("fornecedores")
-      .select("id")
+      .select("id, id_tiny")
       .eq("id_tiny", dados.idTiny)
       .maybeSingle();
     if (porIdTiny.error) throw porIdTiny.error;
@@ -30,28 +110,25 @@ export async function upsertFornecedor(
           codigo_fornecedor: dados.codigoFornecedor ?? undefined,
         })
         .eq("id", porIdTiny.data.id);
+      await registrarAliasTiny(supabase, porIdTiny.data.id, dados.idTiny);
       return porIdTiny.data.id;
     }
   }
 
   if (dados.nome) {
-    const porNome = await supabase
-      .from("fornecedores")
-      .select("id, id_tiny")
-      .eq("nome", dados.nome)
-      .maybeSingle();
-    if (porNome.error) throw porNome.error;
-    if (porNome.data) {
-      if (dados.idTiny && !porNome.data.id_tiny) {
+    const porNome = await buscarPorNomeNormalizado(supabase, dados.nome);
+    if (porNome) {
+      if (dados.idTiny && !porNome.idTinyAtual) {
         await supabase
           .from("fornecedores")
           .update({
             id_tiny: dados.idTiny,
             codigo_fornecedor: dados.codigoFornecedor ?? undefined,
           })
-          .eq("id", porNome.data.id);
+          .eq("id", porNome.id);
       }
-      return porNome.data.id;
+      await registrarAliasTiny(supabase, porNome.id, dados.idTiny);
+      return porNome.id;
     }
   }
 
@@ -68,6 +145,7 @@ export async function upsertFornecedor(
     .single();
 
   if (inserido.error) throw inserido.error;
+  await registrarAliasTiny(supabase, inserido.data.id, dados.idTiny);
   return inserido.data.id;
 }
 
@@ -107,33 +185,32 @@ function montarPayloadFornecedor(dados: FornecedorTinyParseado): FornecedorInser
 async function localizarExistente(
   supabase: SupabaseAppClient,
   dados: FornecedorTinyParseado,
-): Promise<string | null> {
+): Promise<FornecedorLocalizado | null> {
+  const porAlias = await buscarFornecedorPorAliasTiny(supabase, dados.idTiny);
+  if (porAlias) return porAlias;
+
   const porIdTiny = await supabase
     .from("fornecedores")
-    .select("id")
+    .select("id, id_tiny")
     .eq("id_tiny", dados.idTiny)
     .maybeSingle();
   if (porIdTiny.error) throw porIdTiny.error;
-  if (porIdTiny.data) return porIdTiny.data.id;
+  if (porIdTiny.data) {
+    return { id: porIdTiny.data.id, idTinyAtual: porIdTiny.data.id_tiny ?? null };
+  }
 
   if (dados.cpfCnpj) {
     const porDoc = await supabase
       .from("fornecedores")
-      .select("id")
+      .select("id, id_tiny")
       .eq("cpf_cnpj", dados.cpfCnpj)
       .maybeSingle();
     if (porDoc.error) throw porDoc.error;
-    if (porDoc.data) return porDoc.data.id;
+    if (porDoc.data) return { id: porDoc.data.id, idTinyAtual: porDoc.data.id_tiny ?? null };
   }
 
-  const porNome = await supabase
-    .from("fornecedores")
-    .select("id")
-    .eq("nome", dados.nome)
-    .is("id_tiny", null)
-    .maybeSingle();
-  if (porNome.error) throw porNome.error;
-  if (porNome.data) return porNome.data.id;
+  const porNome = await buscarPorNomeNormalizado(supabase, dados.nome);
+  if (porNome) return porNome;
 
   return null;
 }
@@ -142,17 +219,23 @@ export async function upsertFornecedorCompleto(
   supabase: SupabaseAppClient,
   dados: FornecedorTinyParseado,
 ): Promise<ResultadoUpsertFornecedor> {
-  const idExistente = await localizarExistente(supabase, dados);
+  const existente = await localizarExistente(supabase, dados);
   const payload = montarPayloadFornecedor(dados);
 
-  if (idExistente) {
+  if (existente) {
+    const patch: FornecedorUpdate = { ...payload };
+    if (existente.idTinyAtual && existente.idTinyAtual !== dados.idTiny) {
+      patch.id_tiny = existente.idTinyAtual;
+    }
+
     const atualizado = await supabase
       .from("fornecedores")
-      .update(payload satisfies FornecedorUpdate)
-      .eq("id", idExistente)
+      .update(patch)
+      .eq("id", existente.id)
       .select("id")
       .single();
     if (atualizado.error) throw atualizado.error;
+    await registrarAliasTiny(supabase, atualizado.data.id, dados.idTiny, dados.dadosTiny);
     return { id: atualizado.data.id, operacao: "atualizado" };
   }
 
@@ -162,5 +245,6 @@ export async function upsertFornecedorCompleto(
     .select("id")
     .single();
   if (inserido.error) throw inserido.error;
+  await registrarAliasTiny(supabase, inserido.data.id, dados.idTiny, dados.dadosTiny);
   return { id: inserido.data.id, operacao: "criado" };
 }

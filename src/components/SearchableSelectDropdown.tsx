@@ -132,8 +132,8 @@ export function SearchableSelectDropdown(props: SearchableSelectDropdownProps) {
   }, [multiple, options, value]);
 
   const opcoesPainel = useMemo(
-    () => (multiple ? options.filter((o) => o.value !== "") : options),
-    [multiple, options],
+    () => options,
+    [options],
   );
 
   const filtradas = useMemo(() => {
@@ -236,6 +236,32 @@ export function SearchableSelectDropdown(props: SearchableSelectDropdownProps) {
             />
           </div>
         </div>
+        {multiple && opcoesPainel.some((o) => o.value !== "") ? (
+          <div className="flex gap-3 border-b border-line/80 px-3 py-2 text-xs">
+            <button
+              type="button"
+              className="font-medium text-brand-700 transition-colors hover:text-brand-900"
+              onClick={() => {
+                const alvo = query.trim()
+                  ? filtradas.filter((o) => o.value !== "")
+                  : opcoesPainel.filter((o) => o.value !== "");
+                const ids = alvo.map((o) => o.value);
+                (onChange as (value: string[]) => void)(ids);
+              }}
+            >
+              Selecionar todos
+            </button>
+            {(value as string[]).length > 0 ? (
+              <button
+                type="button"
+                className="text-ink-soft transition-colors hover:text-ink"
+                onClick={() => (onChange as (value: string[]) => void)([])}
+              >
+                Limpar
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <ul
           role="listbox"
           className="max-h-[min(18rem,45vh)] overflow-y-auto overscroll-contain py-1"
@@ -247,7 +273,9 @@ export function SearchableSelectDropdown(props: SearchableSelectDropdownProps) {
           ) : (
             filtradas.map((o) => {
               const ativo = multiple
-                ? (value as string[]).includes(o.value)
+                ? o.value === ""
+                  ? (value as string[]).length === 0
+                  : (value as string[]).includes(o.value)
                 : value === o.value;
               return (
                 <li key={o.value === "" ? "__all__" : o.value} role="presentation">
@@ -263,6 +291,11 @@ export function SearchableSelectDropdown(props: SearchableSelectDropdownProps) {
                     )}
                     onClick={() => {
                       if (multiple) {
+                        if (o.value === "") {
+                          (onChange as (value: string[]) => void)([]);
+                          setOpen(false);
+                          return;
+                        }
                         const selecionados = value as string[];
                         const next = ativo
                           ? selecionados.filter((v) => v !== o.value)

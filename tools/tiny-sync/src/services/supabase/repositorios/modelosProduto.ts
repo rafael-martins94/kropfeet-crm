@@ -68,7 +68,6 @@ async function atualizarModeloExistente(
 ): Promise<void> {
   const atualizacao: UpdateModelo = {
     id_categoria: refs.idCategoria,
-    codigo_fabricante: dados.codigoFabricante,
     descricao: dados.descricao,
     origem_cadastro: "tiny",
     ...(dados.idTinyPai ? { id_tiny_pai: dados.idTinyPai } : {}),
@@ -119,7 +118,6 @@ export async function upsertModeloProduto(
       id_marca: refs.idMarca,
       id_categoria: refs.idCategoria,
       id_tiny_pai: dados.idTinyPai,
-      codigo_fabricante: dados.codigoFabricante,
       descricao: dados.descricao,
       origem_cadastro: "tiny",
     })

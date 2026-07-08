@@ -62,6 +62,7 @@ const menu: MenuGroup[] = [
     label: "Operação",
     items: [
       { to: "/locais-estoque", label: "Locais de estoque", icon: <IconPin /> },
+      { to: "/vitrines", label: "Vitrines", icon: <IconBox /> },
       { to: "/conferencia-estoque", label: "Conferência de estoque", icon: <IconCheck /> },
       { to: "/ordens-compra", label: "Ordens de compra", icon: <IconCart /> },
       { to: "/fornecedores", label: "Fornecedores", icon: <IconTruck /> },

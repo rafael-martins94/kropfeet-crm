@@ -4,7 +4,6 @@ import {
   normalizarTexto,
   paraDataApenas,
   paraDataIso,
-  paraNumeroOuNulo,
 } from "../../utils/normalizacao.js";
 import { parseNomeProdutoTiny } from "../../utils/parseNumeracao.js";
 import type { TinyProdutoDetalhe } from "./tinyTipos.js";
@@ -31,7 +30,6 @@ export interface DadosModeloParseados {
   nomeModelo: string;
   slug: string;
   idTinyPai: string | null;
-  codigoFabricante: string | null;
   descricao: string | null;
   marca: string | null;
   categoria: string | null;
@@ -46,7 +44,6 @@ export interface DadosItemEstoqueParseados {
   numeracaoEu: number | null;
   numeracaoUs: string | null;
   sistemaNumeracao: "br" | "eu" | "us" | "outro";
-  valorPagoOriginal: number | null;
   dataCadastroTiny: string | null;
   observacoes: string | null;
   dadosTiny: Record<string, unknown>;
@@ -179,7 +176,6 @@ function parseModelo(
 ): DadosModeloParseados {
   const marca = normalizarTexto(produto.marca as string | undefined);
   const categoria = normalizarNomeCategoriaTiny(produto.categoria as string | undefined);
-  const codigoFabricante = normalizarTexto(produto.codigo_pelo_fornecedor as string | undefined);
   const descricao = normalizarTexto(produto.descricao_complementar as string | undefined);
 
   const idTinyPaiBruto = normalizarTexto(
@@ -195,7 +191,6 @@ function parseModelo(
     nomeModelo: nomeModeloLimpo,
     slug,
     idTinyPai,
-    codigoFabricante,
     descricao,
     marca,
     categoria,
@@ -222,7 +217,6 @@ export function parseProdutoTiny(produto: TinyProdutoDetalhe): ProdutoTinyParsea
     numeracaoEu: eu,
     numeracaoUs: us,
     sistemaNumeracao: inferirSistemaNumeracao(br, eu, us),
-    valorPagoOriginal: paraNumeroOuNulo(produto.preco_custo ?? produto.preco_custo_medio),
     dataCadastroTiny: paraDataIso(produto.data_criacao),
     observacoes: normalizarTexto(produto.obs as string | undefined),
     dadosTiny: produto as unknown as Record<string, unknown>,

@@ -6,6 +6,7 @@ import { ProtectedRoute, PublicOnlyRoute } from "./routes/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import CatalogoKropCafePage from "./pages/CatalogoKropCafePage";
 
 import MarcasListPage from "./pages/marcas/MarcasListPage";
 import MarcaFormPage from "./pages/marcas/MarcaFormPage";
@@ -31,6 +32,12 @@ import ConferenciaEstoquePage from "./pages/conferencia-estoque/ConferenciaEstoq
 import ItensEstoqueListPage from "./pages/itens-estoque/ItensEstoqueListPage";
 import ItemEstoqueFormPage from "./pages/itens-estoque/ItemEstoqueFormPage";
 import ItemEstoqueDetailPage from "./pages/itens-estoque/ItemEstoqueDetailPage";
+import VitrinesHubPage from "./pages/vitrines/VitrinesHubPage";
+import VitrineAtualPage from "./pages/vitrines/VitrineAtualPage";
+import VitrinesHistoricoPage from "./pages/vitrines/VitrinesHistoricoPage";
+import VitrineDetailPage from "./pages/vitrines/VitrineDetailPage";
+import VitrineWizardPage from "./pages/vitrines/VitrineWizardPage";
+import VitrinePdfPage from "./pages/vitrines/VitrinePdfPage";
 
 import OrdensCompraListPage from "./pages/ordens-compra/OrdensCompraListPage";
 import OrdemCompraFormPage from "./pages/ordens-compra/OrdemCompraFormPage";
@@ -56,6 +63,8 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route path="/catalogo-kropcafe" element={<CatalogoKropCafePage />} />
+
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<LoginPage />} />
         </Route>
@@ -94,6 +103,12 @@ export default function App() {
             <Route path="/itens-estoque/novo" element={<Navigate to="/ordens-compra/novo" replace />} />
             <Route path="/itens-estoque/:id" element={<ItemEstoqueDetailPage />} />
             <Route path="/itens-estoque/:id/editar" element={<ItemEstoqueFormPage />} />
+            <Route path="/vitrines" element={<VitrinesHubPage />} />
+            <Route path="/vitrines/atual" element={<VitrineAtualPage />} />
+            <Route path="/vitrines/historico" element={<VitrinesHistoricoPage />} />
+            <Route path="/vitrines/:id" element={<VitrineDetailPage />} />
+            <Route path="/vitrines/:id/editar" element={<VitrineWizardPage />} />
+            <Route path="/vitrines/:id/pdf" element={<VitrinePdfPage />} />
 
             <Route path="/ordens-compra" element={<OrdensCompraListPage />} />
             <Route path="/ordens-compra/novo" element={<OrdemCompraFormPage />} />
