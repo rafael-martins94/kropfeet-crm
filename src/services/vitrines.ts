@@ -43,6 +43,7 @@ export interface VitrineItemSnapshot {
 
 export interface VitrineCorrespondenciaSnapshot {
   id_item_estoque?: string;
+  id_ordem_compra?: string | null;
   sku: string;
   numeracao_br: number | null;
   numeracao_eu: number | null;
@@ -476,7 +477,7 @@ export const vitrinesService = {
     const idLocalVitrine = await vitrinesService.resolverLocalVitrine();
     let query = supabase
       .from("itens_estoque")
-      .select("id, sku, numeracao_br, numeracao_eu, numeracao_us, sistema_numeracao, status_item, preco_venda, moeda_venda, local:locais_estoque(nome, tipo_regiao, ativo)")
+      .select("id, id_ordem_compra, sku, numeracao_br, numeracao_eu, numeracao_us, sistema_numeracao, status_item, preco_venda, moeda_venda, local:locais_estoque(nome, tipo_regiao, ativo)")
       .eq("id_modelo_produto", idModeloProduto)
       .eq("status_item", "em_estoque")
       .neq("id", idItemExposto);
@@ -497,6 +498,7 @@ export const vitrinesService = {
 
     const mapped = ((data ?? []) as unknown as Array<{
       id: string;
+      id_ordem_compra: string | null;
       sku: string;
       numeracao_br: number | null;
       numeracao_eu: number | null;
@@ -514,6 +516,7 @@ export const vitrinesService = {
       .filter(({ local }) => local?.ativo && local?.tipo_regiao === "europa")
       .map(({ row, local }) => ({
         id_item_estoque: row.id,
+        id_ordem_compra: row.id_ordem_compra,
         sku: row.sku,
         numeracao_br: row.numeracao_br,
         numeracao_eu: row.numeracao_eu,

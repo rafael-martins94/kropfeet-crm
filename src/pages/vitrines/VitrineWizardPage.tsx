@@ -13,6 +13,7 @@ import { PDFDownloadLink } from "@react-pdf/renderer";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { BotaoOrdemCompraItem } from "../../components/ordens-compra/OrdemCompraResumoModal";
 import { PrecoVendaEditavel } from "../../components/itens-estoque/PrecoVendaEditavel";
 import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
 import { DataTable, type Column } from "../../components/DataTable";
@@ -1432,6 +1433,7 @@ function CorrespondenciasStep({
                             thumbs={thumbs.data}
                             numeroCaixa={item.numero_caixa}
                             destaquePreco
+                            mostrarOrdemCompra
                             editarPreco={{
                               idItemEstoque: item.id_item_estoque,
                               disabled: salvandoPrecoId === item.id_item_estoque,
@@ -1514,7 +1516,7 @@ function CorrespondenciaCard({
   const foto = idModeloProduto ? thumbs?.[idModeloProduto] ?? null : null;
 
   return (
-    <div className="flex min-w-0 items-center gap-3 rounded-lg bg-surface-muted p-3 text-sm">
+    <div className="flex min-w-0 items-start gap-3 rounded-lg bg-surface-muted p-3 text-sm">
       <FotoThumbnailHover url={foto} alt={correspondencia.sku} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -1525,24 +1527,31 @@ function CorrespondenciaCard({
         </div>
         <p className="mt-1 truncate text-xs text-ink-soft">{correspondencia.local_nome ?? "Local não informado"}</p>
       </div>
-      {onSalvoPreco && correspondencia.id_item_estoque ? (
-        <PrecoVendaEditavel
-          idItemEstoque={correspondencia.id_item_estoque}
-          preco_venda={correspondencia.preco}
-          moeda_venda={correspondencia.moeda}
-          tipoRegiaoLocal="europa"
-          className="shrink-0"
-          destaque
-          disabled={salvandoPreco}
-          onSalvo={onSalvoPreco}
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        {onSalvoPreco && correspondencia.id_item_estoque ? (
+          <PrecoVendaEditavel
+            idItemEstoque={correspondencia.id_item_estoque}
+            preco_venda={correspondencia.preco}
+            moeda_venda={correspondencia.moeda}
+            tipoRegiaoLocal="europa"
+            className="shrink-0"
+            destaque
+            disabled={salvandoPreco}
+            onSalvo={onSalvoPreco}
+          />
+        ) : (
+          <span className="shrink-0 font-numeric text-lg font-bold tabular-nums text-brand-800">
+            {correspondencia.preco != null
+              ? formatarMoeda(correspondencia.preco, correspondencia.moeda ?? "EUR")
+              : "—"}
+          </span>
+        )}
+        <BotaoOrdemCompraItem
+          idOrdemCompra={correspondencia.id_ordem_compra}
+          sku={correspondencia.sku}
+          variant="link"
         />
-      ) : (
-        <span className="shrink-0 font-numeric text-lg font-bold tabular-nums text-brand-800">
-          {correspondencia.preco != null
-            ? formatarMoeda(correspondencia.preco, correspondencia.moeda ?? "EUR")
-            : "—"}
-        </span>
-      )}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { BotaoOrdemCompraItem } from "../ordens-compra/OrdemCompraResumoModal";
 import { PrecoVendaItem } from "../itens-estoque/PrecoVendaItem";
 import { PrecoVendaEditavel } from "../itens-estoque/PrecoVendaEditavel";
 import { FotoThumbnailHover } from "../FotoThumbnailHover";
@@ -112,12 +113,14 @@ export function CaixaResumoCard({
   compact,
   destaquePreco,
   editarPreco,
+  mostrarOrdemCompra,
 }: {
   item: VitrineItemDetalhado;
   thumbs?: Record<string, string> | null;
   numeroCaixa?: number | null;
   compact?: boolean;
   destaquePreco?: boolean;
+  mostrarOrdemCompra?: boolean;
   editarPreco?: {
     idItemEstoque: string;
     onSalvo: (preco: number, moeda: string | null) => Promise<void>;
@@ -154,6 +157,13 @@ export function CaixaResumoCard({
         <p className="mt-1 truncate text-sm font-semibold text-ink">{titulo}</p>
         {mostrarModelo ? <p className="truncate text-xs text-ink-soft">{modelo}</p> : null}
         <p className="mt-1 text-xs text-ink-muted">{numeracoes}</p>
+        {mostrarOrdemCompra ? (
+          <BotaoOrdemCompraItem
+            idOrdemCompra={item.item?.id_ordem_compra}
+            sku={item.item?.sku}
+            className="mt-2"
+          />
+        ) : null}
         {editarPreco ? (
           <PrecoVendaEditavel
             idItemEstoque={editarPreco.idItemEstoque}
