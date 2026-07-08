@@ -888,6 +888,25 @@ export type Database = {
         Args: { categoria_ids: string[] }
         Returns: { id: string; modelos: number; itens: number }[]
       }
+      catalogo_kropcafe_buscar: {
+        Args: { p_display_system: string; p_numeracao: string }
+        Returns: {
+          id: string
+          sku: string
+          id_modelo_produto: string
+          preco_venda: number | null
+          moeda_venda: string | null
+          tipo_regiao_local: string | null
+        }[]
+      }
+      catalogo_kropcafe_fotos: {
+        Args: { p_modelo_ids: string[] }
+        Returns: {
+          id_modelo_produto: string
+          url_origem: string | null
+          caminho_arquivo: string | null
+        }[]
+      }
       conferir_item_estoque: {
         Args: {
           p_id_conferencia: string

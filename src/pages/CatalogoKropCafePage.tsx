@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { idsLocaisPorRegiao, itensEstoqueService, type ItemCatalogoKropCafe } from "../services/itens-estoque";
-import { locaisEstoqueService } from "../services/locais-estoque";
-import { modelosProdutoService } from "../services/modelos-produto";
+import {
+  catalogoKropCafeService,
+  type ItemCatalogoKropCafePublico,
+} from "../services/catalogo-kropcafe";
 import { cn } from "../utils/cn";
 import { mensagemErro } from "../utils/errors";
 import { formatarPrecoVendaDoItem } from "../utils/moedaItemEstoque";
@@ -22,7 +23,7 @@ type RegiaoConfig = {
 };
 
 type CatalogoState = {
-  itens: ItemCatalogoKropCafe[];
+  itens: ItemCatalogoKropCafePublico[];
   fotos: Record<string, string[]>;
 };
 
@@ -633,7 +634,7 @@ function ProdutoCard({
   labels,
   prioridadeImagem,
 }: {
-  item: ItemCatalogoKropCafe;
+  item: ItemCatalogoKropCafePublico;
   fotos: string[];
   selecionado: boolean;
   onToggle: () => void;
@@ -738,15 +739,12 @@ export default function CatalogoKropCafePage() {
       setSelecionados(new Set());
 
       try {
-        const locais = await locaisEstoqueService.listarTodos();
-        const idsLocaisEuropa = idsLocaisPorRegiao(locais, "eu");
-        const itens = await itensEstoqueService.listarCatalogoKropCafe({
-          idsLocaisEuropa,
+        const itens = await catalogoKropCafeService.buscar({
           displaySizeSystem: regiaoConfig.displaySystem,
           numeracao: tamanho,
         });
         const idsModelo = [...new Set(itens.map((item) => item.id_modelo_produto))];
-        const fotosMap = await modelosProdutoService.listarGaleriaUrlsPorModelos(idsModelo);
+        const fotosMap = await catalogoKropCafeService.listarGaleriaUrlsPorModelos(idsModelo);
 
         if (!cancelado) setCatalogo({ itens, fotos: fotosMap });
       } catch (e) {
