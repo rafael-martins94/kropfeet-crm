@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
-import { IconBox } from "../../components/Icons";
+import { IconBox, IconEdit } from "../../components/Icons";
 import { PageHeader } from "../../components/PageHeader";
 import { SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
@@ -84,13 +84,23 @@ export default function OrdemCompraDetailPage() {
         ]}
         backTo="/ordens-compra"
         actions={
-          item ? (
-            <SecondaryButton
-              icon={<IconBox width={16} height={16} />}
-              onClick={() => navigate(`/itens-estoque/${item.id}`)}
-            >
-              Ver item
-            </SecondaryButton>
+          ordem.data ? (
+            <>
+              <SecondaryButton
+                icon={<IconEdit width={16} height={16} />}
+                onClick={() => navigate(`/ordens-compra/${ordem.data!.id}/editar`)}
+              >
+                Editar
+              </SecondaryButton>
+              {item ? (
+                <SecondaryButton
+                  icon={<IconBox width={16} height={16} />}
+                  onClick={() => navigate(`/itens-estoque/${item.id}`)}
+                >
+                  Ver item
+                </SecondaryButton>
+              ) : null}
+            </>
           ) : null
         }
       />

@@ -1,11 +1,12 @@
 import { supabase } from "../lib/supabase";
 import type {
   OrdemCompra,
+  OrdemCompraUpdate,
   PaginationParams,
   SistemaNumeracao,
   StatusItem,
 } from "../types/entities";
-import { obterPorId } from "./base";
+import { atualizar, obterPorId } from "./base";
 
 export interface CriarOrdemCompraPayload {
   sku: string;
@@ -142,6 +143,17 @@ export const ordensCompraService = {
   },
 
   obterBasica: (id: string) => obterPorId("ordens_compra", id),
+
+  /** Atualiza campos da ordem; se o fornecedor mudar, sincroniza também no item vinculado. */
+  atualizar: async (id: string, patch: OrdemCompraUpdate): Promise<OrdemCompra> => {
+    const ordem = await atualizar("ordens_compra", id, patch);
+    if (patch.id_fornecedor !== undefined && ordem.id_item_estoque) {
+      await atualizar("itens_estoque", ordem.id_item_estoque, {
+        id_fornecedor: patch.id_fornecedor,
+      });
+    }
+    return ordem;
+  },
 
   criarComItem: async (payload: CriarOrdemCompraPayload): Promise<CriarOrdemCompraResultado> => {
     const { data, error } = await supabase.rpc("criar_ordem_compra_com_item", {

@@ -41,6 +41,7 @@ import VitrinePdfPage from "./pages/vitrines/VitrinePdfPage";
 
 import OrdensCompraListPage from "./pages/ordens-compra/OrdensCompraListPage";
 import OrdemCompraFormPage from "./pages/ordens-compra/OrdemCompraFormPage";
+import OrdemCompraEditPage from "./pages/ordens-compra/OrdemCompraEditPage";
 import OrdemCompraDetailPage from "./pages/ordens-compra/OrdemCompraDetailPage";
 
 import ClientesListPage from "./pages/clientes/ClientesListPage";
@@ -112,6 +113,7 @@ export default function App() {
 
             <Route path="/ordens-compra" element={<OrdensCompraListPage />} />
             <Route path="/ordens-compra/novo" element={<OrdemCompraFormPage />} />
+            <Route path="/ordens-compra/:id/editar" element={<OrdemCompraEditPage />} />
             <Route path="/ordens-compra/:id" element={<OrdemCompraDetailPage />} />
 
             <Route path="/clientes" element={<ClientesListPage />} />
