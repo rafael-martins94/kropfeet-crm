@@ -233,7 +233,9 @@ export default function ItemEstoqueDetailPage() {
                     )}
                   </F>
                   <F label="Código do fornecedor" mono>
-                    {item.data.codigo_fornecedor ?? "—"}
+                    {modelo.data?.codigo_fornecedor?.trim() ||
+                      item.data.codigo_fornecedor ||
+                      "—"}
                   </F>
                   <F label="Categoria (modelo)">
                     {categoria.loading ? "…" : categoria.data?.nome ?? "—"}
@@ -269,29 +271,10 @@ export default function ItemEstoqueDetailPage() {
           </SectionCard>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <SectionCard title="Preço de venda">
-              <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <F label="Preço">
-                  {item.data.preco_venda != null && moedaVendaExibida
-                    ? formatarMoeda(item.data.preco_venda, moedaVendaExibida)
-                    : "—"}
-                </F>
-                <F label="Moeda">
-                  {item.data.moeda_venda ??
-                    (moedaVendaExibida
-                      ? `${moedaVendaExibida} (inferida pela região do local)`
-                      : "—")}
-                </F>
-              </dl>
-              <p className="mt-3 text-xs text-ink-soft">
-                Valor de venda deste par. Itens do mesmo modelo podem ter preços diferentes.
-              </p>
-            </SectionCard>
-
-            {temOrdem && ordem.data ? (
-              <SectionCard title="Origem da compra">
-                <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <F label="Ordem de compra">
+            <SectionCard title="Ordem de compra">
+              {temOrdem && ordem.data ? (
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <F label="Pedido">
                     <Link
                       to={`/ordens-compra/${ordem.data.id}`}
                       className="text-brand-600 hover:text-brand-700"
@@ -324,68 +307,92 @@ export default function ItemEstoqueDetailPage() {
                     {custoCompra ? formatarMoeda(custoCompra.valor, custoCompra.moeda) : "—"}
                   </F>
                 </dl>
-              </SectionCard>
-            ) : null}
+              ) : (
+                <p className="text-sm text-ink-soft">
+                  Este item não está vinculado a uma ordem de compra.
+                </p>
+              )}
+            </SectionCard>
 
-            {temVenda && vendaPrincipal ? (
-              <SectionCard title="Ordem de venda">
-                <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <F label="Pedido">
-                    <Link
-                      to={`/vendas/${vendaPrincipal.id}`}
-                      className="font-numeric tabular-nums text-brand-600 hover:text-brand-700"
-                    >
-                      {vendaPrincipal.numero ?? "Ver pedido"}
-                    </Link>
-                  </F>
-                  <F label="Status">
-                    <StatusBadge value={vendaPrincipal.status_venda} />
-                  </F>
-                  <F label="Cliente">
-                    {vendaPrincipal.cliente ? (
+            <SectionCard title="Ordem de venda">
+              {temVenda && vendaPrincipal ? (
+                <>
+                  <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <F label="Pedido">
                       <Link
-                        to={`/clientes/${vendaPrincipal.cliente.id}`}
-                        className="text-brand-600 hover:text-brand-700"
+                        to={`/vendas/${vendaPrincipal.id}`}
+                        className="font-numeric tabular-nums text-brand-600 hover:text-brand-700"
                       >
-                        {vendaPrincipal.cliente.nome}
+                        {vendaPrincipal.numero ?? "Ver pedido"}
                       </Link>
-                    ) : (
-                      (vendaPrincipal.nome_cliente ?? "—")
-                    )}
-                  </F>
-                  <F label="Região">{traduzirEnum(vendaPrincipal.regiao_venda)}</F>
-                  <F label="Data do pedido">
-                    {formatarData(vendaPrincipal.data_pedido)}
-                  </F>
-                  <F label="Valor neste item">
-                    {vendaPrincipal.valor_unitario != null
-                      ? formatarMoeda(
-                          vendaPrincipal.valor_unitario,
-                          moedaDaVenda(vendaPrincipal),
-                        )
-                      : "—"}
-                  </F>
-                  <F label="Total do pedido">
-                    {formatarMoeda(
-                      Number(vendaPrincipal.valor_total),
-                      moedaDaVenda(vendaPrincipal),
-                    )}
-                  </F>
-                </dl>
-                {(vendasDoItem.data?.length ?? 0) > 1 ? (
-                  <p className="mt-3 text-xs text-ink-soft">
-                    Este item aparece em {vendasDoItem.data!.length} pedidos. Mostrando o mais
-                    recente.
-                  </p>
-                ) : null}
-              </SectionCard>
-            ) : null}
+                    </F>
+                    <F label="Status">
+                      <StatusBadge value={vendaPrincipal.status_venda} />
+                    </F>
+                    <F label="Cliente">
+                      {vendaPrincipal.cliente ? (
+                        <Link
+                          to={`/clientes/${vendaPrincipal.cliente.id}`}
+                          className="text-brand-600 hover:text-brand-700"
+                        >
+                          {vendaPrincipal.cliente.nome}
+                        </Link>
+                      ) : (
+                        (vendaPrincipal.nome_cliente ?? "—")
+                      )}
+                    </F>
+                    <F label="Região">{traduzirEnum(vendaPrincipal.regiao_venda)}</F>
+                    <F label="Data do pedido">
+                      {formatarData(vendaPrincipal.data_pedido)}
+                    </F>
+                    <F label="Valor neste item">
+                      {vendaPrincipal.valor_unitario != null
+                        ? formatarMoeda(
+                            vendaPrincipal.valor_unitario,
+                            moedaDaVenda(vendaPrincipal),
+                          )
+                        : "—"}
+                    </F>
+                    <F label="Total do pedido">
+                      {formatarMoeda(
+                        Number(vendaPrincipal.valor_total),
+                        moedaDaVenda(vendaPrincipal),
+                      )}
+                    </F>
+                  </dl>
+                  {(vendasDoItem.data?.length ?? 0) > 1 ? (
+                    <p className="mt-3 text-xs text-ink-soft">
+                      Este item aparece em {vendasDoItem.data!.length} pedidos. Mostrando o
+                      mais recente.
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm text-ink-soft">Este item ainda não foi vendido.</p>
+              )}
+            </SectionCard>
 
-            <SectionCard
-              title="Auditoria"
-              className={cn(!temOrdem && !temVenda && "lg:col-span-2")}
-            >
-              <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <SectionCard title="Preço de venda">
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <F label="Preço">
+                  {item.data.preco_venda != null && moedaVendaExibida
+                    ? formatarMoeda(item.data.preco_venda, moedaVendaExibida)
+                    : "—"}
+                </F>
+                <F label="Moeda">
+                  {item.data.moeda_venda ??
+                    (moedaVendaExibida
+                      ? `${moedaVendaExibida} (inferida pela região do local)`
+                      : "—")}
+                </F>
+              </dl>
+              <p className="mt-3 text-xs text-ink-soft">
+                Valor de venda deste par. Itens do mesmo modelo podem ter preços diferentes.
+              </p>
+            </SectionCard>
+
+            <SectionCard title="Auditoria">
+              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <F label="Cadastro no Tiny">{formatarDataHora(item.data.data_cadastro_tiny)}</F>
                 <F label="Criado em">{formatarDataHora(item.data.criado_em)}</F>
                 <F label="Atualizado em">{formatarDataHora(item.data.atualizado_em)}</F>

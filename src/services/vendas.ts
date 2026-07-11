@@ -60,6 +60,7 @@ export interface VendaDetalhada extends Venda {
       id: string;
       sku: string;
       nome_produto: string;
+      id_modelo_produto: string | null;
     } | null;
   }> | null;
 }
@@ -100,12 +101,40 @@ export const vendasService = {
       status?: StatusVenda | "";
       regiao?: TipoRegiao | "";
       marcador?: string;
+      sku?: string;
     },
   ) => {
     const page = params?.page ?? 1;
     const pageSize = params?.pageSize ?? 20;
     const termo = params?.search?.trim();
     const marcador = params?.marcador?.trim();
+    const sku = params?.sku?.trim();
+
+    let idsPorSku: string[] | null = null;
+    if (sku) {
+      const padrao = `%${sku.replace(/[%_]/g, "")}%`;
+      const [porCodigo, porEstoque] = await Promise.all([
+        supabase.from("itens_venda").select("id_venda").ilike("codigo", padrao),
+        supabase
+          .from("itens_venda")
+          .select("id_venda, item_estoque:itens_estoque!inner(id)")
+          .ilike("itens_estoque.sku", padrao),
+      ]);
+      if (porCodigo.error) throw porCodigo.error;
+      if (porEstoque.error) throw porEstoque.error;
+
+      idsPorSku = [
+        ...new Set(
+          [...(porCodigo.data ?? []), ...(porEstoque.data ?? [])]
+            .map((row) => row.id_venda)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+
+      if (idsPorSku.length === 0) {
+        return { data: [] as VendaDetalhada[], total: 0, page, pageSize };
+      }
+    }
 
     let query = supabase
       .from("vendas")
@@ -117,10 +146,14 @@ export const vendasService = {
          ),
          itens:itens_venda(
            id, codigo, descricao, quantidade, valor_unitario,
-           item_estoque:itens_estoque(id, sku, nome_produto)
+           item_estoque:itens_estoque(id, sku, nome_produto, id_modelo_produto)
          )`,
         { count: "exact" },
       );
+
+    if (idsPorSku) {
+      query = query.in("id", idsPorSku);
+    }
 
     if (params?.status) {
       query = query.eq("status_venda", params.status);

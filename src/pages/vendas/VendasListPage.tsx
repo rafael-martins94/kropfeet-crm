@@ -89,10 +89,12 @@ export default function VendasListPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<StatusVenda | "">("");
   const [marcador, setMarcador] = useState("");
+  const [sku, setSku] = useState("");
   const [busca, setBusca] = useState("");
   const [vendaItensModal, setVendaItensModal] = useState<VendaDetalhada | null>(null);
   const buscaDebounced = useDebounce(busca, 350);
   const marcadorDebounced = useDebounce(marcador, 350);
+  const skuDebounced = useDebounce(sku, 350);
 
   const { data, loading, error } = useAsync(
     () =>
@@ -104,9 +106,10 @@ export default function VendasListPage() {
             search: buscaDebounced,
             regiao,
             marcador: marcadorDebounced,
+            sku: skuDebounced,
           })
         : Promise.resolve(null),
-    [page, status, buscaDebounced, regiao, marcadorDebounced],
+    [page, status, buscaDebounced, regiao, marcadorDebounced, skuDebounced],
   );
 
   if (!regiao) {
@@ -265,6 +268,15 @@ export default function VendasListPage() {
                   placeholder="Buscar por nº, cliente ou rastreamento…"
                   className="input-base w-full sm:w-64"
                 />
+                <input
+                  value={sku}
+                  onChange={(e) => {
+                    setSku(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Filtrar por SKU…"
+                  className="input-base w-full font-numeric sm:w-40"
+                />
                 <StatusSelectDropdown
                   value={status}
                   options={statusOpcoes}
@@ -301,9 +313,11 @@ export default function VendasListPage() {
                 tableClassName="table-fixed"
                 emptyTitle="Nenhuma ordem de venda"
                 emptyDescription={
-                  marcador
-                    ? `Nenhuma ordem com a tag “${marcador}” em ${labelRegiao}.`
-                    : `Não há pedidos em ${labelRegiao} ainda. Crie uma nova ordem ou importe do Tiny.`
+                  sku
+                    ? `Nenhuma ordem com SKU “${sku}” em ${labelRegiao}.`
+                    : marcador
+                      ? `Nenhuma ordem com a tag “${marcador}” em ${labelRegiao}.`
+                      : `Não há pedidos em ${labelRegiao} ainda. Crie uma nova ordem ou importe do Tiny.`
                 }
               />
             )

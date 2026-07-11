@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
 import { Modal } from "../Modal";
+import { FotoThumbnailHover } from "../FotoThumbnailHover";
 import { SecondaryButton } from "../PrimaryButton";
+import { useAsync } from "../../hooks/useAsync";
+import { modelosProdutoService } from "../../services/modelos-produto";
 import type { VendaDetalhada } from "../../services/vendas";
 import { formatarMoeda } from "../../utils/format";
 
@@ -24,6 +27,16 @@ type VendaItensModalProps = {
 export function VendaItensModal({ open, onClose, venda, moeda }: VendaItensModalProps) {
   const itens = venda?.itens ?? [];
   const numero = venda?.numero ?? "—";
+  const modeloIds = itens
+    .map((item) => item.item_estoque?.id_modelo_produto)
+    .filter((id): id is string => Boolean(id));
+  const thumbs = useAsync(
+    () =>
+      open && modeloIds.length > 0
+        ? modelosProdutoService.listarUrlsPorModelos(modeloIds)
+        : Promise.resolve({} as Record<string, string>),
+    [open, modeloIds.join(",")],
+  );
 
   return (
     <Modal
@@ -45,6 +58,9 @@ export function VendaItensModal({ open, onClose, venda, moeda }: VendaItensModal
           <table className="table-base">
             <thead>
               <tr>
+                <th className="w-[4.5rem]">
+                  <span className="sr-only">Foto</span>
+                </th>
                 <th>SKU</th>
                 <th>Item</th>
                 <th className="text-right">Qtd</th>
@@ -52,32 +68,49 @@ export function VendaItensModal({ open, onClose, venda, moeda }: VendaItensModal
               </tr>
             </thead>
             <tbody>
-              {itens.map((item) => (
-                <tr key={item.id}>
-                  <td className="font-numeric tabular-nums text-sm font-medium text-ink">
-                    {skuDoItem(item)}
-                  </td>
-                  <td>
-                    {item.item_estoque ? (
-                      <Link
-                        to={`/itens-estoque/${item.item_estoque.id}`}
-                        className="font-medium text-ink hover:text-brand-700"
-                        onClick={onClose}
-                      >
-                        {nomeDoItem(item)}
-                      </Link>
-                    ) : (
-                      <span className="font-medium text-ink">{nomeDoItem(item)}</span>
-                    )}
-                  </td>
-                  <td className="text-right font-numeric tabular-nums text-sm">
-                    {item.quantidade}
-                  </td>
-                  <td className="text-right font-numeric tabular-nums text-sm">
-                    {formatarMoeda(Number(item.valor_unitario), moeda)}
-                  </td>
-                </tr>
-              ))}
+              {itens.map((item) => {
+                const idModelo = item.item_estoque?.id_modelo_produto;
+                const fotoUrl = idModelo ? thumbs.data?.[idModelo] : null;
+
+                return (
+                  <tr key={item.id}>
+                    <td className="w-[4.5rem] px-2 align-middle">
+                      <FotoThumbnailHover
+                        url={fotoUrl}
+                        alt={nomeDoItem(item)}
+                        to={
+                          item.item_estoque
+                            ? `/itens-estoque/${item.item_estoque.id}`
+                            : undefined
+                        }
+                        size="sm"
+                      />
+                    </td>
+                    <td className="font-numeric tabular-nums text-sm font-medium text-ink">
+                      {skuDoItem(item)}
+                    </td>
+                    <td>
+                      {item.item_estoque ? (
+                        <Link
+                          to={`/itens-estoque/${item.item_estoque.id}`}
+                          className="font-medium text-ink hover:text-brand-700"
+                          onClick={onClose}
+                        >
+                          {nomeDoItem(item)}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-ink">{nomeDoItem(item)}</span>
+                      )}
+                    </td>
+                    <td className="text-right font-numeric tabular-nums text-sm">
+                      {item.quantidade}
+                    </td>
+                    <td className="text-right font-numeric tabular-nums text-sm">
+                      {formatarMoeda(Number(item.valor_unitario), moeda)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
