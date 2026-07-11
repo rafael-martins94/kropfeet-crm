@@ -15,7 +15,12 @@ import { useAsync } from "../../hooks/useAsync";
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatarData, formatarMoeda, traduzirEnum } from "../../utils/format";
 import type { StatusVenda } from "../../types/entities";
-import { moedaDaVenda, parseRegiaoVendaRota } from "./vendaOpcoes";
+import {
+  lerMarcadores,
+  moedaDaVenda,
+  parseRegiaoVendaRota,
+  type MarcadorVenda,
+} from "./vendaOpcoes";
 
 const statusOpcoes: Array<{ value: StatusVenda | ""; label: string }> = [
   { value: "", label: "Todos os status" },
@@ -27,6 +32,30 @@ const statusOpcoes: Array<{ value: StatusVenda | ""; label: string }> = [
   { value: "cancelado", label: "Cancelado" },
 ];
 
+function TagsVenda({ marcadores }: { marcadores: MarcadorVenda[] }) {
+  if (marcadores.length === 0) {
+    return <span className="text-ink-faint">—</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {marcadores.map((m, i) => (
+        <span
+          key={m.id ?? `${m.descricao}-${i}`}
+          className="inline-flex max-w-full items-center gap-1 rounded-full border border-line bg-surface-subtle px-2 py-0.5 text-[11px] text-ink"
+          title={m.descricao}
+        >
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: m.cor || "#808080" }}
+          />
+          <span className="truncate">{m.descricao}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function VendasListPage() {
   const { pathname } = useLocation();
   const segmento = pathname.split("/").filter(Boolean).pop();
@@ -34,8 +63,10 @@ export default function VendasListPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<StatusVenda | "">("");
+  const [marcador, setMarcador] = useState("");
   const [busca, setBusca] = useState("");
   const buscaDebounced = useDebounce(busca, 350);
+  const marcadorDebounced = useDebounce(marcador, 350);
 
   const { data, loading, error } = useAsync(
     () =>
@@ -46,9 +77,10 @@ export default function VendasListPage() {
             status,
             search: buscaDebounced,
             regiao,
+            marcador: marcadorDebounced,
           })
         : Promise.resolve(null),
-    [page, status, buscaDebounced, regiao],
+    [page, status, buscaDebounced, regiao, marcadorDebounced],
   );
 
   if (!regiao) {
@@ -74,6 +106,7 @@ export default function VendasListPage() {
     {
       key: "cliente",
       header: "Cliente",
+      width: "260px",
       render: (v) => {
         const principal = v.cliente
           ? clientesService.resolverEnderecoPrincipal(v.cliente)
@@ -91,6 +124,11 @@ export default function VendasListPage() {
           </div>
         );
       },
+    },
+    {
+      key: "tags",
+      header: "Tags",
+      render: (v) => <TagsVenda marcadores={lerMarcadores(v.marcadores)} />,
     },
     {
       key: "data",
@@ -171,7 +209,7 @@ export default function VendasListPage() {
         <ScrollableListShell
           toolbar={
             <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 <input
                   value={busca}
                   onChange={(e) => {
@@ -179,7 +217,7 @@ export default function VendasListPage() {
                     setPage(1);
                   }}
                   placeholder="Buscar por nº, cliente ou rastreamento…"
-                  className="input-base w-full sm:w-72"
+                  className="input-base w-full sm:w-64"
                 />
                 <StatusSelectDropdown
                   value={status}
@@ -188,7 +226,16 @@ export default function VendasListPage() {
                     setStatus(v as StatusVenda | "");
                     setPage(1);
                   }}
-                  className="w-full sm:w-56"
+                  className="w-full sm:w-48"
+                />
+                <input
+                  value={marcador}
+                  onChange={(e) => {
+                    setMarcador(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Buscar por tag…"
+                  className="input-base w-full sm:w-52"
                 />
               </div>
               <div className="text-xs text-ink-soft">
@@ -205,8 +252,13 @@ export default function VendasListPage() {
                 rows={data?.data ?? []}
                 rowKey={(v) => v.id}
                 loading={loading}
+                tableClassName="table-fixed"
                 emptyTitle="Nenhuma ordem de venda"
-                emptyDescription={`Não há pedidos em ${labelRegiao} ainda. Crie uma nova ordem ou importe do Tiny.`}
+                emptyDescription={
+                  marcador
+                    ? `Nenhuma ordem com a tag “${marcador}” em ${labelRegiao}.`
+                    : `Não há pedidos em ${labelRegiao} ainda. Crie uma nova ordem ou importe do Tiny.`
+                }
               />
             )
           }

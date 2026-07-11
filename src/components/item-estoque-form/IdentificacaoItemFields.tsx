@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FormInput } from "../FormField";
 import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
 import { ModeloImagensGaleria } from "./ModeloImagensGaleria";
+import { ModeloProdutoSelect } from "../modelos-produto/ModeloProdutoSelect";
+import { ModeloRapidoModal } from "../modelos-produto/ModeloRapidoModal";
 import { IconEdit } from "../Icons";
 import { useAsync } from "../../hooks/useAsync";
 import { categoriasService } from "../../services/categorias";
@@ -16,7 +18,8 @@ type IdentificacaoItemFieldsProps = {
   idFornecedor: string;
   idLocalEstoque: string;
   codigoFornecedor: string;
-  modelos: ModeloProduto[];
+  /** @deprecated Busca remota substitui a lista local. Mantido por compatibilidade. */
+  modelos?: ModeloProduto[];
   /** Modelo já carregado pelo pai (evita busca duplicada na edição). */
   modeloVinculado?: ModeloProduto | null;
   fornecedores: Array<{ id: string; nome: string }>;
@@ -30,6 +33,8 @@ type IdentificacaoItemFieldsProps = {
   onCodigoFornecedorChange: (value: string) => void;
   showFornecedor?: boolean;
   showEditarModelo?: boolean;
+  /** Permite cadastrar modelo na hora (modal rápido). */
+  permitirNovoModelo?: boolean;
   /** Layout otimizado para a tela de edição de item. */
   layoutEdicao?: boolean;
 };
@@ -41,11 +46,9 @@ export function IdentificacaoItemFields({
   idFornecedor,
   idLocalEstoque,
   codigoFornecedor,
-  modelos,
   modeloVinculado,
   fornecedores,
   locais,
-  loadingModelos,
   loadingFornecedores,
   loadingLocais,
   onModeloChange,
@@ -54,26 +57,23 @@ export function IdentificacaoItemFields({
   onCodigoFornecedorChange,
   showFornecedor = true,
   showEditarModelo = true,
+  permitirNovoModelo = false,
   layoutEdicao = false,
 }: IdentificacaoItemFieldsProps) {
-  const thumbs = useAsync(() => modelosProdutoService.listarUrlsPrincipaisPorModelo(), []);
+  const [modalNovoModelo, setModalNovoModelo] = useState(false);
   const categorias = useAsync(() => categoriasService.listarTodas(), []);
-  const modeloAusenteNaLista =
-    Boolean(idModeloProduto) && !modelos.some((m) => m.id === idModeloProduto);
   const modeloRemoto = useAsync(
     () => {
       if (modeloVinculado) return Promise.resolve(modeloVinculado);
-      if (!modeloAusenteNaLista || !idModeloProduto) return Promise.resolve(null);
+      if (!idModeloProduto) return Promise.resolve(null);
       return modelosProdutoService.obter(idModeloProduto);
     },
-    [idModeloProduto, modelos, modeloVinculado, modeloAusenteNaLista],
+    [idModeloProduto, modeloVinculado],
   );
 
-  const modelosCompletos = useMemo(() => {
-    const extra = modeloVinculado ?? modeloRemoto.data;
-    if (!extra || modelos.some((m) => m.id === extra.id)) return modelos;
-    return [...modelos, extra];
-  }, [modelos, modeloVinculado, modeloRemoto.data]);
+  const modeloSelecionado = modeloVinculado ?? modeloRemoto.data;
+  const nomeCategoria =
+    categorias.data?.find((c) => c.id === modeloSelecionado?.id_categoria)?.nome ?? "";
 
   const imagensModelo = useAsync(
     () =>
@@ -83,23 +83,16 @@ export function IdentificacaoItemFields({
     [idModeloProduto],
   );
 
-  const modeloSelecionado = modelosCompletos.find((m) => m.id === idModeloProduto);
-  const nomeCategoria =
-    categorias.data?.find((c) => c.id === modeloSelecionado?.id_categoria)?.nome ?? "";
-
-  const opcoesModelo = useMemo(
+  const modeloOpcao = useMemo(
     () =>
-      modelosCompletos.map((m) => ({
-        value: m.id,
-        label: m.nome_modelo,
-        imageUrl: thumbs.data?.[m.id] ?? null,
-      })),
-    [modelosCompletos, thumbs.data],
+      modeloSelecionado
+        ? { id: modeloSelecionado.id, nome_modelo: modeloSelecionado.nome_modelo }
+        : null,
+    [modeloSelecionado],
   );
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_min(320px,36%)] lg:gap-10 lg:items-start">
-      {/* Campos — coluna esquerda */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
         {layoutEdicao && nomeProduto ? (
           <div className="sm:col-span-2 rounded-xl border border-line bg-surface-subtle/50 px-4 py-3">
@@ -116,14 +109,12 @@ export function IdentificacaoItemFields({
         <div className="flex flex-col gap-5 sm:col-span-2 sm:flex-row sm:items-end sm:gap-3">
           <div className="shrink-0">{sku}</div>
           <div className="flex min-w-0 flex-1 items-end gap-2">
-            <SearchableSelectDropdown
-              label="Modelo de produto"
+            <ModeloProdutoSelect
               value={idModeloProduto}
-              onChange={onModeloChange}
-              options={opcoesModelo}
-              loading={loadingModelos || thumbs.loading || modeloRemoto.loading}
-              emptyLabel="— Selecione o modelo —"
+              onChange={(id) => onModeloChange(id)}
+              modeloSelecionado={modeloOpcao}
               className="min-w-0 flex-1"
+              onNovoModelo={permitirNovoModelo ? () => setModalNovoModelo(true) : undefined}
             />
             {showEditarModelo && idModeloProduto ? (
               <a
@@ -200,7 +191,6 @@ export function IdentificacaoItemFields({
         ) : null}
       </div>
 
-      {/* Fotos — coluna direita, maior */}
       <aside className="lg:sticky lg:top-4">
         <ModeloImagensGaleria
           idModelo={idModeloProduto}
@@ -210,6 +200,14 @@ export function IdentificacaoItemFields({
           aspectRatio={layoutEdicao ? "16/9" : "4/5"}
         />
       </aside>
+
+      {permitirNovoModelo ? (
+        <ModeloRapidoModal
+          open={modalNovoModelo}
+          onClose={() => setModalNovoModelo(false)}
+          onCriado={(modelo) => onModeloChange(modelo.id)}
+        />
+      ) : null}
     </div>
   );
 }

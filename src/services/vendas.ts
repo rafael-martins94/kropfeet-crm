@@ -86,11 +86,13 @@ export const vendasService = {
     params?: PaginationParams & {
       status?: StatusVenda | "";
       regiao?: TipoRegiao | "";
+      marcador?: string;
     },
   ) => {
     const page = params?.page ?? 1;
     const pageSize = params?.pageSize ?? 20;
     const termo = params?.search?.trim();
+    const marcador = params?.marcador?.trim();
 
     let query = supabase
       .from("vendas")
@@ -109,6 +111,11 @@ export const vendasService = {
 
     if (params?.regiao) {
       query = query.eq("regiao_venda", params.regiao);
+    }
+
+    if (marcador) {
+      const padrao = `%${marcador.replace(/[%_]/g, "")}%`;
+      query = query.ilike("marcadores_texto", padrao);
     }
 
     if (termo) {
@@ -137,6 +144,46 @@ export const vendasService = {
     };
   },
 
+  /** Tags distintas usadas nas vendas (opcionalmente por região). */
+  listarMarcadores: async (
+    regiao?: TipoRegiao | "",
+  ): Promise<Array<{ value: string; label: string; cor: string | null }>> => {
+    let query = supabase
+      .from("vendas")
+      .select("marcadores")
+      .not("marcadores", "is", null)
+      .limit(3000);
+
+    if (regiao) {
+      query = query.eq("regiao_venda", regiao);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const porChave = new Map<string, { value: string; label: string; cor: string | null }>();
+    for (const row of data ?? []) {
+      const lista = Array.isArray(row.marcadores) ? row.marcadores : [];
+      for (const bruto of lista) {
+        if (!bruto || typeof bruto !== "object") continue;
+        const m = bruto as { descricao?: unknown; cor?: unknown };
+        const label = String(m.descricao ?? "").trim();
+        if (!label) continue;
+        const chave = label.toLowerCase();
+        if (porChave.has(chave)) continue;
+        porChave.set(chave, {
+          value: label,
+          label,
+          cor: typeof m.cor === "string" && m.cor ? m.cor : null,
+        });
+      }
+    }
+
+    return [...porChave.values()].sort((a, b) =>
+      a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }),
+    );
+  },
+
   obterItens: async (idVenda: string): Promise<ItemVendaDetalhado[]> => {
     const { data, error } = await supabase
       .from("itens_venda")
@@ -161,6 +208,38 @@ export const vendasService = {
       const lucroCalculado = calcularLucroVenda(row.valor_unitario, null, custo);
       return { ...row, custo, lucroCalculado };
     });
+  },
+
+  /** Substitui todos os itens da venda pelos informados. */
+  substituirItens: async (
+    idVenda: string,
+    itens: Array<{
+      id_item_estoque: string | null;
+      codigo?: string | null;
+      descricao?: string | null;
+      quantidade: number;
+      valor_unitario: number;
+    }>,
+  ): Promise<void> => {
+    const { error: erroRemocao } = await supabase
+      .from("itens_venda")
+      .delete()
+      .eq("id_venda", idVenda);
+    if (erroRemocao) throw erroRemocao;
+
+    if (itens.length === 0) return;
+
+    const { error: erroInsercao } = await supabase.from("itens_venda").insert(
+      itens.map((item) => ({
+        id_venda: idVenda,
+        id_item_estoque: item.id_item_estoque,
+        codigo: item.codigo ?? null,
+        descricao: item.descricao ?? null,
+        quantidade: item.quantidade,
+        valor_unitario: item.valor_unitario,
+      })),
+    );
+    if (erroInsercao) throw erroInsercao;
   },
 
   totalPorStatus: async (): Promise<Record<StatusVenda, number>> => {

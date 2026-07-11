@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { BrandLogo } from "../components/BrandLogo";
 import {
   IconActivity,
@@ -26,10 +26,16 @@ import { iniciaisDoNome } from "../utils/format";
 import { cn } from "../utils/cn";
 import type { ReactNode } from "react";
 
+interface MenuChild {
+  to: string;
+  label: string;
+}
+
 interface MenuItem {
   to: string;
   label: string;
   icon: ReactNode;
+  children?: MenuChild[];
 }
 
 interface MenuGroup {
@@ -54,7 +60,15 @@ const menu: MenuGroup[] = [
   {
     label: "Comercial",
     items: [
-      { to: "/vendas", label: "Ordens de venda", icon: <IconCart /> },
+      {
+        to: "/vendas",
+        label: "Ordens de venda",
+        icon: <IconCart />,
+        children: [
+          { to: "/vendas/brasil", label: "Brasil" },
+          { to: "/vendas/europa", label: "Europa" },
+        ],
+      },
       { to: "/clientes", label: "Clientes", icon: <IconUser /> },
     ],
   },
@@ -80,6 +94,10 @@ const menu: MenuGroup[] = [
 ];
 
 export { menu };
+
+function caminhoSobPrefixo(pathname: string, prefixo: string) {
+  return pathname === prefixo || pathname.startsWith(`${prefixo}/`);
+}
 
 const STORAGE_KEY = "kf:sidebar:collapsed";
 
@@ -167,6 +185,120 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
+function MenuItemLink({
+  item,
+  collapsed,
+  onNavigate,
+}: {
+  item: MenuItem;
+  collapsed: boolean;
+  onNavigate: () => void;
+}) {
+  const { pathname } = useLocation();
+  const temFilhos = Boolean(item.children?.length);
+  const sobRotaPai = caminhoSobPrefixo(pathname, item.to);
+  const [aberto, setAberto] = useState(sobRotaPai);
+
+  useEffect(() => {
+    if (sobRotaPai) setAberto(true);
+  }, [sobRotaPai]);
+
+  if (!temFilhos) {
+    return (
+      <NavLink
+        to={item.to}
+        onClick={onNavigate}
+        title={collapsed ? item.label : undefined}
+        className={({ isActive }) =>
+          cn(
+            "flex items-center rounded-lg text-sm font-medium transition",
+            collapsed ? "h-10 w-full justify-center" : "gap-3 px-3 py-2",
+            isActive
+              ? "bg-brand-600 text-white shadow-sm"
+              : "text-ink-muted hover:bg-surface-subtle hover:text-brand-700",
+          )
+        }
+      >
+        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{item.icon}</span>
+        {!collapsed ? <span className="truncate">{item.label}</span> : null}
+      </NavLink>
+    );
+  }
+
+  if (collapsed) {
+    return (
+      <div className="space-y-0.5">
+        {item.children!.map((filho) => (
+          <NavLink
+            key={filho.to}
+            to={filho.to}
+            onClick={onNavigate}
+            title={filho.label}
+            className={({ isActive }) =>
+              cn(
+                "flex h-10 w-full items-center justify-center rounded-lg text-sm font-medium transition",
+                isActive
+                  ? "bg-brand-600 text-white shadow-sm"
+                  : "text-ink-muted hover:bg-surface-subtle hover:text-brand-700",
+              )
+            }
+          >
+            <span className="flex h-5 w-5 items-center justify-center text-[0.65rem] font-semibold">
+              {filho.label.slice(0, 2).toUpperCase()}
+            </span>
+          </NavLink>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+          sobRotaPai
+            ? "bg-brand-50 text-brand-800"
+            : "text-ink-muted hover:bg-surface-subtle hover:text-brand-700",
+        )}
+      >
+        <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{item.icon}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+        <IconChevronRight
+          width={14}
+          height={14}
+          className={cn("flex-shrink-0 text-ink-faint transition-transform", aberto && "rotate-90")}
+        />
+      </button>
+      {aberto ? (
+        <ul className="mt-0.5 space-y-0.5 border-l border-line/80 ml-5 pl-2">
+          {item.children!.map((filho) => (
+            <li key={filho.to}>
+              <NavLink
+                to={filho.to}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center rounded-lg px-3 py-1.5 text-sm font-medium transition",
+                    isActive
+                      ? "bg-brand-600 text-white shadow-sm"
+                      : "text-ink-muted hover:bg-surface-subtle hover:text-brand-700",
+                  )
+                }
+              >
+                {filho.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -239,27 +371,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               <ul className="space-y-0.5">
                 {grupo.items.map((item) => (
                   <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      onClick={onCloseMobile}
-                      title={collapsed ? item.label : undefined}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center rounded-lg text-sm font-medium transition",
-                          collapsed
-                            ? "h-10 w-full justify-center"
-                            : "gap-3 px-3 py-2",
-                          isActive
-                            ? "bg-brand-600 text-white shadow-sm"
-                            : "text-ink-muted hover:bg-surface-subtle hover:text-brand-700",
-                        )
-                      }
-                    >
-                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
-                        {item.icon}
-                      </span>
-                      {!collapsed ? <span className="truncate">{item.label}</span> : null}
-                    </NavLink>
+                    <MenuItemLink item={item} collapsed={collapsed} onNavigate={onCloseMobile} />
                   </li>
                 ))}
               </ul>

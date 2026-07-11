@@ -13,8 +13,13 @@ function norm(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase();
 }
 
+/** CEP só com dígitos, para comparar `37580-000` e `37580000` como iguais. */
+export function normalizarCepComparacao(cep: string | null | undefined): string {
+  return (cep ?? "").replace(/\D/g, "");
+}
+
 export function chaveEndereco(e: DadosEndereco): string {
-  return [norm(e.cep), norm(e.endereco), norm(e.numero)].join("|");
+  return [normalizarCepComparacao(e.cep), norm(e.endereco), norm(e.numero)].join("|");
 }
 
 export function enderecoTemDados(e: DadosEndereco): boolean {

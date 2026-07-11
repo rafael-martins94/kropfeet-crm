@@ -784,6 +784,7 @@ export type Database = {
           id_endereco_cliente: string | null
           id_tiny: string | null
           marcadores: Json | null
+          marcadores_texto: string | null
           meio_pagamento: string | null
           moeda_venda: string
           nome_cliente: string | null

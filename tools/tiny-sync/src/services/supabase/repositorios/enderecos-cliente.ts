@@ -18,8 +18,12 @@ function norm(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase();
 }
 
+function normalizarCep(cep: string | null | undefined): string {
+  return (cep ?? "").replace(/\D/g, "");
+}
+
 function chaveEndereco(e: DadosEnderecoCliente): string {
-  return [norm(e.cep), norm(e.endereco), norm(e.numero)].join("|");
+  return [normalizarCep(e.cep), norm(e.endereco), norm(e.numero)].join("|");
 }
 
 function enderecoTemDados(e: DadosEnderecoCliente): boolean {

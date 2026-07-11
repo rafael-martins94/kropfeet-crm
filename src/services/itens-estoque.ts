@@ -815,4 +815,64 @@ export const itensEstoqueService = {
 
     return String(candidato);
   },
+
+  /** Busca itens em estoque para vincular a uma ordem de venda. */
+  buscarParaVenda: async (params: {
+    search?: string;
+    regiao?: "brasil" | "europa" | "outros" | "";
+    idsExcluidos?: string[];
+    limit?: number;
+  }): Promise<
+    Array<{
+      id: string;
+      sku: string;
+      nome_produto: string;
+      preco_venda: number | null;
+      moeda_venda: string | null;
+      numeracao_br: number | null;
+      status_item: StatusItem;
+    }>
+  > => {
+    const termo = params.search?.trim() ?? "";
+    const limite = params.limit ?? 25;
+    const idsExcluidos = [...new Set(params.idsExcluidos ?? [])].filter(Boolean);
+    const regiao = params.regiao || "";
+
+    let query = supabase
+      .from("itens_estoque")
+      .select(
+        regiao
+          ? "id, sku, nome_produto, preco_venda, moeda_venda, numeracao_br, status_item, local:locais_estoque!inner(tipo_regiao)"
+          : "id, sku, nome_produto, preco_venda, moeda_venda, numeracao_br, status_item",
+      )
+      .eq("status_item", "em_estoque")
+      .order("atualizado_em", { ascending: false })
+      .limit(limite);
+
+    if (regiao === "brasil" || regiao === "europa") {
+      query = query.eq("local.tipo_regiao", regiao);
+    }
+
+    if (idsExcluidos.length > 0) {
+      query = query.not("id", "in", `(${idsExcluidos.join(",")})`);
+    }
+
+    if (termo) {
+      const padrao = `%${termo.replace(/%/g, "")}%`;
+      query = query.or(`sku.ilike.${padrao},nome_produto.ilike.${padrao}`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      sku: row.sku,
+      nome_produto: row.nome_produto,
+      preco_venda: row.preco_venda,
+      moeda_venda: row.moeda_venda,
+      numeracao_br: row.numeracao_br,
+      status_item: row.status_item,
+    }));
+  },
 };

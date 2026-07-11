@@ -139,4 +139,21 @@ export const enderecosClienteService = {
     if (error) throw error;
     return data.id;
   },
+
+  criar: async (idCliente: string, e: EnderecoClienteForm): Promise<EnderecoCliente> => {
+    const existentes = await enderecosClienteService.listarPorCliente(idCliente);
+    const principal = existentes.length === 0 ? true : e.principal;
+    const payload = paraInsert(idCliente, {
+      ...e,
+      principal,
+      rotulo: e.rotulo.trim() || (principal ? "Principal" : "Entrega"),
+    });
+    const { data, error } = await supabase
+      .from("enderecos_cliente")
+      .insert(payload)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data;
+  },
 };

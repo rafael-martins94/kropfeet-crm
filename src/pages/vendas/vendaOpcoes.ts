@@ -59,6 +59,24 @@ export function moedaDaVenda(venda: {
   return moedaPorRegiao(venda.regiao_venda);
 }
 
+export interface MarcadorVenda {
+  id?: string;
+  descricao?: string;
+  cor?: string;
+}
+
+export function lerMarcadores(valor: unknown): MarcadorVenda[] {
+  if (!Array.isArray(valor)) return [];
+  return valor
+    .filter((m): m is Record<string, unknown> => Boolean(m) && typeof m === "object")
+    .map((m) => ({
+      id: typeof m.id === "string" || typeof m.id === "number" ? String(m.id) : undefined,
+      descricao: typeof m.descricao === "string" ? m.descricao : undefined,
+      cor: typeof m.cor === "string" ? m.cor : undefined,
+    }))
+    .filter((m) => Boolean(m.descricao?.trim()));
+}
+
 /**
  * Garante que o valor atualmente gravado apareça no dropdown mesmo que não
  * esteja na lista pré-definida, evitando perder dados importados incomuns.

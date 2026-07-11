@@ -86,18 +86,19 @@ export default function OrdemCompraFormPage() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const modelos = useAsync(
-    () =>
-      modelosProdutoService.listar({ page: 1, pageSize: 500, orderBy: "nome_modelo", ascending: true }),
-    [],
-  );
   const fornecedores = useAsync(() => fornecedoresService.listarAtivos(), []);
   const locais = useAsync(() => locaisEstoqueService.listarTodos(), []);
-
-  const modeloSelecionado = (modelos.data?.data ?? []).find((m) => m.id === form.id_modelo_produto);
+  const modeloSelecionado = useAsync(
+    () =>
+      form.id_modelo_produto
+        ? modelosProdutoService.obter(form.id_modelo_produto)
+        : Promise.resolve(null),
+    [form.id_modelo_produto],
+  );
 
   useEffect(() => {
-    if (!modeloSelecionado) return;
+    const modelo = modeloSelecionado.data;
+    if (!modelo) return;
     const br = normalizeSizeValue(form.numeracao_br);
     const eu = normalizeSizeValue(form.numeracao_eu);
     const usParsed = parseNumeracaoUs(form.numeracao_us);
@@ -105,10 +106,10 @@ export default function OrdemCompraFormPage() {
       usParsed !== null && form.us_variant
         ? { value: usParsed.value, variant: form.us_variant, childSuffix: usParsed.childSuffix }
         : null;
-    const nome = montarNomeProdutoComNumeracoes(modeloSelecionado.nome_modelo, br, eu, us);
+    const nome = montarNomeProdutoComNumeracoes(modelo.nome_modelo, br, eu, us);
     setForm((s) => (s.nome_produto === nome ? s : { ...s, nome_produto: nome }));
   }, [
-    modeloSelecionado,
+    modeloSelecionado.data,
     form.numeracao_br,
     form.numeracao_eu,
     form.numeracao_us,
@@ -186,22 +187,10 @@ export default function OrdemCompraFormPage() {
 
     try {
       const sku = form.sku.trim();
-      if (!sku) {
-        throw new Error("Informe o SKU.");
-      }
-
-      if (!form.id_fornecedor) {
-        throw new Error("Selecione o fornecedor da compra.");
-      }
-
-      if (!form.codigo_fornecedor.trim()) {
-        throw new Error("Informe o código do fornecedor.");
-      }
-
-      if (!form.id_modelo_produto) {
-        throw new Error("Selecione um modelo de produto.");
-      }
-
+      if (!sku) throw new Error("Informe o SKU.");
+      if (!form.id_fornecedor) throw new Error("Selecione o fornecedor da compra.");
+      if (!form.codigo_fornecedor.trim()) throw new Error("Informe o código do fornecedor.");
+      if (!form.id_modelo_produto) throw new Error("Selecione um modelo de produto.");
       if (!form.nome_produto.trim()) {
         throw new Error("Informe as numerações para gerar o nome do produto.");
       }
@@ -210,19 +199,9 @@ export default function OrdemCompraFormPage() {
       if (valorCusto === null || valorCusto < 0) {
         throw new Error("Informe um valor de custo válido.");
       }
-
-      if (!form.moeda_compra) {
-        throw new Error("Selecione a moeda da compra.");
-      }
-
-      if (!form.data_compra) {
-        throw new Error("Informe a data da compra.");
-      }
-
-      if (!form.us_variant) {
-        throw new Error("Selecione o tipo US (M, C/Y ou W).");
-      }
-
+      if (!form.moeda_compra) throw new Error("Selecione a moeda da compra.");
+      if (!form.data_compra) throw new Error("Informe a data da compra.");
+      if (!form.us_variant) throw new Error("Selecione o tipo US (M, C/Y ou W).");
       if (!form.numeracao_us.trim()) {
         throw new Error(
           "Informe BR ou EU válidos e selecione o tipo US para preencher a numeração americana.",
@@ -234,9 +213,7 @@ export default function OrdemCompraFormPage() {
       const numeracaoEu = numOuNulo(form.numeracao_eu);
 
       const skuEmUso = await itensEstoqueService.skuExiste(sku);
-      if (skuEmUso) {
-        throw new Error(`SKU ${sku} já está em uso.`);
-      }
+      if (skuEmUso) throw new Error(`SKU ${sku} já está em uso.`);
 
       const resultado = await ordensCompraService.criarComItem({
         sku,
@@ -265,111 +242,115 @@ export default function OrdemCompraFormPage() {
   };
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <PageHeader
-        title="Nova ordem de compra"
-        breadcrumbs={[
-          { label: "Operação" },
-          { label: "Ordens de compra", to: "/ordens-compra" },
-          { label: "Nova" },
-        ]}
-        backTo="/ordens-compra"
-      />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-24">
+        <PageHeader
+          title="Nova ordem de compra"
+          breadcrumbs={[
+            { label: "Operação" },
+            { label: "Ordens de compra", to: "/ordens-compra" },
+            { label: "Nova" },
+          ]}
+          backTo="/ordens-compra"
+        />
 
-      <p className="mb-6 text-sm text-ink-soft">
-        Ao salvar, o sistema cria a ordem de compra e o item de estoque vinculado em uma única
-        operação.
-      </p>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <SectionCard
-          title="Dados da compra"
-          description="Informações da ordem de compra com o fornecedor."
-        >
-          <CompraOrdemFields
-            dataCompra={form.data_compra}
-            moedaCompra={form.moeda_compra}
-            valorCusto={form.valor_custo}
-            idFornecedor={form.id_fornecedor}
-            fornecedores={fornecedores.data ?? []}
-            loadingFornecedores={fornecedores.loading}
-            onDataChange={(v) => upd("data_compra", v)}
-            onMoedaChange={(v) => upd("moeda_compra", v)}
-            onValorCustoChange={(v) => upd("valor_custo", v)}
-            onFornecedorChange={(v) => upd("id_fornecedor", v)}
-          />
-        </SectionCard>
-
-        <SectionCard
-          title="Item de estoque"
-          description="Produto que será cadastrado e vinculado a esta ordem."
-        >
-          <IdentificacaoItemFields
-            sku={<SkuComGerador value={form.sku} onChange={(v) => upd("sku", v)} required />}
-            nomeProduto={form.nome_produto}
-            idModeloProduto={form.id_modelo_produto}
-            idFornecedor={form.id_fornecedor}
-            idLocalEstoque={form.id_local_estoque}
-            codigoFornecedor={form.codigo_fornecedor}
-            modelos={modelos.data?.data ?? []}
-            fornecedores={fornecedores.data ?? []}
-            locais={locais.data ?? []}
-            loadingModelos={modelos.loading}
-            loadingFornecedores={fornecedores.loading}
-            loadingLocais={locais.loading}
-            showFornecedor={false}
-            showEditarModelo
-            onModeloChange={handleModeloChange}
-            onFornecedorChange={(v) => upd("id_fornecedor", v)}
-            onLocalChange={(v) => upd("id_local_estoque", v)}
-            onCodigoFornecedorChange={(v) => upd("codigo_fornecedor", v)}
-          />
-        </SectionCard>
-
-        <SectionCard title="Numeração">
-          <NumeracaoOrdemCompraFields
-            numeracaoBr={form.numeracao_br}
-            numeracaoEu={form.numeracao_eu}
-            numeracaoUs={form.numeracao_us}
-            usVariant={form.us_variant}
-            onBrChange={handleBrChange}
-            onEuChange={handleEuChange}
-            onUsVariantChange={handleUsVariantChange}
-          />
-        </SectionCard>
-
-        <SectionCard title="Observações">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormTextarea
-              label="Notas do item"
-              rows={3}
-              value={form.observacoes_item}
-              onChange={(e) => upd("observacoes_item", e.target.value)}
+        <form id="ordem-compra-form" onSubmit={handleSubmit} className="w-full space-y-6">
+          <SectionCard
+            title="Produto"
+            description="Escolha ou cadastre o modelo, depois informe tamanho e códigos."
+          >
+            <IdentificacaoItemFields
+              sku={<SkuComGerador value={form.sku} onChange={(v) => upd("sku", v)} required />}
+              nomeProduto={form.nome_produto}
+              idModeloProduto={form.id_modelo_produto}
+              idFornecedor={form.id_fornecedor}
+              idLocalEstoque={form.id_local_estoque}
+              codigoFornecedor={form.codigo_fornecedor}
+              modeloVinculado={modeloSelecionado.data}
+              fornecedores={fornecedores.data ?? []}
+              locais={locais.data ?? []}
+              loadingFornecedores={fornecedores.loading}
+              loadingLocais={locais.loading}
+              showFornecedor={false}
+              showEditarModelo
+              permitirNovoModelo
+              onModeloChange={handleModeloChange}
+              onFornecedorChange={(v) => upd("id_fornecedor", v)}
+              onLocalChange={(v) => upd("id_local_estoque", v)}
+              onCodigoFornecedorChange={(v) => upd("codigo_fornecedor", v)}
             />
-            <FormTextarea
-              label="Notas da ordem"
-              rows={3}
-              value={form.observacoes_ordem}
-              onChange={(e) => upd("observacoes_ordem", e.target.value)}
+          </SectionCard>
+
+          <SectionCard
+            title="Numeração"
+            description="BR/EU preenchem o US conforme o tipo selecionado."
+          >
+            <NumeracaoOrdemCompraFields
+              numeracaoBr={form.numeracao_br}
+              numeracaoEu={form.numeracao_eu}
+              numeracaoUs={form.numeracao_us}
+              usVariant={form.us_variant}
+              onBrChange={handleBrChange}
+              onEuChange={handleEuChange}
+              onUsVariantChange={handleUsVariantChange}
             />
-          </div>
-        </SectionCard>
+          </SectionCard>
 
-        {erro ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {erro}
-          </div>
-        ) : null}
+          <SectionCard title="Compra" description="Dados da ordem com o fornecedor.">
+            <CompraOrdemFields
+              dataCompra={form.data_compra}
+              moedaCompra={form.moeda_compra}
+              valorCusto={form.valor_custo}
+              idFornecedor={form.id_fornecedor}
+              fornecedores={fornecedores.data ?? []}
+              loadingFornecedores={fornecedores.loading}
+              onDataChange={(v) => upd("data_compra", v)}
+              onMoedaChange={(v) => upd("moeda_compra", v)}
+              onValorCustoChange={(v) => upd("valor_custo", v)}
+              onFornecedorChange={(v) => upd("id_fornecedor", v)}
+            />
+          </SectionCard>
 
-        <div className="flex items-center justify-end gap-2">
-          <SecondaryButton type="button" onClick={() => navigate("/ordens-compra")}>
-            Cancelar
-          </SecondaryButton>
-          <PrimaryButton type="submit" loading={salvando}>
-            Criar ordem e item
-          </PrimaryButton>
+          <SectionCard title="Observações" description="Opcional.">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormTextarea
+                label="Notas do item"
+                rows={3}
+                value={form.observacoes_item}
+                onChange={(e) => upd("observacoes_item", e.target.value)}
+              />
+              <FormTextarea
+                label="Notas da ordem"
+                rows={3}
+                value={form.observacoes_ordem}
+                onChange={(e) => upd("observacoes_ordem", e.target.value)}
+              />
+            </div>
+          </SectionCard>
+
+          {erro ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {erro}
+            </div>
+          ) : null}
+        </form>
+      </div>
+
+      <div className="sticky bottom-0 z-10 border-t border-line bg-surface/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-ink-soft">
+            Ao salvar, cria a ordem e o item de estoque juntos.
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <SecondaryButton type="button" onClick={() => navigate("/ordens-compra")}>
+              Cancelar
+            </SecondaryButton>
+            <PrimaryButton type="submit" form="ordem-compra-form" loading={salvando}>
+              Criar ordem e item
+            </PrimaryButton>
+          </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

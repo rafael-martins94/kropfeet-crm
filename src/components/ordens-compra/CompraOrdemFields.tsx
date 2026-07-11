@@ -40,7 +40,7 @@ export function CompraOrdemFields({
   );
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <SearchableSelectDropdown
         label="Fornecedor"
         value={idFornecedor}
@@ -49,7 +49,7 @@ export function CompraOrdemFields({
         loading={loadingFornecedores}
         emptyLabel="— Selecione o fornecedor —"
         searchPlaceholder="Buscar fornecedor…"
-        className="sm:col-span-2 lg:col-span-1"
+        className="sm:col-span-2"
       />
       <FormInput
         label="Data da compra"
@@ -72,6 +72,7 @@ export function CompraOrdemFields({
         value={valorCusto}
         onChange={(e) => onValorCustoChange(e.target.value)}
         inputMode="decimal"
+        wrapperClassName="sm:col-span-2"
       />
     </div>
   );
