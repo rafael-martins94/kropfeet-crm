@@ -72,6 +72,7 @@ export function ModeloProdutoSelect({
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [opcoes, setOpcoes] = useState<ModeloOpcao[]>([]);
+  const [totalResultados, setTotalResultados] = useState(0);
   const [selecionadoCache, setSelecionadoCache] = useState<ModeloOpcao | null>(null);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -127,16 +128,18 @@ export function ModeloProdutoSelect({
     if (!open) return;
     let cancelado = false;
     setLoading(true);
+    const pageSize = 100;
     modelosProdutoService
       .listarComRelacoes({
         page: 1,
-        pageSize: 40,
+        pageSize,
         search: queryDebounced,
         orderBy: "nome_modelo",
         ascending: true,
       })
       .then(async (res) => {
         if (cancelado) return;
+        setTotalResultados(res.total);
         const base = res.data.map((m) => ({
           id: m.id,
           nome_modelo: m.nome_modelo,
@@ -151,7 +154,10 @@ export function ModeloProdutoSelect({
         );
       })
       .catch(() => {
-        if (!cancelado) setOpcoes([]);
+        if (!cancelado) {
+          setOpcoes([]);
+          setTotalResultados(0);
+        }
       })
       .finally(() => {
         if (!cancelado) setLoading(false);
@@ -294,6 +300,11 @@ export function ModeloProdutoSelect({
                   ))
                 )}
               </div>
+              {!loading && totalResultados > opcoes.length ? (
+                <p className="border-t border-line px-3 py-2 text-xs text-ink-soft">
+                  Mostrando {opcoes.length} de {totalResultados} — refine a busca para ver mais.
+                </p>
+              ) : null}
             </div>,
             document.body,
           )

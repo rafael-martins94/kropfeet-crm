@@ -57,10 +57,23 @@ export const modelosProdutoService = {
     }
 
     if (termo) {
-      const padrao = padraoIlikePostgrest(termo);
-      query = query.or(
-        `nome_modelo.ilike.${padrao},slug.ilike.${padrao},cor.ilike.${padrao}`,
-      );
+      const palavras = termo
+        .split(/\s+/)
+        .map((p) => p.replace(/%/g, "").trim())
+        .filter(Boolean);
+
+      if (palavras.length === 1) {
+        const padrao = padraoIlikePostgrest(palavras[0]!);
+        query = query.or(
+          `nome_modelo.ilike.${padrao},slug.ilike.${padrao},cor.ilike.${padrao}`,
+        );
+      } else if (palavras.length > 1) {
+        // Cada palavra precisa aparecer no nome (AND) — acha "Jordan Travis"
+        // mesmo com texto no meio, e reduz o volume vs. frase parcial genérica.
+        for (const palavra of palavras) {
+          query = query.ilike("nome_modelo", `%${palavra}%`);
+        }
+      }
     }
 
     query = query.order(params?.orderBy ?? "atualizado_em", {

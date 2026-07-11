@@ -315,7 +315,6 @@ export default function VendaFormPage() {
   const updValor = (campo: "valor_frete" | "valor_desconto" | "outras_despesas", valor: string) => {
     setForm((s) => {
       const next = { ...s, [campo]: valor };
-      if (itens.length === 0) return next;
       const subtotal = totalItensVenda(itens);
       const total = Math.max(
         0,
@@ -367,7 +366,7 @@ export default function VendaFormPage() {
     valor_desconto: num(form.valor_desconto),
     outras_despesas: num(form.outras_despesas),
     valor_total: num(form.valor_total),
-    total_produtos: num(form.valor_total),
+    total_produtos: 0,
     obs: txtOuNulo(form.obs),
     obs_interna: txtOuNulo(form.obs_interna),
     marcadores: (form.marcadores.length > 0
@@ -431,16 +430,15 @@ export default function VendaFormPage() {
       }
 
       const payload = montarPayloadBase(idCliente, idEndereco, nomeCliente);
-      if (itens.length > 0) {
-        const subtotal = totalItensVenda(itens);
-        const total =
-          Math.max(
-            0,
-            subtotal + num(form.valor_frete) + num(form.outras_despesas) - num(form.valor_desconto),
-          );
-        payload.valor_total = Number(total.toFixed(2));
-        payload.total_produtos = Number(subtotal.toFixed(2));
-      }
+      const subtotal = totalItensVenda(itens);
+      const total = Math.max(
+        0,
+        subtotal + num(form.valor_frete) + num(form.outras_despesas) - num(form.valor_desconto),
+      );
+      payload.total_produtos = Number(subtotal.toFixed(2));
+      // Sem itens, respeita o total informado no formulário (pedido sem produto / só frete etc.).
+      payload.valor_total =
+        itens.length > 0 ? Number(total.toFixed(2)) : num(form.valor_total) || Number(total.toFixed(2));
 
       const itensPayload = itens.map((item) => ({
         id_item_estoque: item.id_item_estoque,
@@ -718,10 +716,10 @@ export default function VendaFormPage() {
                   title="Itens da ordem"
                   description={
                     form.regiao_venda === "europa"
-                      ? "Somente itens em estoque na Europa. Cada item é único — o valor vem do cadastro."
+                      ? "Opcional. Somente itens em estoque na Europa — o valor vem do cadastro."
                       : form.regiao_venda === "brasil"
-                        ? "Somente itens em estoque no Brasil. Cada item é único — o valor vem do cadastro."
-                        : "Cada item de estoque é único — o valor vem do cadastro do item."
+                        ? "Opcional. Somente itens em estoque no Brasil — o valor vem do cadastro."
+                        : "Opcional. Cada item de estoque é único — o valor vem do cadastro do item."
                   }
                 >
                   <ItensVendaEditor

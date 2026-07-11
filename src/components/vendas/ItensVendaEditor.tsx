@@ -193,8 +193,10 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
 
       {value.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line bg-surface-subtle/30 px-4 py-8 text-center">
-          <p className="text-sm text-ink-soft">Nenhum item na ordem ainda.</p>
-          <p className="mt-1 text-xs text-ink-faint">Busque acima para adicionar itens em estoque.</p>
+          <p className="text-sm text-ink-soft">Nenhum item na ordem — opcional.</p>
+          <p className="mt-1 text-xs text-ink-faint">
+            Você pode finalizar o pedido sem produto e informar o total manualmente.
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line">
