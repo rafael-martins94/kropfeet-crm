@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import type { Database } from "../types/database";
 import type { PaginatedResult, PaginationParams } from "../types/entities";
+import { padraoIlikePostgrest } from "../utils/postgrestFilter";
 
 type Tables = Database["public"]["Tables"];
 type TableName = keyof Tables;
@@ -44,7 +45,7 @@ export async function listar<T extends TableName>(
 
   const termo = params.search?.trim();
   if (termo && config.searchColumns && config.searchColumns.length > 0) {
-    const padrao = `%${termo.replace(/%/g, "").replace(/,/g, " ")}%`;
+    const padrao = padraoIlikePostgrest(termo);
     const ors = config.searchColumns.map((col) => `${col}.ilike.${padrao}`).join(",");
     query = query.or(ors);
   }

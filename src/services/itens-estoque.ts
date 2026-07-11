@@ -12,6 +12,7 @@ import {
   type DisplaySizeSystem,
 } from "../utils/sizeConversion";
 import { compareNatural } from "../utils/naturalSort";
+import { padraoIlikePostgrest } from "../utils/postgrestFilter";
 import { atualizar, deletar, inserir, obterPorId } from "./base";
 import { conferenciasEstoqueService, type SituacaoConferenciaFiltro } from "./conferencias-estoque";
 
@@ -409,7 +410,7 @@ export const itensEstoqueService = {
       }
 
       if (termo) {
-        const padrao = `%${termo.replace(/%/g, "")}%`;
+        const padrao = padraoIlikePostgrest(termo);
         query = query.or(
           `sku.ilike.${padrao},nome_produto.ilike.${padrao}`,
         );
@@ -583,7 +584,7 @@ export const itensEstoqueService = {
       }
 
       if (termo) {
-        const padrao = `%${termo.replace(/%/g, "")}%`;
+        const padrao = padraoIlikePostgrest(termo);
         query = query.or(
           `sku.ilike.${padrao},nome_produto.ilike.${padrao}`,
         );
@@ -816,9 +817,10 @@ export const itensEstoqueService = {
     return String(candidato);
   },
 
-  /** Busca itens em estoque para vincular a uma ordem de venda. */
+  /** Busca itens em estoque para vincular a uma ordem de venda (filtra pela região do local). */
   buscarParaVenda: async (params: {
     search?: string;
+    /** Região da ordem de venda — só retorna itens cujo local tem o mesmo tipo_regiao. */
     regiao?: "brasil" | "europa" | "outros" | "";
     idsExcluidos?: string[];
     limit?: number;
@@ -838,19 +840,28 @@ export const itensEstoqueService = {
     const idsExcluidos = [...new Set(params.idsExcluidos ?? [])].filter(Boolean);
     const regiao = params.regiao || "";
 
+    let idsLocaisRegiao: string[] | null = null;
+    if (regiao === "brasil" || regiao === "europa" || regiao === "outros") {
+      const { data: locais, error: erroLocais } = await supabase
+        .from("locais_estoque")
+        .select("id")
+        .eq("tipo_regiao", regiao);
+      if (erroLocais) throw erroLocais;
+      idsLocaisRegiao = (locais ?? []).map((l) => l.id);
+      if (idsLocaisRegiao.length === 0) return [];
+    }
+
     let query = supabase
       .from("itens_estoque")
       .select(
-        regiao
-          ? "id, sku, nome_produto, preco_venda, moeda_venda, numeracao_br, status_item, local:locais_estoque!inner(tipo_regiao)"
-          : "id, sku, nome_produto, preco_venda, moeda_venda, numeracao_br, status_item",
+        "id, sku, nome_produto, preco_venda, moeda_venda, numeracao_br, status_item, local:locais_estoque(id, tipo_regiao)",
       )
       .eq("status_item", "em_estoque")
       .order("atualizado_em", { ascending: false })
       .limit(limite);
 
-    if (regiao === "brasil" || regiao === "europa") {
-      query = query.eq("local.tipo_regiao", regiao);
+    if (idsLocaisRegiao) {
+      query = query.in("id_local_estoque", idsLocaisRegiao);
     }
 
     if (idsExcluidos.length > 0) {
@@ -858,7 +869,7 @@ export const itensEstoqueService = {
     }
 
     if (termo) {
-      const padrao = `%${termo.replace(/%/g, "")}%`;
+      const padrao = padraoIlikePostgrest(termo);
       query = query.or(`sku.ilike.${padrao},nome_produto.ilike.${padrao}`);
     }
 

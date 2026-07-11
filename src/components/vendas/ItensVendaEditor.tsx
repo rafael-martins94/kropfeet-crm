@@ -62,7 +62,7 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
     itensEstoqueService
       .buscarParaVenda({
         search: buscaDebounced,
-        regiao: regiao === "outros" ? "" : regiao,
+        regiao,
         idsExcluidos: idsNaLista,
         limit: 20,
       })
@@ -131,7 +131,13 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
                 setAberto(true);
               }}
               onFocus={() => setAberto(true)}
-              placeholder="Buscar por SKU ou nome…"
+              placeholder={
+                regiao === "europa"
+                  ? "Buscar estoque Europa (SKU ou nome)…"
+                  : regiao === "brasil"
+                    ? "Buscar estoque Brasil (SKU ou nome)…"
+                    : "Buscar por SKU ou nome…"
+              }
               className="input-base pl-9"
               autoComplete="off"
             />
@@ -145,8 +151,12 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
             ) : resultados.length === 0 ? (
               <p className="px-3 py-3 text-sm text-ink-soft">
                 {buscaDebounced
-                  ? "Nenhum item em estoque encontrado."
-                  : "Digite para buscar itens em estoque."}
+                  ? regiao === "europa"
+                    ? "Nenhum item em estoque na Europa encontrado."
+                    : regiao === "brasil"
+                      ? "Nenhum item em estoque no Brasil encontrado."
+                      : "Nenhum item em estoque encontrado."
+                  : "Digite para buscar itens em estoque desta região."}
               </p>
             ) : (
               <ul className="py-1">

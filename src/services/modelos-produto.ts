@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { urlImagemModelo } from "../utils/imagemModelo";
+import { padraoIlikePostgrest } from "../utils/postgrestFilter";
 import type {
   ImagemModeloProduto,
   ModeloProduto,
@@ -56,7 +57,7 @@ export const modelosProdutoService = {
     }
 
     if (termo) {
-      const padrao = `%${termo.replace(/%/g, "")}%`;
+      const padrao = padraoIlikePostgrest(termo);
       query = query.or(
         `nome_modelo.ilike.${padrao},slug.ilike.${padrao},cor.ilike.${padrao}`,
       );

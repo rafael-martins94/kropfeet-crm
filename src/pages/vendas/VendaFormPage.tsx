@@ -716,7 +716,13 @@ export default function VendaFormPage() {
 
                 <SectionCard
                   title="Itens da ordem"
-                  description="Cada item de estoque é único — o valor vem do cadastro do item."
+                  description={
+                    form.regiao_venda === "europa"
+                      ? "Somente itens em estoque na Europa. Cada item é único — o valor vem do cadastro."
+                      : form.regiao_venda === "brasil"
+                        ? "Somente itens em estoque no Brasil. Cada item é único — o valor vem do cadastro."
+                        : "Cada item de estoque é único — o valor vem do cadastro do item."
+                  }
                 >
                   <ItensVendaEditor
                     value={itens}
@@ -837,7 +843,11 @@ export default function VendaFormPage() {
                         options={regiaoVendaOpcoes}
                         onChange={(v) => {
                           const regiao = v as TipoRegiao;
+                          const regiaoAnterior = form.regiao_venda;
                           upd("regiao_venda", regiao);
+                          if (regiao !== regiaoAnterior && itens.some((i) => i.id_item_estoque)) {
+                            atualizarItens([]);
+                          }
                           if (modoNovoCliente) {
                             setClienteNovo((s) => ({
                               ...s,
