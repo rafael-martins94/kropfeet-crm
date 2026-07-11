@@ -78,15 +78,25 @@ export default function ModelosListPage() {
     {
       key: "marca",
       header: "Marca",
-      width: "160px",
+      width: "140px",
       render: (m) => (
         <span className="text-ink-muted">{m.marca?.nome ?? "—"}</span>
       ),
     },
     {
+      key: "codigo_fornecedor",
+      header: "Cód. fornecedor",
+      width: "140px",
+      render: (m) => (
+        <span className="font-numeric tabular-nums text-sm text-ink">
+          {m.codigo_fornecedor?.trim() || "—"}
+        </span>
+      ),
+    },
+    {
       key: "categoria",
       header: "Categoria",
-      width: "180px",
+      width: "160px",
       render: (m) => (
         <span className="text-ink-soft">{m.categoria?.nome ?? "—"}</span>
       ),

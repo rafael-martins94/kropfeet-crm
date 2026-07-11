@@ -123,8 +123,16 @@ export default function OrdemCompraFormPage() {
     setForm((s) => ({
       ...s,
       id_modelo_produto: id,
+      codigo_fornecedor: "",
     }));
   };
+
+  useEffect(() => {
+    const modelo = modeloSelecionado.data;
+    if (!modelo || form.id_modelo_produto !== modelo.id) return;
+    const codigo = modelo.codigo_fornecedor?.trim() ?? "";
+    setForm((s) => (s.codigo_fornecedor === codigo ? s : { ...s, codigo_fornecedor: codigo }));
+  }, [form.id_modelo_produto, modeloSelecionado.data?.id, modeloSelecionado.data?.codigo_fornecedor]);
 
   const handleBrChange = (value: string) => {
     setForm((s) => {

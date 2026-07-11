@@ -60,9 +60,6 @@ type FormState = {
   /** Denormalizado a partir do cliente; não aparece na UI. */
   nome_cliente: string;
   data_pedido: string;
-  data_prevista: string;
-  data_envio: string;
-  data_entrega: string;
   forma_pagamento: string;
   meio_pagamento: string;
   codigo_rastreamento: string;
@@ -104,9 +101,6 @@ function estadoInicial(regiao: TipoRegiao): FormState {
     id_endereco_cliente: "",
     nome_cliente: "",
     data_pedido: hojeIsoDate(),
-    data_prevista: "",
-    data_envio: "",
-    data_entrega: "",
     forma_pagamento: "",
     meio_pagamento: "",
     codigo_rastreamento: "",
@@ -220,9 +214,6 @@ export default function VendaFormPage() {
           id_endereco_cliente: v.id_endereco_cliente ?? "",
           nome_cliente: v.nome_cliente ?? "",
           data_pedido: v.data_pedido ? v.data_pedido.slice(0, 10) : "",
-          data_prevista: v.data_prevista ?? "",
-          data_envio: v.data_envio ?? "",
-          data_entrega: v.data_entrega ?? "",
           forma_pagamento: v.forma_pagamento ?? "",
           meio_pagamento: v.meio_pagamento ?? "",
           codigo_rastreamento: v.codigo_rastreamento ?? "",
@@ -355,9 +346,6 @@ export default function VendaFormPage() {
     id_endereco_cliente: idEndereco,
     nome_cliente: nomeCliente,
     data_pedido: dataOuNulo(form.data_pedido),
-    data_prevista: dataOuNulo(form.data_prevista),
-    data_envio: dataOuNulo(form.data_envio),
-    data_entrega: dataOuNulo(form.data_entrega),
     forma_pagamento: txtOuNulo(form.forma_pagamento),
     meio_pagamento: txtOuNulo(form.meio_pagamento),
     codigo_rastreamento: txtOuNulo(form.codigo_rastreamento),
@@ -766,21 +754,6 @@ export default function VendaFormPage() {
                   description="Opcional na criação — pode completar depois."
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <FormDate
-                      label="Data prevista"
-                      value={form.data_prevista}
-                      onChange={(e) => upd("data_prevista", e.target.value)}
-                    />
-                    <FormDate
-                      label="Data de envio"
-                      value={form.data_envio}
-                      onChange={(e) => upd("data_envio", e.target.value)}
-                    />
-                    <FormDate
-                      label="Data de entrega"
-                      value={form.data_entrega}
-                      onChange={(e) => upd("data_entrega", e.target.value)}
-                    />
                     <FormInput
                       label="Código de rastreamento"
                       value={form.codigo_rastreamento}

@@ -101,7 +101,11 @@ export default function ModeloDetailPage() {
                 <Field label="Marca" value={marca.data?.nome ?? "—"} />
                 <Field label="Categoria" value={categoria.data?.nome ?? "—"} />
                 <Field label="Cor" value={modelo.data.cor ?? "—"} />
-                <Field label="Gênero" value={modelo.data.genero ?? "—"} />
+                <Field
+                  label="Código do fornecedor"
+                  value={modelo.data.codigo_fornecedor ?? "—"}
+                  mono
+                />
                 <Field label="Origem do cadastro" value={<StatusBadge value={modelo.data.origem_cadastro} />} />
                 <Field label="ID Tiny (pai)" value={modelo.data.id_tiny_pai ?? "—"} mono />
               </dl>

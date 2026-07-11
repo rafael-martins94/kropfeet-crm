@@ -49,6 +49,19 @@ export interface VendaDetalhada extends Venda {
     enderecos?: Pick<EnderecoCliente, "cep" | "cidade" | "uf" | "principal">[];
   } | null;
   endereco_entrega?: EnderecoCliente | null;
+  /** Itens embutidos na listagem (resumo). */
+  itens?: Array<{
+    id: string;
+    codigo: string | null;
+    descricao: string | null;
+    quantidade: number;
+    valor_unitario: number;
+    item_estoque?: {
+      id: string;
+      sku: string;
+      nome_produto: string;
+    } | null;
+  }> | null;
 }
 
 export const vendasService = {
@@ -101,6 +114,10 @@ export const vendasService = {
          cliente:clientes(
            id, nome, email, telefone, cpf_cnpj, pais,
            enderecos:enderecos_cliente(cep, cidade, uf, principal)
+         ),
+         itens:itens_venda(
+           id, codigo, descricao, quantidade, valor_unitario,
+           item_estoque:itens_estoque(id, sku, nome_produto)
          )`,
         { count: "exact" },
       );

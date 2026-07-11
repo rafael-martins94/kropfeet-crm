@@ -174,7 +174,7 @@ export function IdentificacaoItemFields({
           required
           value={codigoFornecedor}
           onChange={(e) => onCodigoFornecedorChange(e.target.value)}
-          hint="Referência do modelo no catálogo do fornecedor."
+          hint="Salvo no modelo de produto (referência no catálogo do fornecedor)."
           className="font-numeric tabular-nums"
         />
 

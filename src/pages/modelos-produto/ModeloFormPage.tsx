@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FormInput, FormSelect, FormTextarea } from "../../components/FormField";
+import { FormInput, FormTextarea } from "../../components/FormField";
 import {
   ModeloImagensForm,
   limparImagensPendentes,
@@ -8,6 +8,7 @@ import {
 } from "../../components/modelos-produto/ModeloImagensForm";
 import { PageHeader } from "../../components/PageHeader";
 import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
+import { SearchableSelectDropdown } from "../../components/SearchableSelectDropdown";
 import { SectionCard } from "../../components/SectionCard";
 import { marcasService } from "../../services/marcas";
 import { categoriasService } from "../../services/categorias";
@@ -24,17 +25,9 @@ type FormState = {
   id_marca: string;
   id_categoria: string;
   cor: string;
-  genero: string;
+  codigo_fornecedor: string;
   descricao: string;
 };
-
-const GENEROS = [
-  { value: "", label: "Não informado" },
-  { value: "masculino", label: "Masculino" },
-  { value: "feminino", label: "Feminino" },
-  { value: "unissex", label: "Unissex" },
-  { value: "infantil", label: "Infantil" },
-];
 
 function slugify(s: string) {
   return s
@@ -65,11 +58,11 @@ export default function ModeloFormPage() {
   const detalheState = edicao && id ? { returnTo: returnToLista } : undefined;
 
   const [form, setForm] = useState<FormState>({
-  nome_modelo: "",
-  id_marca: "",
-  id_categoria: "",
-  cor: "",
-    genero: "",
+    nome_modelo: "",
+    id_marca: "",
+    id_categoria: "",
+    cor: "",
+    codigo_fornecedor: "",
     descricao: "",
   });
   const [imagensPendentes, setImagensPendentes] = useState<ImagemPendente[]>([]);
@@ -93,7 +86,7 @@ export default function ModeloFormPage() {
           id_marca: m.id_marca ?? "",
           id_categoria: m.id_categoria ?? "",
           cor: m.cor ?? "",
-          genero: m.genero ?? "",
+          codigo_fornecedor: m.codigo_fornecedor ?? "",
           descricao: m.descricao ?? "",
         });
       })
@@ -115,7 +108,9 @@ export default function ModeloFormPage() {
 
     const slug = slugify(nome);
     if (!slug) {
-      setErro("Não foi possível gerar o identificador a partir do nome. Ajuste o nome do modelo.");
+      setErro(
+        "Não foi possível gerar o identificador a partir do nome. Ajuste o nome do modelo.",
+      );
       return;
     }
 
@@ -128,7 +123,7 @@ export default function ModeloFormPage() {
         id_marca: form.id_marca || null,
         id_categoria: form.id_categoria || null,
         cor: form.cor,
-        genero: form.genero,
+        codigo_fornecedor: form.codigo_fornecedor,
         descricao: form.descricao,
         ativo: true,
       });
@@ -148,15 +143,15 @@ export default function ModeloFormPage() {
       await sincronizarImagens(criado.id, imagensPendentes, indicePrincipalPendente);
       setImagensPendentes([]);
       navigate(`/modelos-produto/${criado.id}`, { replace: true });
-    } catch (e) {
-      setErro(mensagemErroSalvarModeloProduto(e));
+    } catch (err) {
+      setErro(mensagemErroSalvarModeloProduto(err));
     } finally {
       setSalvando(false);
     }
   };
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div className="space-y-6">
       <PageHeader
         title={edicao ? "Editar modelo" : "Novo modelo de produto"}
         breadcrumbs={[
@@ -186,25 +181,35 @@ export default function ModeloFormPage() {
                     wrapperClassName="sm:col-span-2"
                     autoFocus={!edicao}
                   />
-                  <FormSelect
+                  <SearchableSelectDropdown
                     label="Marca"
                     value={form.id_marca}
-                    onChange={(e) => upd("id_marca", e.target.value)}
-                    placeholder="— Sem marca —"
-                    options={(marcas.data ?? []).map((m) => ({
-                      value: m.id,
-                      label: m.nome,
-                    }))}
+                    onChange={(v) => upd("id_marca", v)}
+                    options={[
+                      { value: "", label: "— Sem marca —" },
+                      ...(marcas.data ?? []).map((m) => ({
+                        value: m.id,
+                        label: m.nome,
+                      })),
+                    ]}
+                    loading={marcas.loading}
+                    emptyLabel="— Sem marca —"
+                    searchPlaceholder="Buscar marca…"
                   />
-                  <FormSelect
+                  <SearchableSelectDropdown
                     label="Categoria"
                     value={form.id_categoria}
-                    onChange={(e) => upd("id_categoria", e.target.value)}
-                    placeholder="— Sem categoria —"
-                    options={(categorias.data ?? []).map((c) => ({
-                      value: c.id,
-                      label: c.nome,
-                    }))}
+                    onChange={(v) => upd("id_categoria", v)}
+                    options={[
+                      { value: "", label: "— Sem categoria —" },
+                      ...(categorias.data ?? []).map((c) => ({
+                        value: c.id,
+                        label: c.nome,
+                      })),
+                    ]}
+                    loading={categorias.loading}
+                    emptyLabel="— Sem categoria —"
+                    searchPlaceholder="Buscar categoria…"
                   />
                   <FormInput
                     label="Cor"
@@ -212,11 +217,12 @@ export default function ModeloFormPage() {
                     onChange={(e) => upd("cor", e.target.value)}
                     placeholder="Ex.: Branco / Preto"
                   />
-                  <FormSelect
-                    label="Gênero"
-                    value={form.genero}
-                    onChange={(e) => upd("genero", e.target.value)}
-                    options={GENEROS}
+                  <FormInput
+                    label="Código do fornecedor"
+                    value={form.codigo_fornecedor}
+                    onChange={(e) => upd("codigo_fornecedor", e.target.value)}
+                    placeholder="Referência no catálogo do fornecedor"
+                    className="font-numeric tabular-nums"
                   />
                   <FormTextarea
                     label="Descrição"
@@ -250,14 +256,11 @@ export default function ModeloFormPage() {
           ) : null}
 
           <div className="flex items-center justify-end gap-2 border-t border-line pt-4">
-            <SecondaryButton
-              type="button"
-              onClick={() => navigate(returnToLista)}
-            >
+            <SecondaryButton type="button" onClick={() => navigate(returnToLista)}>
               Cancelar
             </SecondaryButton>
             <PrimaryButton type="submit" loading={salvando}>
-              {edicao ? "Salvar alterações" : "Cadastrar modelo"}
+              {edicao ? "Salvar alterações" : "Criar modelo"}
             </PrimaryButton>
           </div>
         </form>

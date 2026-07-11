@@ -200,8 +200,6 @@ export default function VendaDetailPage() {
               <F label="Meio de pagamento" value={venda.data.meio_pagamento ?? "—"} />
               <F label="Depósito" value={venda.data.deposito ?? "—"} />
               <F label="Data faturamento" value={formatarData(venda.data.data_faturamento)} />
-              <F label="Data envio" value={formatarData(venda.data.data_envio)} />
-              <F label="Data entrega" value={formatarData(venda.data.data_entrega)} />
               <F
                 label="Rastreamento"
                 value={

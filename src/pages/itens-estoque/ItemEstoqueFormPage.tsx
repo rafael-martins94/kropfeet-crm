@@ -130,7 +130,7 @@ export default function ItemEstoqueFormPage() {
           id_modelo_produto: it.id_modelo_produto,
           id_local_estoque: it.id_local_estoque ?? "",
           codigo_fornecedor:
-            it.codigo_fornecedor?.trim() || "",
+            modelo?.codigo_fornecedor?.trim() || it.codigo_fornecedor?.trim() || "",
           numeracao_br: it.numeracao_br?.toString() ?? "",
           numeracao_eu: it.numeracao_eu?.toString() ?? "",
           numeracao_us: usParsed
@@ -181,7 +181,7 @@ export default function ItemEstoqueFormPage() {
   const handleModeloChange = (modeloId: string) => {
     if (!modeloId) {
       setModeloVinculado(null);
-      setForm((s) => ({ ...s, id_modelo_produto: "" }));
+      setForm((s) => ({ ...s, id_modelo_produto: "", codigo_fornecedor: "" }));
       return;
     }
 
@@ -191,6 +191,7 @@ export default function ItemEstoqueFormPage() {
       setForm((s) => ({
         ...s,
         id_modelo_produto: modeloId,
+        codigo_fornecedor: modeloLista.codigo_fornecedor?.trim() || "",
       }));
       return;
     }
@@ -204,6 +205,7 @@ export default function ItemEstoqueFormPage() {
           ? s
           : {
               ...s,
+              codigo_fornecedor: modelo.codigo_fornecedor?.trim() || "",
             },
       );
     });
@@ -308,6 +310,12 @@ export default function ItemEstoqueFormPage() {
       } as unknown as ItemEstoqueUpdate;
 
       await itensEstoqueService.atualizar(id, payload);
+      // Fonte da verdade: código no modelo
+      if (form.id_modelo_produto) {
+        await modelosProdutoService.atualizar(form.id_modelo_produto, {
+          codigo_fornecedor: form.codigo_fornecedor.trim() || null,
+        });
+      }
       navigate(`/itens-estoque/${id}`, { state: detalheState });
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao salvar.");

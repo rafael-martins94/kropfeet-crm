@@ -8,7 +8,11 @@ import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { StatusSelectDropdown } from "../../components/StatusSelectDropdown";
-import { IconEdit, IconEye, IconPlus } from "../../components/Icons";
+import { IconEdit, IconEye, IconPlus, IconShoe } from "../../components/Icons";
+import {
+  skusDaVenda,
+  VendaItensModal,
+} from "../../components/vendas/VendaItensModal";
 import { vendasService, type VendaDetalhada } from "../../services/vendas";
 import { clientesService } from "../../services/clientes";
 import { useAsync } from "../../hooks/useAsync";
@@ -56,6 +60,27 @@ function TagsVenda({ marcadores }: { marcadores: MarcadorVenda[] }) {
   );
 }
 
+function SkusVenda({ venda }: { venda: VendaDetalhada }) {
+  const skus = skusDaVenda(venda);
+  if (skus.length === 0) {
+    return <span className="text-ink-faint">—</span>;
+  }
+
+  const visiveis = skus.slice(0, 3);
+  const resto = skus.length - visiveis.length;
+
+  return (
+    <div className="min-w-0" title={skus.join(", ")}>
+      <div className="font-numeric truncate text-sm tabular-nums text-ink">
+        {visiveis.join(", ")}
+      </div>
+      {resto > 0 ? (
+        <div className="text-[11px] text-ink-soft">+{resto} SKU{resto === 1 ? "" : "s"}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function VendasListPage() {
   const { pathname } = useLocation();
   const segmento = pathname.split("/").filter(Boolean).pop();
@@ -65,6 +90,7 @@ export default function VendasListPage() {
   const [status, setStatus] = useState<StatusVenda | "">("");
   const [marcador, setMarcador] = useState("");
   const [busca, setBusca] = useState("");
+  const [vendaItensModal, setVendaItensModal] = useState<VendaDetalhada | null>(null);
   const buscaDebounced = useDebounce(busca, 350);
   const marcadorDebounced = useDebounce(marcador, 350);
 
@@ -106,7 +132,7 @@ export default function VendasListPage() {
     {
       key: "cliente",
       header: "Cliente",
-      width: "260px",
+      width: "220px",
       render: (v) => {
         const principal = v.cliente
           ? clientesService.resolverEnderecoPrincipal(v.cliente)
@@ -126,6 +152,12 @@ export default function VendasListPage() {
       },
     },
     {
+      key: "sku",
+      header: "SKU",
+      width: "160px",
+      render: (v) => <SkusVenda venda={v} />,
+    },
+    {
       key: "tags",
       header: "Tags",
       render: (v) => <TagsVenda marcadores={lerMarcadores(v.marcadores)} />,
@@ -133,7 +165,7 @@ export default function VendasListPage() {
     {
       key: "data",
       header: "Data",
-      width: "120px",
+      width: "110px",
       render: (v) => (
         <span className="text-xs text-ink-soft">{formatarData(v.data_pedido)}</span>
       ),
@@ -141,7 +173,7 @@ export default function VendasListPage() {
     {
       key: "total",
       header: "Total",
-      width: "140px",
+      width: "130px",
       className: "text-right",
       render: (v) => (
         <span className="font-numeric tabular-nums text-sm">
@@ -152,17 +184,30 @@ export default function VendasListPage() {
     {
       key: "status",
       header: "Status",
-      width: "150px",
+      width: "140px",
       render: (v) => <StatusBadge value={v.status_venda} />,
     },
     {
       key: "acoes",
       header: <span className="sr-only">Ações</span>,
-      width: "96px",
+      width: "128px",
       className: "text-right",
       render: (v) => (
         <div className="flex justify-end gap-1">
           <button
+            type="button"
+            className="btn-ghost h-8 w-8 p-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              setVendaItensModal(v);
+            }}
+            aria-label="Ver itens da ordem"
+            title="Ver itens"
+          >
+            <IconShoe width={16} height={16} />
+          </button>
+          <button
+            type="button"
             className="btn-ghost h-8 w-8 p-0"
             onClick={() => navigate(`/vendas/${v.id}`)}
             aria-label="Ver ordem"
@@ -170,6 +215,7 @@ export default function VendasListPage() {
             <IconEye width={16} height={16} />
           </button>
           <button
+            type="button"
             className="btn-ghost h-8 w-8 p-0"
             onClick={() => navigate(`/vendas/${v.id}/editar`)}
             aria-label="Editar ordem"
@@ -274,6 +320,13 @@ export default function VendasListPage() {
           }
         />
       </SectionCard>
+
+      <VendaItensModal
+        open={Boolean(vendaItensModal)}
+        onClose={() => setVendaItensModal(null)}
+        venda={vendaItensModal}
+        moeda={vendaItensModal ? moedaDaVenda(vendaItensModal) : "BRL"}
+      />
     </div>
   );
 }

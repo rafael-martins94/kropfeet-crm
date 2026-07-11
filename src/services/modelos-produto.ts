@@ -23,6 +23,7 @@ export const modelosProdutoService = {
         "nome_modelo",
         "slug",
         "cor",
+        "codigo_fornecedor",
       ],
       defaultOrderBy: "atualizado_em",
       defaultAscending: false,
@@ -65,7 +66,7 @@ export const modelosProdutoService = {
       if (palavras.length === 1) {
         const padrao = padraoIlikePostgrest(palavras[0]!);
         query = query.or(
-          `nome_modelo.ilike.${padrao},slug.ilike.${padrao},cor.ilike.${padrao}`,
+          `nome_modelo.ilike.${padrao},slug.ilike.${padrao},cor.ilike.${padrao},codigo_fornecedor.ilike.${padrao}`,
         );
       } else if (palavras.length > 1) {
         // Cada palavra precisa aparecer no nome (AND) — acha "Jordan Travis"

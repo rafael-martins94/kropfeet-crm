@@ -683,6 +683,7 @@ export type Database = {
         Row: {
           ativo: boolean
           atualizado_em: string
+          codigo_fornecedor: string | null
           cor: string | null
           criado_em: string
           descricao: string | null
@@ -698,6 +699,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           atualizado_em?: string
+          codigo_fornecedor?: string | null
           cor?: string | null
           criado_em?: string
           descricao?: string | null
@@ -713,6 +715,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           atualizado_em?: string
+          codigo_fornecedor?: string | null
           cor?: string | null
           criado_em?: string
           descricao?: string | null

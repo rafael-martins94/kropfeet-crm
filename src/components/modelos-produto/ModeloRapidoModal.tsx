@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { FormInput, FormSelect } from "../FormField";
+import { FormInput } from "../FormField";
 import { Modal } from "../Modal";
 import { PrimaryButton, SecondaryButton } from "../PrimaryButton";
 import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
@@ -16,14 +16,6 @@ import { modelosProdutoService } from "../../services/modelos-produto";
 import { limparParaBanco } from "../../utils/format";
 import { mensagemErroSalvarModeloProduto } from "../../utils/errors";
 import type { ModeloProdutoInsert } from "../../types/entities";
-
-const GENEROS = [
-  { value: "", label: "Não informado" },
-  { value: "masculino", label: "Masculino" },
-  { value: "feminino", label: "Feminino" },
-  { value: "unissex", label: "Unissex" },
-  { value: "infantil", label: "Infantil" },
-];
 
 function slugify(s: string) {
   return s
@@ -53,7 +45,7 @@ export function ModeloRapidoModal({
   const [idMarca, setIdMarca] = useState("");
   const [idCategoria, setIdCategoria] = useState("");
   const [cor, setCor] = useState("");
-  const [genero, setGenero] = useState("");
+  const [codigoFornecedor, setCodigoFornecedor] = useState("");
   const [imagensPendentes, setImagensPendentes] = useState<ImagemPendente[]>([]);
   const [indicePrincipal, setIndicePrincipal] = useState(0);
   const [salvando, setSalvando] = useState(false);
@@ -71,7 +63,7 @@ export function ModeloRapidoModal({
     setIdMarca("");
     setIdCategoria("");
     setCor("");
-    setGenero("");
+    setCodigoFornecedor("");
     setImagensPendentes([]);
     setIndicePrincipal(0);
     setErro(null);
@@ -106,7 +98,7 @@ export function ModeloRapidoModal({
         id_marca: idMarca || null,
         id_categoria: idCategoria || null,
         cor,
-        genero,
+        codigo_fornecedor: codigoFornecedor,
         ativo: true,
         origem_cadastro: "manual",
       }) as ModeloProdutoInsert;
@@ -187,12 +179,17 @@ export function ModeloRapidoModal({
           emptyLabel="— Sem categoria —"
           searchPlaceholder="Buscar categoria…"
         />
-        <FormInput label="Cor" value={cor} onChange={(e) => setCor(e.target.value)} />
-        <FormSelect
-          label="Gênero"
-          value={genero}
-          onChange={(e) => setGenero(e.target.value)}
-          options={GENEROS}
+        <FormInput
+          label="Cor"
+          value={cor}
+          onChange={(e) => setCor(e.target.value)}
+        />
+        <FormInput
+          label="Código do fornecedor"
+          value={codigoFornecedor}
+          onChange={(e) => setCodigoFornecedor(e.target.value)}
+          placeholder="Referência no catálogo do fornecedor"
+          className="font-numeric tabular-nums"
         />
 
         <div className="sm:col-span-2 rounded-xl border border-line bg-surface-subtle/40 p-4">
