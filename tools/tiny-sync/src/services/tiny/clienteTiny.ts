@@ -15,6 +15,10 @@ import {
   type TinyRetornoObterProduto,
   type TinyRetornoPesquisaContatos,
   type TinyRetornoPesquisaProdutos,
+  type TinyPedidoDetalhe,
+  type TinyPedidoListagem,
+  type TinyRetornoObterPedido,
+  type TinyRetornoPesquisaPedidos,
 } from "./tinyTipos.js";
 
 const ENDPOINTS = {
@@ -23,6 +27,8 @@ const ENDPOINTS = {
   obterEstoqueProduto: "/produto.obter.estoque.php",
   pesquisaContatos: "/contatos.pesquisa.php",
   obterContato: "/contato.obter.php",
+  pesquisaPedidos: "/pedidos.pesquisa.php",
+  obterPedido: "/pedido.obter.php",
 } as const;
 
 const CODIGOS_ERRO_TEMPORARIOS = new Set([
@@ -313,6 +319,62 @@ export async function* iterarContatosTiny(
       pagina: paginaAtual,
       numeroPaginas: totalPaginas,
       contatos,
+      respostaBruta: retorno,
+    };
+
+    paginaAtual += 1;
+    if (paginaAtual <= totalPaginas) {
+      await dormir(env.tiny.delayMs);
+    }
+  } while (paginaAtual <= totalPaginas);
+}
+
+export async function listarPedidosTiny(
+  pagina: number,
+): Promise<TinyRetornoPesquisaPedidos> {
+  logger.info("Tiny: listando pedidos", { pagina });
+  return chamarTinyComRetry<TinyRetornoPesquisaPedidos>(ENDPOINTS.pesquisaPedidos, {
+    pagina: String(pagina),
+  });
+}
+
+export async function obterPedidoTiny(idTiny: string): Promise<TinyPedidoDetalhe> {
+  logger.info("Tiny: obtendo detalhe do pedido", { idTiny });
+  const retorno = await chamarTinyComRetry<TinyRetornoObterPedido>(
+    ENDPOINTS.obterPedido,
+    { id: idTiny },
+  );
+  if (!retorno.pedido) {
+    throw new TinyApiError({
+      mensagem: `pedido.obter.php nao retornou "pedido" para id=${idTiny}`,
+      status: null,
+      endpoint: ENDPOINTS.obterPedido,
+      corpoBruto: retorno,
+    });
+  }
+  return retorno.pedido;
+}
+
+export async function* iterarTodasAsPaginasPedidosTiny(): AsyncGenerator<{
+  pagina: number;
+  numeroPaginas: number;
+  pedidos: TinyPedidoListagem[];
+  respostaBruta: TinyRetornoPesquisaPedidos;
+}> {
+  let paginaAtual = 1;
+  let totalPaginas = 1;
+
+  do {
+    const retorno = await listarPedidosTiny(paginaAtual);
+    const pedidos = (retorno.pedidos ?? [])
+      .map((p) => p.pedido)
+      .filter((p): p is TinyPedidoListagem => Boolean(p));
+    totalPaginas = Number(retorno.numero_paginas ?? 1);
+
+    yield {
+      pagina: paginaAtual,
+      numeroPaginas: totalPaginas,
+      pedidos,
       respostaBruta: retorno,
     };
 

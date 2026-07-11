@@ -108,6 +108,11 @@ export default function ItemEstoqueDetailPage() {
                 </span>
               ) : null}
               <StatusBadge value={item.data.status_item} />
+              <StatusBadge
+                value={item.data.visivel_cafe ? "visivel_cafe" : "oculto_cafe"}
+                tom={item.data.visivel_cafe ? "sucesso" : "neutro"}
+                label={item.data.visivel_cafe ? "Visível no café" : "Oculto no café"}
+              />
             </div>
           ) : null
         }

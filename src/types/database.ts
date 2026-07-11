@@ -51,38 +51,121 @@ export type Database = {
       clientes: {
         Row: {
           atualizado_em: string
+          codigo_tiny: string | null
+          cpf_cnpj: string | null
           criado_em: string
+          dados_tiny: Json | null
           email: string | null
+          fantasia: string | null
           id: string
+          id_tiny: string | null
+          inscricao_estadual: string | null
           instagram: string | null
           nome: string
           observacoes: string | null
           pais: string | null
+          rg: string | null
           telefone: string | null
+          tipo_pessoa: Database["public"]["Enums"]["tipo_pessoa_enum"] | null
         }
         Insert: {
           atualizado_em?: string
+          codigo_tiny?: string | null
+          cpf_cnpj?: string | null
           criado_em?: string
+          dados_tiny?: Json | null
           email?: string | null
+          fantasia?: string | null
           id?: string
+          id_tiny?: string | null
+          inscricao_estadual?: string | null
           instagram?: string | null
           nome: string
           observacoes?: string | null
           pais?: string | null
+          rg?: string | null
           telefone?: string | null
+          tipo_pessoa?: Database["public"]["Enums"]["tipo_pessoa_enum"] | null
         }
         Update: {
           atualizado_em?: string
+          codigo_tiny?: string | null
+          cpf_cnpj?: string | null
           criado_em?: string
+          dados_tiny?: Json | null
           email?: string | null
+          fantasia?: string | null
           id?: string
+          id_tiny?: string | null
+          inscricao_estadual?: string | null
           instagram?: string | null
           nome?: string
           observacoes?: string | null
           pais?: string | null
+          rg?: string | null
           telefone?: string | null
+          tipo_pessoa?: Database["public"]["Enums"]["tipo_pessoa_enum"] | null
         }
         Relationships: []
+      }
+      enderecos_cliente: {
+        Row: {
+          atualizado_em: string
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          criado_em: string
+          endereco: string | null
+          id: string
+          id_cliente: string
+          numero: string | null
+          pais: string | null
+          principal: boolean
+          rotulo: string | null
+          uf: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          criado_em?: string
+          endereco?: string | null
+          id?: string
+          id_cliente: string
+          numero?: string | null
+          pais?: string | null
+          principal?: boolean
+          rotulo?: string | null
+          uf?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          criado_em?: string
+          endereco?: string | null
+          id?: string
+          id_cliente?: string
+          numero?: string | null
+          pais?: string | null
+          principal?: boolean
+          rotulo?: string | null
+          uf?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enderecos_cliente_id_cliente_fkey"
+            columns: ["id_cliente"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conferencias: {
         Row: {
@@ -358,6 +441,7 @@ export type Database = {
           sistema_numeracao: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item: Database["public"]["Enums"]["status_item_enum"]
+          visivel_cafe: boolean
         }
         Insert: {
           atualizado_em?: string
@@ -381,6 +465,7 @@ export type Database = {
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
+          visivel_cafe?: boolean
         }
         Update: {
           atualizado_em?: string
@@ -404,6 +489,7 @@ export type Database = {
           sistema_numeracao?: Database["public"]["Enums"]["sistema_numeracao_enum"]
           sku?: string
           status_item?: Database["public"]["Enums"]["status_item_enum"]
+          visivel_cafe?: boolean
         }
         Relationships: []
       }
@@ -475,43 +561,40 @@ export type Database = {
       }
       itens_venda: {
         Row: {
-          cambio_utilizado: number | null
           criado_em: string
+          codigo: string | null
+          dados_tiny: Json | null
+          descricao: string | null
           id: string
-          id_item_estoque: string
+          id_item_estoque: string | null
+          id_produto_tiny: string | null
           id_venda: string
-          lucro_euro: number | null
-          lucro_real: number | null
-          moeda_venda: string
-          valor_venda_euro: number | null
-          valor_venda_original: number
-          valor_venda_real: number | null
+          quantidade: number
+          valor_unitario: number
         }
         Insert: {
-          cambio_utilizado?: number | null
           criado_em?: string
+          codigo?: string | null
+          dados_tiny?: Json | null
+          descricao?: string | null
           id?: string
-          id_item_estoque: string
+          id_item_estoque?: string | null
+          id_produto_tiny?: string | null
           id_venda: string
-          lucro_euro?: number | null
-          lucro_real?: number | null
-          moeda_venda: string
-          valor_venda_euro?: number | null
-          valor_venda_original: number
-          valor_venda_real?: number | null
+          quantidade?: number
+          valor_unitario?: number
         }
         Update: {
-          cambio_utilizado?: number | null
           criado_em?: string
+          codigo?: string | null
+          dados_tiny?: Json | null
+          descricao?: string | null
           id?: string
-          id_item_estoque?: string
+          id_item_estoque?: string | null
+          id_produto_tiny?: string | null
           id_venda?: string
-          lucro_euro?: number | null
-          lucro_real?: number | null
-          moeda_venda?: string
-          valor_venda_euro?: number | null
-          valor_venda_original?: number
-          valor_venda_real?: number | null
+          quantidade?: number
+          valor_unitario?: number
         }
         Relationships: []
       }
@@ -686,56 +769,102 @@ export type Database = {
       vendas: {
         Row: {
           atualizado_em: string
-          cambio_venda_para_euro: number | null
-          cambio_venda_para_real: number | null
-          canal_venda: Database["public"]["Enums"]["canal_venda_enum"] | null
+          codigo_rastreamento: string | null
           criado_em: string
-          data_venda: string
+          dados_tiny: Json | null
+          data_entrega: string | null
+          data_envio: string | null
+          data_faturamento: string | null
+          data_pedido: string | null
+          data_prevista: string | null
+          deposito: string | null
+          forma_pagamento: string | null
           id: string
           id_cliente: string | null
+          id_endereco_cliente: string | null
+          id_tiny: string | null
+          marcadores: Json | null
+          meio_pagamento: string | null
           moeda_venda: string
-          observacoes: string | null
-          provedor_link_pagamento: string | null
+          nome_cliente: string | null
+          numero: string | null
+          numero_ecommerce: string | null
+          obs: string | null
+          obs_interna: string | null
+          outras_despesas: number
+          regiao_venda: Database["public"]["Enums"]["tipo_regiao_enum"]
+          situacao_tiny: string | null
           status_venda: Database["public"]["Enums"]["status_venda_enum"]
-          url_link_pagamento: string | null
+          total_produtos: number
+          url_rastreamento: string | null
           valor_desconto: number
-          valor_subtotal: number
+          valor_frete: number
           valor_total: number
         }
         Insert: {
           atualizado_em?: string
-          cambio_venda_para_euro?: number | null
-          cambio_venda_para_real?: number | null
-          canal_venda?: Database["public"]["Enums"]["canal_venda_enum"] | null
+          codigo_rastreamento?: string | null
           criado_em?: string
-          data_venda?: string
+          dados_tiny?: Json | null
+          data_entrega?: string | null
+          data_envio?: string | null
+          data_faturamento?: string | null
+          data_pedido?: string | null
+          data_prevista?: string | null
+          deposito?: string | null
+          forma_pagamento?: string | null
           id?: string
           id_cliente?: string | null
-          moeda_venda?: string
-          observacoes?: string | null
-          provedor_link_pagamento?: string | null
+          id_endereco_cliente?: string | null
+          id_tiny?: string | null
+          marcadores?: Json | null
+          meio_pagamento?: string | null
+          nome_cliente?: string | null
+          numero?: string | null
+          numero_ecommerce?: string | null
+          obs?: string | null
+          obs_interna?: string | null
+          outras_despesas?: number
+          regiao_venda?: Database["public"]["Enums"]["tipo_regiao_enum"]
+          situacao_tiny?: string | null
           status_venda?: Database["public"]["Enums"]["status_venda_enum"]
-          url_link_pagamento?: string | null
+          total_produtos?: number
+          url_rastreamento?: string | null
           valor_desconto?: number
-          valor_subtotal?: number
+          valor_frete?: number
           valor_total?: number
         }
         Update: {
           atualizado_em?: string
-          cambio_venda_para_euro?: number | null
-          cambio_venda_para_real?: number | null
-          canal_venda?: Database["public"]["Enums"]["canal_venda_enum"] | null
+          codigo_rastreamento?: string | null
           criado_em?: string
-          data_venda?: string
+          dados_tiny?: Json | null
+          data_entrega?: string | null
+          data_envio?: string | null
+          data_faturamento?: string | null
+          data_pedido?: string | null
+          data_prevista?: string | null
+          deposito?: string | null
+          forma_pagamento?: string | null
           id?: string
           id_cliente?: string | null
-          moeda_venda?: string
-          observacoes?: string | null
-          provedor_link_pagamento?: string | null
+          id_endereco_cliente?: string | null
+          id_tiny?: string | null
+          marcadores?: Json | null
+          meio_pagamento?: string | null
+          nome_cliente?: string | null
+          numero?: string | null
+          numero_ecommerce?: string | null
+          obs?: string | null
+          obs_interna?: string | null
+          outras_despesas?: number
+          regiao_venda?: Database["public"]["Enums"]["tipo_regiao_enum"]
+          situacao_tiny?: string | null
           status_venda?: Database["public"]["Enums"]["status_venda_enum"]
-          url_link_pagamento?: string | null
+          total_produtos?: number
+          url_rastreamento?: string | null
           valor_desconto?: number
-          valor_subtotal?: number
+          valor_frete?: number
           valor_total?: number
         }
         Relationships: []
@@ -988,7 +1117,13 @@ export type Database = {
         | "transferencia"
         | "vendido"
       status_sincronizacao_enum: "em_andamento" | "sucesso" | "erro" | "parcial"
-      status_venda_enum: "pendente" | "paga" | "cancelada" | "devolvida"
+      status_venda_enum:
+        | "em_aberto"
+        | "pago"
+        | "preparando_envio"
+        | "enviado"
+        | "finalizado"
+        | "cancelado"
       status_vitrine_enum: "rascunho" | "publicada" | "encerrada"
       tipo_movimentacao_enum:
         | "entrada"

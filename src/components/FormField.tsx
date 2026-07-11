@@ -4,7 +4,9 @@ import type {
   TextareaHTMLAttributes,
   ReactNode,
 } from "react";
+import { forwardRef } from "react";
 import { cn } from "../utils/cn";
+import { IconCalendar } from "./Icons";
 
 interface FieldWrapperProps {
   id: string;
@@ -45,16 +47,19 @@ interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
   wrapperClassName?: string;
 }
 
-export function FormInput({
-  label,
-  hint,
-  error,
-  required,
-  wrapperClassName,
-  id,
-  className,
-  ...rest
-}: FormInputProps) {
+export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(function FormInput(
+  {
+    label,
+    hint,
+    error,
+    required,
+    wrapperClassName,
+    id,
+    className,
+    ...rest
+  },
+  ref,
+) {
   const fieldId = id ?? `in-${label.replace(/\s+/g, "-").toLowerCase()}`;
   return (
     <FieldWrapper
@@ -67,6 +72,7 @@ export function FormInput({
     >
       <input
         {...rest}
+        ref={ref}
         id={fieldId}
         required={required}
         className={cn(
@@ -75,6 +81,49 @@ export function FormInput({
           className,
         )}
       />
+    </FieldWrapper>
+  );
+});
+
+/** Campo de data do design system: input nativo com ícone de calendário e estilo consistente. */
+export function FormDate({
+  label,
+  hint,
+  error,
+  required,
+  wrapperClassName,
+  id,
+  className,
+  ...rest
+}: FormInputProps) {
+  const fieldId = id ?? `dt-${label.replace(/\s+/g, "-").toLowerCase()}`;
+  return (
+    <FieldWrapper
+      id={fieldId}
+      label={label}
+      hint={hint}
+      error={error}
+      required={required}
+      className={wrapperClassName}
+    >
+      <div className="relative">
+        <IconCalendar
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
+          width={16}
+          height={16}
+        />
+        <input
+          {...rest}
+          type="date"
+          id={fieldId}
+          required={required}
+          className={cn(
+            "input-base pl-9 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70",
+            error && "border-red-400 focus:border-red-500 focus:ring-red-500/20",
+            className,
+          )}
+        />
+      </div>
     </FieldWrapper>
   );
 }

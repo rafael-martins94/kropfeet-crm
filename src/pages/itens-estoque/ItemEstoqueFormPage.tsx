@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FormInput, FormTextarea } from "../../components/FormField";
+import { FormCheckbox, FormInput, FormTextarea } from "../../components/FormField";
 import { IdentificacaoItemFields } from "../../components/item-estoque-form/IdentificacaoItemFields";
 import { SkuComGerador } from "../../components/item-estoque-form/SkuComGerador";
 import { NumeracaoOrdemCompraFields } from "../../components/ordens-compra/NumeracaoOrdemCompraFields";
@@ -44,6 +44,7 @@ type FormState = {
   preco_venda: string;
   moeda_venda: string;
   status_item: StatusItem;
+  visivel_cafe: boolean;
   observacoes: string;
 };
 
@@ -71,6 +72,7 @@ const vazio: FormState = {
   preco_venda: "",
   moeda_venda: "",
   status_item: "em_estoque",
+  visivel_cafe: true,
   observacoes: "",
 };
 
@@ -142,6 +144,7 @@ export default function ItemEstoqueFormPage() {
           preco_venda: it.preco_venda?.toString().replace(".", ",") ?? "",
           moeda_venda: it.moeda_venda ?? "",
           status_item: it.status_item,
+          visivel_cafe: it.visivel_cafe ?? true,
           observacoes: it.observacoes ?? "",
         });
       })
@@ -294,6 +297,7 @@ export default function ItemEstoqueFormPage() {
         preco_venda: precoVenda,
         moeda_venda: precoVenda != null && moedaInformada ? moedaInformada : null,
         status_item: form.status_item,
+        visivel_cafe: form.visivel_cafe,
         observacoes: form.observacoes,
       });
       const payload = {
@@ -411,6 +415,12 @@ export default function ItemEstoqueFormPage() {
                   <span className="text-xs text-ink-soft">Prévia:</span>
                   <StatusBadge value={form.status_item} />
                 </div>
+                <FormCheckbox
+                  label="Visível no catálogo KropCafé"
+                  description="Desmarque para ocultar este item na vitrine pública, sem alterar o status no CRM."
+                  checked={form.visivel_cafe}
+                  onChange={(e) => upd("visivel_cafe", e.target.checked)}
+                />
               </div>
               <FormTextarea
                 label="Notas internas"

@@ -14,6 +14,10 @@
     "sync:tiny:produto": "tsx scripts/sincronizar-produto.ts",
     "sync:tiny:status-estoque": "tsx scripts/sincronizar-status-estoque-tiny.ts",
     "sync:tiny:fornecedores": "tsx scripts/sincronizar-fornecedores.ts",
+    "sync:tiny:clientes": "tsx scripts/sincronizar-clientes.ts",
+    "sync:tiny:pedidos": "tsx scripts/sincronizar-pedidos.ts",
+    "sync:tiny:pedidos:pagina": "tsx scripts/sincronizar-pedidos-pagina.ts",
+    "sync:tiny:pedido": "tsx scripts/sincronizar-pedido.ts",
     "backfill:imagens": "tsx scripts/backfill-imagens.ts"
   },
   "dependencies": {

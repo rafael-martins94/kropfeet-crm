@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
@@ -7,76 +7,114 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
+import { StatusSelectDropdown } from "../../components/StatusSelectDropdown";
 import { IconEdit, IconEye, IconPlus } from "../../components/Icons";
 import { vendasService, type VendaDetalhada } from "../../services/vendas";
+import { clientesService } from "../../services/clientes";
 import { useAsync } from "../../hooks/useAsync";
-import { formatarDataHora, formatarMoeda } from "../../utils/format";
+import { useDebounce } from "../../hooks/useDebounce";
+import { formatarData, formatarMoeda, traduzirEnum } from "../../utils/format";
 import type { StatusVenda } from "../../types/entities";
+import { moedaDaVenda, parseRegiaoVendaRota } from "./vendaOpcoes";
 
 const statusOpcoes: Array<{ value: StatusVenda | ""; label: string }> = [
   { value: "", label: "Todos os status" },
-  { value: "pendente", label: "Pendente" },
-  { value: "paga", label: "Paga" },
-  { value: "cancelada", label: "Cancelada" },
-  { value: "devolvida", label: "Devolvida" },
+  { value: "em_aberto", label: "Em aberto" },
+  { value: "pago", label: "Pago" },
+  { value: "preparando_envio", label: "Preparando envio" },
+  { value: "enviado", label: "Enviado" },
+  { value: "finalizado", label: "Finalizado" },
+  { value: "cancelado", label: "Cancelado" },
 ];
 
 export default function VendasListPage() {
+  const { pathname } = useLocation();
+  const segmento = pathname.split("/").filter(Boolean).pop();
+  const regiao = parseRegiaoVendaRota(segmento);
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<StatusVenda | "">("");
+  const [busca, setBusca] = useState("");
+  const buscaDebounced = useDebounce(busca, 350);
 
   const { data, loading, error } = useAsync(
-    () => vendasService.listarComRelacoes({ page, pageSize: 20, status }),
-    [page, status],
+    () =>
+      regiao
+        ? vendasService.listarComRelacoes({
+            page,
+            pageSize: 20,
+            status,
+            search: buscaDebounced,
+            regiao,
+          })
+        : Promise.resolve(null),
+    [page, status, buscaDebounced, regiao],
   );
+
+  if (!regiao) {
+    return <Navigate to="/vendas" replace />;
+  }
+
+  const labelRegiao = traduzirEnum(regiao);
 
   const columns: Column<VendaDetalhada>[] = [
     {
-      key: "data",
-      header: "Data",
-      width: "150px",
+      key: "numero",
+      header: "Pedido",
+      width: "110px",
       render: (v) => (
-        <Link to={`/vendas/${v.id}`} className="text-xs text-ink hover:text-brand-700">
-          {formatarDataHora(v.data_venda)}
+        <Link
+          to={`/vendas/${v.id}`}
+          className="font-numeric tabular-nums text-sm font-medium text-ink hover:text-brand-700"
+        >
+          {v.numero ?? "—"}
         </Link>
       ),
     },
     {
       key: "cliente",
       header: "Cliente",
-      render: (v) => (
-        <div className="min-w-0">
-          <div className="truncate font-medium text-ink">
-            {v.cliente?.nome ?? <span className="text-ink-faint">Sem cliente vinculado</span>}
+      render: (v) => {
+        const principal = v.cliente
+          ? clientesService.resolverEnderecoPrincipal(v.cliente)
+          : null;
+        return (
+          <div className="min-w-0">
+            <div className="truncate font-medium text-ink">
+              {v.cliente?.nome ?? v.nome_cliente ?? <span className="text-ink-faint">—</span>}
+            </div>
+            {principal?.cidade || principal?.uf ? (
+              <div className="truncate text-xs text-ink-soft">
+                {[principal.cidade, principal.uf].filter(Boolean).join(" · ")}
+              </div>
+            ) : null}
           </div>
-          {v.cliente?.email ? (
-            <div className="truncate text-xs text-ink-soft">{v.cliente.email}</div>
-          ) : null}
-        </div>
-      ),
+        );
+      },
     },
     {
-      key: "canal",
-      header: "Canal",
-      width: "140px",
-      render: (v) => <StatusBadge value={v.canal_venda ?? ""} />,
+      key: "data",
+      header: "Data",
+      width: "120px",
+      render: (v) => (
+        <span className="text-xs text-ink-soft">{formatarData(v.data_pedido)}</span>
+      ),
     },
     {
       key: "total",
       header: "Total",
-      width: "150px",
+      width: "140px",
       className: "text-right",
       render: (v) => (
         <span className="font-numeric tabular-nums text-sm">
-          {formatarMoeda(Number(v.valor_total), v.moeda_venda ?? "BRL")}
+          {formatarMoeda(Number(v.valor_total), moedaDaVenda(v))}
         </span>
       ),
     },
     {
       key: "status",
       header: "Status",
-      width: "120px",
+      width: "150px",
       render: (v) => <StatusBadge value={v.status_venda} />,
     },
     {
@@ -86,8 +124,20 @@ export default function VendasListPage() {
       className: "text-right",
       render: (v) => (
         <div className="flex justify-end gap-1">
-          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(`/vendas/${v.id}`)}><IconEye width={16} height={16} /></button>
-          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(`/vendas/${v.id}/editar`)}><IconEdit width={16} height={16} /></button>
+          <button
+            className="btn-ghost h-8 w-8 p-0"
+            onClick={() => navigate(`/vendas/${v.id}`)}
+            aria-label="Ver ordem"
+          >
+            <IconEye width={16} height={16} />
+          </button>
+          <button
+            className="btn-ghost h-8 w-8 p-0"
+            onClick={() => navigate(`/vendas/${v.id}/editar`)}
+            aria-label="Editar ordem"
+          >
+            <IconEdit width={16} height={16} />
+          </button>
         </div>
       ),
     },
@@ -96,11 +146,19 @@ export default function VendasListPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
-        title="Vendas"
-        breadcrumbs={[{ label: "Comercial" }, { label: "Vendas" }]}
+        title={`Ordens de venda · ${labelRegiao}`}
+        breadcrumbs={[
+          { label: "Comercial" },
+          { label: "Ordens de venda", to: "/vendas" },
+          { label: labelRegiao },
+        ]}
+        backTo="/vendas"
         actions={
-          <PrimaryButton icon={<IconPlus width={16} height={16} />} onClick={() => navigate("/vendas/nova")}>
-            Nova venda
+          <PrimaryButton
+            icon={<IconPlus width={16} height={16} />}
+            onClick={() => navigate(`/vendas/novo?regiao=${regiao}`)}
+          >
+            Nova ordem
           </PrimaryButton>
         }
       />
@@ -113,22 +171,28 @@ export default function VendasListPage() {
         <ScrollableListShell
           toolbar={
             <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <select
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value as StatusVenda | "");
-                  setPage(1);
-                }}
-                className="input-base w-full sm:w-60"
-              >
-                {statusOpcoes.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <input
+                  value={busca}
+                  onChange={(e) => {
+                    setBusca(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Buscar por nº, cliente ou rastreamento…"
+                  className="input-base w-full sm:w-72"
+                />
+                <StatusSelectDropdown
+                  value={status}
+                  options={statusOpcoes}
+                  onChange={(v) => {
+                    setStatus(v as StatusVenda | "");
+                    setPage(1);
+                  }}
+                  className="w-full sm:w-56"
+                />
+              </div>
               <div className="text-xs text-ink-soft">
-                {data ? `${data.total.toLocaleString("pt-BR")} vendas` : ""}
+                {data ? `${data.total.toLocaleString("pt-BR")} ordens` : ""}
               </div>
             </div>
           }
@@ -141,17 +205,19 @@ export default function VendasListPage() {
                 rows={data?.data ?? []}
                 rowKey={(v) => v.id}
                 loading={loading}
-                emptyTitle="Nenhuma venda registrada"
-                emptyDescription="Registre a primeira venda para começar a acompanhar o comercial."
-                emptyAction={
-                  <PrimaryButton onClick={() => navigate("/vendas/nova")}>Nova venda</PrimaryButton>
-                }
+                emptyTitle="Nenhuma ordem de venda"
+                emptyDescription={`Não há pedidos em ${labelRegiao} ainda. Crie uma nova ordem ou importe do Tiny.`}
               />
             )
           }
           footer={
             data ? (
-              <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onPageChange={setPage} />
+              <Pagination
+                page={data.page}
+                pageSize={data.pageSize}
+                total={data.total}
+                onPageChange={setPage}
+              />
             ) : null
           }
         />

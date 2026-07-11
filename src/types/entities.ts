@@ -36,6 +36,10 @@ export type Cliente = Tables["clientes"]["Row"];
 export type ClienteInsert = Tables["clientes"]["Insert"];
 export type ClienteUpdate = Tables["clientes"]["Update"];
 
+export type EnderecoCliente = Tables["enderecos_cliente"]["Row"];
+export type EnderecoClienteInsert = Tables["enderecos_cliente"]["Insert"];
+export type EnderecoClienteUpdate = Tables["enderecos_cliente"]["Update"];
+
 export type Venda = Tables["vendas"]["Row"];
 export type VendaInsert = Tables["vendas"]["Insert"];
 export type VendaUpdate = Tables["vendas"]["Update"];

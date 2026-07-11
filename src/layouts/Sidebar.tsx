@@ -54,7 +54,7 @@ const menu: MenuGroup[] = [
   {
     label: "Comercial",
     items: [
-      { to: "/vendas", label: "Vendas", icon: <IconCart /> },
+      { to: "/vendas", label: "Ordens de venda", icon: <IconCart /> },
       { to: "/clientes", label: "Clientes", icon: <IconUser /> },
     ],
   },

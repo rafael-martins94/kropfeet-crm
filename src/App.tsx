@@ -48,6 +48,7 @@ import ClientesListPage from "./pages/clientes/ClientesListPage";
 import ClienteFormPage from "./pages/clientes/ClienteFormPage";
 import ClienteDetailPage from "./pages/clientes/ClienteDetailPage";
 
+import VendasHubPage from "./pages/vendas/VendasHubPage";
 import VendasListPage from "./pages/vendas/VendasListPage";
 import VendaFormPage from "./pages/vendas/VendaFormPage";
 import VendaDetailPage from "./pages/vendas/VendaDetailPage";
@@ -121,8 +122,11 @@ export default function App() {
             <Route path="/clientes/:id" element={<ClienteDetailPage />} />
             <Route path="/clientes/:id/editar" element={<ClienteFormPage />} />
 
-            <Route path="/vendas" element={<VendasListPage />} />
+            <Route path="/vendas" element={<VendasHubPage />} />
             <Route path="/vendas/novo" element={<VendaFormPage />} />
+            <Route path="/vendas/brasil" element={<VendasListPage />} />
+            <Route path="/vendas/europa" element={<VendasListPage />} />
+            <Route path="/vendas/outros" element={<VendasListPage />} />
             <Route path="/vendas/:id" element={<VendaDetailPage />} />
             <Route path="/vendas/:id/editar" element={<VendaFormPage />} />
 

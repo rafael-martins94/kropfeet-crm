@@ -164,6 +164,103 @@ export interface TinyRetornoObterContato extends TinyRetornoBase {
   contato?: TinyContatoDetalhe;
 }
 
+/** Resumo de pedido em pedidos.pesquisa.php */
+export interface TinyPedidoListagem {
+  id: string;
+  numero?: string;
+  numero_ecommerce?: string | null;
+  data_pedido?: string;
+  data_prevista?: string;
+  nome?: string;
+  valor?: number | string;
+  id_vendedor?: string;
+  nome_vendedor?: string;
+  situacao?: string;
+  codigo_rastreamento?: string;
+  url_rastreamento?: string;
+}
+
+export interface TinyRetornoPesquisaPedidos extends TinyRetornoBase {
+  pagina?: number | string;
+  numero_paginas?: number;
+  pedidos?: Array<{ pedido: TinyPedidoListagem }>;
+}
+
+export interface TinyPedidoClienteDetalhe {
+  nome?: string;
+  codigo?: string;
+  nome_fantasia?: string | null;
+  tipo_pessoa?: string;
+  cpf_cnpj?: string;
+  ie?: string;
+  rg?: string;
+  endereco?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  fone?: string;
+  email?: string;
+  cep?: string;
+  [chave: string]: unknown;
+}
+
+export interface TinyPedidoItemDetalhe {
+  id_produto?: string;
+  codigo?: string;
+  descricao?: string;
+  unidade?: string;
+  quantidade?: string | number;
+  valor_unitario?: string | number;
+  [chave: string]: unknown;
+}
+
+export interface TinyPedidoMarcador {
+  id?: string;
+  descricao?: string;
+  cor?: string;
+}
+
+export interface TinyPedidoDetalhe {
+  id: string;
+  numero?: string;
+  numero_ecommerce?: string | null;
+  data_pedido?: string;
+  data_prevista?: string;
+  data_faturamento?: string;
+  data_envio?: string;
+  data_entrega?: string;
+  cliente?: TinyPedidoClienteDetalhe;
+  itens?: Array<{ item: TinyPedidoItemDetalhe }>;
+  marcadores?: Array<{ marcador: TinyPedidoMarcador }>;
+  condicao_pagamento?: string;
+  forma_pagamento?: string;
+  meio_pagamento?: string;
+  nome_transportador?: string;
+  frete_por_conta?: string;
+  valor_frete?: string | number;
+  valor_desconto?: string | number;
+  outras_despesas?: string | number;
+  total_produtos?: string | number;
+  total_pedido?: string | number;
+  numero_ordem_compra?: string;
+  deposito?: string;
+  forma_envio?: string;
+  situacao?: string;
+  obs?: string;
+  obs_interna?: string;
+  id_vendedor?: string | null;
+  codigo_rastreamento?: string;
+  url_rastreamento?: string;
+  id_nota_fiscal?: string;
+  [chave: string]: unknown;
+}
+
+export interface TinyRetornoObterPedido extends TinyRetornoBase {
+  pedido?: TinyPedidoDetalhe;
+}
+
 export class TinyApiError extends Error {
   readonly status: number | null;
   readonly codigoErro: string | null;

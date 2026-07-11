@@ -8,10 +8,11 @@ import { ItensEstoqueHeaderControls } from "../../components/itens-estoque/Itens
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton, SecondaryButton, DangerButton } from "../../components/PrimaryButton";
+import { RowActionsDotsMenu } from "../../components/RowActionsDotsMenu";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusItemFilterDropdown } from "../../components/StatusItemFilterDropdown";
-import { IconEdit, IconEye, IconPlus, IconTrash } from "../../components/Icons";
+import { IconArrowUpRight, IconEdit, IconEye, IconEyeOff, IconPlus, IconTrash } from "../../components/Icons";
 import {
   itensEstoqueService,
   COLUNAS_ORDEM_ITEM_ESTOQUE,
@@ -130,6 +131,8 @@ export default function ItensEstoqueListPage() {
 
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [erroStatusInline, setErroStatusInline] = useState<string | null>(null);
+  const [visivelCafeUpdatingId, setVisivelCafeUpdatingId] = useState<string | null>(null);
+  const [visivelCafeOverrides, setVisivelCafeOverrides] = useState<Record<string, boolean>>({});
 
   const thumbs = useAsync(() => modelosProdutoService.listarUrlsPrincipaisPorModelo(), []);
 
@@ -157,7 +160,19 @@ export default function ItensEstoqueListPage() {
     }
   };
 
-  const rows = data?.data ?? [];
+  useEffect(() => {
+    setVisivelCafeOverrides({});
+  }, [data]);
+
+  const rows = useMemo(() => {
+    const base = data?.data ?? [];
+    if (Object.keys(visivelCafeOverrides).length === 0) return base;
+    return base.map((row) =>
+      Object.prototype.hasOwnProperty.call(visivelCafeOverrides, row.id)
+        ? { ...row, visivel_cafe: visivelCafeOverrides[row.id]! }
+        : row,
+    );
+  }, [data, visivelCafeOverrides]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -216,6 +231,21 @@ export default function ItensEstoqueListPage() {
       setErroStatusInline(mensagemErro(e));
     } finally {
       setStatusUpdatingId(null);
+    }
+  };
+
+  const alternarVisivelCafeNaLinha = async (idItem: string, visivelAtual: boolean) => {
+    const novo = !visivelAtual;
+    setErroStatusInline(null);
+    setVisivelCafeUpdatingId(idItem);
+    setVisivelCafeOverrides((prev) => ({ ...prev, [idItem]: novo }));
+    try {
+      await itensEstoqueService.atualizar(idItem, { visivel_cafe: novo });
+    } catch (e) {
+      setVisivelCafeOverrides((prev) => ({ ...prev, [idItem]: visivelAtual }));
+      setErroStatusInline(mensagemErro(e));
+    } finally {
+      setVisivelCafeUpdatingId(null);
     }
   };
 
@@ -425,6 +455,54 @@ export default function ItensEstoqueListPage() {
       ),
     },
     {
+      key: "visivel",
+      header: (
+        <CabecalhoOrdenavel
+          label="Vis."
+          title="Visível no KropCafé"
+          coluna="visivel_cafe"
+          colunaAtiva={colunaOrdem}
+          ascendente={ordemAscendente}
+          onOrdem={alterarOrdem}
+          nowrap
+        />
+      ),
+      headerClassName: "align-top whitespace-nowrap w-[4.5rem] px-1 text-center",
+      width: "72px",
+      className: "w-[4.5rem] shrink-0 px-1 text-center align-middle",
+      render: (it) => {
+        const visivel = it.visivel_cafe ?? true;
+        const atualizando = visivelCafeUpdatingId === it.id;
+        return (
+          <button
+            type="button"
+            className={cn(
+              "btn-ghost mx-auto inline-flex h-8 w-8 items-center justify-center p-0",
+              visivel ? "text-emerald-700" : "text-ink-soft",
+              atualizando && "opacity-50",
+            )}
+            disabled={atualizando}
+            title={visivel ? "Visível no KropCafé — clique para ocultar" : "Oculto no KropCafé — clique para exibir"}
+            aria-label={
+              visivel
+                ? `Ocultar ${it.sku} no catálogo KropCafé`
+                : `Exibir ${it.sku} no catálogo KropCafé`
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              void alternarVisivelCafeNaLinha(it.id, visivel);
+            }}
+          >
+            {visivel ? (
+              <IconEye width={16} height={16} />
+            ) : (
+              <IconEyeOff width={16} height={16} />
+            )}
+          </button>
+        );
+      },
+    },
+    {
       key: "preco",
       header: (
         <CabecalhoOrdenavel
@@ -469,16 +547,29 @@ export default function ItensEstoqueListPage() {
     {
       key: "acoes",
       header: <span className="sr-only">Ações</span>,
-      width: "96px",
+      width: "48px",
       className: "text-right",
       render: (it) => {
         const detalhe = linkItem(`/itens-estoque/${it.id}`);
         const editar = linkItem(`/itens-estoque/${it.id}/editar`);
         return (
-        <div className="flex justify-end gap-1">
-          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(detalhe.to, detalhe.options)}><IconEye width={16} height={16} /></button>
-          <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(editar.to, editar.options)}><IconEdit width={16} height={16} /></button>
-        </div>
+          <RowActionsDotsMenu
+            label={`Ações de ${it.sku}`}
+            items={[
+              {
+                key: "ver",
+                label: "Ver detalhes",
+                icon: <IconArrowUpRight width={16} height={16} />,
+                onClick: () => navigate(detalhe.to, detalhe.options),
+              },
+              {
+                key: "editar",
+                label: "Editar",
+                icon: <IconEdit width={16} height={16} />,
+                onClick: () => navigate(editar.to, editar.options),
+              },
+            ]}
+          />
         );
       },
     },
@@ -622,7 +713,7 @@ export default function ItensEstoqueListPage() {
             ) : (
               <DataTable
                 columns={columns}
-                rows={data?.data ?? []}
+                rows={rows}
                 rowKey={(it) => it.id}
                 loading={loading}
                 emptyTitle="Nenhum item encontrado"

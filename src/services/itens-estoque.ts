@@ -87,6 +87,7 @@ export const COLUNAS_ORDEM_ITEM_ESTOQUE = [
   "nome_produto",
   "numeracao_br",
   "status_item",
+  "visivel_cafe",
   "preco_venda",
   "local_nome",
   "atualizado_em",

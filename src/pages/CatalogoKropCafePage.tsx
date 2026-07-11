@@ -27,7 +27,13 @@ type CatalogoState = {
   fotos: Record<string, string[]>;
 };
 
-const ETAPAS = [1, 2, 3, 4] as const;
+const ETAPAS = [1, 2, 3, 4, 5] as const;
+
+type ItemSelecionadoCatalogo = {
+  item: ItemCatalogoKropCafePublico;
+  fotos: string[];
+  numeracaoLabel: string;
+};
 
 const REGIOES: Record<RegiaoCatalogo, RegiaoConfig> = {
   usa: {
@@ -35,35 +41,6 @@ const REGIOES: Record<RegiaoCatalogo, RegiaoConfig> = {
     description: "Numeração americana",
     displaySystem: "us",
     segmentos: [
-      {
-        id: "adult_w",
-        label: "Adult feminino W",
-        description: "Numeração feminina americana",
-        tamanhos: [
-          "5W",
-          "5.5W",
-          "6W",
-          "6.5W",
-          "7W",
-          "7.5W",
-          "8W",
-          "8.5W",
-          "9W",
-          "9.5W",
-          "10W",
-          "10.5W",
-          "11W",
-          "11.5W",
-          "12W",
-          "12.5W",
-          "13W",
-          "13.5W",
-          "14W",
-          "14.5W",
-          "15.5W",
-          "16.5W",
-        ],
-      },
       {
         id: "adult",
         label: "Adult",
@@ -91,6 +68,35 @@ const REGIOES: Record<RegiaoCatalogo, RegiaoConfig> = {
           "13",
           "14",
           "15",
+        ],
+      },
+      {
+        id: "adult_w",
+        label: "Adult feminino W",
+        description: "Numeração feminina americana",
+        tamanhos: [
+          "5W",
+          "5.5W",
+          "6W",
+          "6.5W",
+          "7W",
+          "7.5W",
+          "8W",
+          "8.5W",
+          "9W",
+          "9.5W",
+          "10W",
+          "10.5W",
+          "11W",
+          "11.5W",
+          "12W",
+          "12.5W",
+          "13W",
+          "13.5W",
+          "14W",
+          "14.5W",
+          "15.5W",
+          "16.5W",
         ],
       },
       {
@@ -285,6 +291,11 @@ const TEXTOS: Record<
     escolher: string;
     selecionados: string;
     limparSelecao: string;
+    verCarrinho: string;
+    carrinhoTitulo: string;
+    continuarEscolhendo: string;
+    carrinhoVazio: string;
+    remover: string;
     voltar: string;
     recomecar: string;
     erroCatalogo: string;
@@ -315,6 +326,11 @@ const TEXTOS: Record<
     escolher: "Escolher",
     selecionados: "Selecionados pelo cliente",
     limparSelecao: "Limpar seleção",
+    verCarrinho: "Ver selecionados",
+    carrinhoTitulo: "Itens selecionados",
+    continuarEscolhendo: "Continuar escolhendo",
+    carrinhoVazio: "Nenhum item selecionado ainda.",
+    remover: "Remover",
     voltar: "Voltar",
     recomecar: "Recomeçar",
     erroCatalogo: "Não foi possível carregar o catálogo",
@@ -344,7 +360,7 @@ const TEXTOS: Record<
     subtitulo: "We only show items in stock in Europe, with photo, SKU and price for easier service.",
     idioma: "Language",
     passo: "Step",
-    regioesTitulo: "Choose your sizing region",
+    regioesTitulo: "Choose your size region",
     regioesAjuda: "First select Brazil, Europe or USA.",
     segmentosTitulo: "Choose the segment",
     tamanhosTitulo: "Choose the size",
@@ -358,27 +374,32 @@ const TEXTOS: Record<
     escolher: "Choose",
     selecionados: "Customer selections",
     limparSelecao: "Clear selection",
+    verCarrinho: "View selections",
+    carrinhoTitulo: "Selected items",
+    continuarEscolhendo: "Continue browsing",
+    carrinhoVazio: "No items selected yet.",
+    remover: "Remove",
     voltar: "Back",
     recomecar: "Start over",
     erroCatalogo: "Could not load the catalog",
     nenhumItem: "No item in stock in Europe for this size.",
     itens: "item(s)",
     regionDescriptions: {
-      brasil: "Brazilian sizing",
-      europa: "European sizing",
-      usa: "American sizing",
+      brasil: "Brazilian size",
+      europa: "European size",
+      usa: "American size",
     },
     segmentLabels: {
       adult: "Adult",
-      adult_w: "Adult women W",
+      adult_w: "Adult W",
       youth: "Youth",
       kids: "Kids",
     },
     segmentDescriptions: {
-      adult: "Adult sizing",
-      adult_w: "American women's sizing",
-      youth: "Youth sizing",
-      kids: "Kids sizing",
+      adult: "Adult size",
+      adult_w: "American women's size",
+      youth: "Youth size",
+      kids: "Kids size",
     },
   },
   es: {
@@ -401,6 +422,11 @@ const TEXTOS: Record<
     escolher: "Elegir",
     selecionados: "Seleccionados por el cliente",
     limparSelecao: "Limpiar selección",
+    verCarrinho: "Ver seleccionados",
+    carrinhoTitulo: "Artículos seleccionados",
+    continuarEscolhendo: "Seguir eligiendo",
+    carrinhoVazio: "Aún no hay artículos seleccionados.",
+    remover: "Quitar",
     voltar: "Volver",
     recomecar: "Empezar de nuevo",
     erroCatalogo: "No fue posible cargar el catálogo",
@@ -444,6 +470,11 @@ const TEXTOS: Record<
     escolher: "Choisir",
     selecionados: "Sélections du client",
     limparSelecao: "Effacer la sélection",
+    verCarrinho: "Voir la sélection",
+    carrinhoTitulo: "Articles sélectionnés",
+    continuarEscolhendo: "Continuer à choisir",
+    carrinhoVazio: "Aucun article sélectionné pour le moment.",
+    remover: "Retirer",
     voltar: "Retour",
     recomecar: "Recommencer",
     erroCatalogo: "Impossible de charger le catalogue",
@@ -633,12 +664,14 @@ function ProdutoCard({
   onToggle,
   labels,
   prioridadeImagem,
+  numeracaoLabel,
 }: {
   item: ItemCatalogoKropCafePublico;
   fotos: string[];
   selecionado: boolean;
   onToggle: () => void;
   prioridadeImagem?: boolean;
+  numeracaoLabel?: string | null;
   labels: {
     semFoto: string;
     precoConsulta: string;
@@ -665,7 +698,12 @@ function ProdutoCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[8px] font-semibold uppercase tracking-[0.2em] text-stone-400 sm:text-[9px] sm:tracking-[0.24em]">SKU</p>
-            <p className="truncate text-base font-black tracking-tight text-stone-950 sm:text-lg">{item.sku}</p>
+            <p className="truncate text-base font-black tracking-tight text-stone-950 sm:text-lg">
+              {item.sku}
+              {numeracaoLabel ? (
+                <span className="font-bold text-stone-500"> · {numeracaoLabel}</span>
+              ) : null}
+            </p>
           </div>
           <p className="shrink-0 rounded-full bg-stone-950 px-2 py-0.5 text-[10px] font-bold text-white sm:px-2.5 sm:py-1 sm:text-xs">{preco}</p>
         </div>
@@ -692,18 +730,31 @@ export default function CatalogoKropCafePage() {
   const [segmento, setSegmento] = useState<SegmentoCatalogo | null>(null);
   const [tamanho, setTamanho] = useState<string | null>(null);
   const [catalogo, setCatalogo] = useState<CatalogoState>({ itens: [], fotos: {} });
-  const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set());
+  const [sacola, setSacola] = useState<Record<string, ItemSelecionadoCatalogo>>({});
+  const [verCarrinho, setVerCarrinho] = useState(false);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const t = TEXTOS[idioma];
   const regiaoConfig = regiao ? REGIOES[regiao] : null;
   const segmentoConfig = regiaoConfig?.segmentos.find((s) => s.id === segmento) ?? null;
-  const etapaAtual = !regiao ? 1 : !segmento ? 2 : !tamanho ? 3 : 4;
+  const etapaAtual = verCarrinho
+    ? 5
+    : !regiao
+      ? 1
+      : !segmento
+        ? 2
+        : !tamanho
+          ? 3
+          : 4;
   const tamanhoOpcoes = useMemo(
     () => (regiao && segmento ? tamanhosPorEquivalencia(regiao, segmento) : []),
     [regiao, segmento],
   );
+  const itensSelecionados = useMemo(() => Object.values(sacola), [sacola]);
+  const qtdSelecionados = itensSelecionados.length;
+  const numeracaoAtualLabel =
+    regiao && tamanho ? formatarTamanho(regiao, tamanho) : "";
 
   const selecionarRegiao = (id: RegiaoCatalogo) => {
     setIdioma(id === "usa" ? "en" : "pt");
@@ -714,14 +765,15 @@ export default function CatalogoKropCafePage() {
     setSegmento(null);
     setTamanho(null);
     setCatalogo({ itens: [], fotos: {} });
-    setSelecionados(new Set());
+    setSacola({});
+    setVerCarrinho(false);
     setErro(null);
   }, [regiao]);
 
   useEffect(() => {
     setTamanho(null);
     setCatalogo({ itens: [], fotos: {} });
-    setSelecionados(new Set());
+    setVerCarrinho(false);
     setErro(null);
   }, [segmento]);
 
@@ -736,7 +788,7 @@ export default function CatalogoKropCafePage() {
 
       setLoading(true);
       setErro(null);
-      setSelecionados(new Set());
+      setVerCarrinho(false);
 
       try {
         const itens = await catalogoKropCafeService.buscar({
@@ -763,18 +815,22 @@ export default function CatalogoKropCafePage() {
     };
   }, [regiaoConfig, tamanho]);
 
-  const itensSelecionados = useMemo(
-    () => catalogo.itens.filter((item) => selecionados.has(item.id)),
-    [catalogo.itens, selecionados],
-  );
-
-  const alternarSelecionado = (id: string) => {
-    setSelecionados((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const alternarSelecionado = (
+    item: ItemCatalogoKropCafePublico,
+    fotos: string[],
+    numeracaoLabel: string,
+  ) => {
+    setSacola((prev) => {
+      const next = { ...prev };
+      if (next[item.id]) delete next[item.id];
+      else next[item.id] = { item, fotos, numeracaoLabel };
       return next;
     });
+  };
+
+  const limparSacola = () => {
+    setSacola({});
+    setVerCarrinho(false);
   };
 
   const recomecar = () => {
@@ -782,15 +838,19 @@ export default function CatalogoKropCafePage() {
     setSegmento(null);
     setTamanho(null);
     setCatalogo({ itens: [], fotos: {} });
-    setSelecionados(new Set());
+    setSacola({});
+    setVerCarrinho(false);
     setErro(null);
   };
 
   const voltar = () => {
+    if (verCarrinho) {
+      setVerCarrinho(false);
+      return;
+    }
     if (tamanho) {
       setTamanho(null);
       setCatalogo({ itens: [], fotos: {} });
-      setSelecionados(new Set());
       return;
     }
     if (segmento) {
@@ -802,14 +862,24 @@ export default function CatalogoKropCafePage() {
     }
   };
 
+  const tituloEtapa = verCarrinho
+    ? t.carrinhoTitulo
+    : !regiao
+      ? t.regioesTitulo
+      : !segmento
+        ? t.segmentosTitulo
+        : !tamanho
+          ? t.tamanhosTitulo
+          : t.resultadoTitulo;
+
   return (
     <main className="h-screen overflow-hidden bg-[#050505] text-white">
       <section className="mx-auto flex h-screen w-full max-w-7xl flex-col px-3 py-2 sm:px-6 sm:py-3 lg:px-8">
         <header className="flex shrink-0 items-center justify-between gap-2 pb-2 sm:gap-3 sm:pb-3">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <img
-              src="/kropcafe-logo-white-glow.png"
-              alt="KropCafe Bar & Gallery"
+              src="/kropcafe-logo-white-glow.png?v=2"
+              alt="KropCafé"
               className="h-auto w-24 shrink-0 object-contain sm:w-32 md:w-44"
               draggable={false}
             />
@@ -831,7 +901,19 @@ export default function CatalogoKropCafePage() {
               ))}
             </div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-2">
+            {qtdSelecionados > 0 && !verCarrinho ? (
+              <button
+                type="button"
+                onClick={() => setVerCarrinho(true)}
+                className="relative rounded-full border border-[#d7b56d]/50 bg-[#d7b56d]/15 px-3 py-1.5 text-[10px] font-bold text-[#d7b56d] transition hover:bg-[#d7b56d] hover:text-stone-950 sm:px-4 sm:py-2 sm:text-xs"
+              >
+                {t.verCarrinho}
+                <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#d7b56d] px-1 text-[10px] font-black text-stone-950">
+                  {qtdSelecionados}
+                </span>
+              </button>
+            ) : null}
             <div className="rounded-full border border-white/10 bg-white/[0.06] p-1">
               <span className="sr-only">{t.idioma}</span>
               <div className="flex flex-wrap justify-end gap-1">
@@ -856,22 +938,16 @@ export default function CatalogoKropCafePage() {
         </header>
 
         <section className="flex min-h-0 flex-1 flex-col rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(215,181,109,0.14),rgba(255,255,255,0.055)_34%,rgba(255,255,255,0.035))] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur sm:rounded-[2rem] sm:p-4">
-          <div className="mb-3 grid shrink-0 gap-2 sm:mb-4 sm:grid-cols-[1fr_auto_1fr] sm:gap-3 sm:items-center">
+          <div className="mb-3 grid shrink-0 gap-2 sm:mb-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-3">
             <div className="hidden sm:block" />
             <div className="text-center">
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d7b56d] sm:text-xs sm:tracking-[0.24em]">{t.passo} {etapaAtual}</p>
               <h2 className="mt-0.5 text-xl font-black tracking-tight sm:mt-1 sm:text-2xl md:text-3xl lg:text-4xl">
-                {!regiao
-                  ? t.regioesTitulo
-                  : !segmento
-                    ? t.segmentosTitulo
-                    : !tamanho
-                      ? t.tamanhosTitulo
-                      : t.resultadoTitulo}
+                {tituloEtapa}
               </h2>
             </div>
             <div className="flex justify-center gap-2 sm:justify-end">
-              {regiao ? (
+              {regiao || verCarrinho ? (
                 <button
                   type="button"
                   onClick={voltar}
@@ -880,7 +956,7 @@ export default function CatalogoKropCafePage() {
                   {t.voltar}
                 </button>
               ) : null}
-              {(regiao || segmento || tamanho) && (
+              {(regiao || segmento || tamanho || verCarrinho) && (
                 <button
                   type="button"
                   onClick={recomecar}
@@ -893,7 +969,61 @@ export default function CatalogoKropCafePage() {
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {!regiao ? (
+          {verCarrinho ? (
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <div className="mb-2 flex shrink-0 items-center justify-between gap-2 rounded-xl bg-white/[0.06] px-3 py-2 sm:mb-3 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
+                <p className="text-sm font-black sm:text-lg">
+                  {qtdSelecionados} {t.itens}
+                </p>
+                <div className="flex shrink-0 gap-2">
+                  {qtdSelecionados > 0 ? (
+                    <button
+                      type="button"
+                      onClick={limparSacola}
+                      className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:border-white/40 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
+                    >
+                      {t.limparSelecao}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setVerCarrinho(false)}
+                    className="rounded-full bg-[#d7b56d] px-3 py-1.5 text-xs font-black text-stone-950 transition hover:bg-[#e2c688] sm:px-4 sm:py-2 sm:text-sm"
+                  >
+                    {t.continuarEscolhendo}
+                  </button>
+                </div>
+              </div>
+
+              {qtdSelecionados === 0 ? (
+                <div className="flex flex-1 items-center justify-center rounded-[1.5rem] border border-dashed border-white/20 bg-white/[0.04] p-8 text-center">
+                  <p className="max-w-md text-lg font-semibold text-white/60">{t.carrinhoVazio}</p>
+                </div>
+              ) : (
+                <AreaRolavel className="[scrollbar-color:#111827_rgba(0,0,0,0.08)]">
+                  <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-3 pb-4 md:grid-cols-2 md:gap-4">
+                    {itensSelecionados.map(({ item, fotos, numeracaoLabel }, index) => (
+                      <ProdutoCard
+                        key={item.id}
+                        item={item}
+                        fotos={fotos}
+                        selecionado
+                        numeracaoLabel={numeracaoLabel}
+                        onToggle={() => alternarSelecionado(item, fotos, numeracaoLabel)}
+                        prioridadeImagem={index < 4}
+                        labels={{
+                          semFoto: t.semFoto,
+                          precoConsulta: t.precoConsulta,
+                          gostei: t.remover,
+                          selecionado: t.remover,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </AreaRolavel>
+              )}
+            </div>
+          ) : !regiao ? (
             <AreaRolavel className="mx-auto w-full max-w-xl">
               <div className="flex flex-col gap-3 py-2">
               {ORDEM_REGIOES.map((id) => {
@@ -993,17 +1123,27 @@ export default function CatalogoKropCafePage() {
                 <AreaRolavel className="[scrollbar-color:#111827_rgba(0,0,0,0.08)]">
                   <div
                     className={cn(
-                      "mx-auto grid w-full max-w-5xl grid-cols-1 gap-3 pb-4 md:grid-cols-2 md:gap-4",
-                      itensSelecionados.length > 0 ? "pb-28" : "pb-4",
+                      "mx-auto grid w-full max-w-5xl grid-cols-1 gap-3 md:grid-cols-2 md:gap-4",
+                      qtdSelecionados > 0 ? "pb-28" : "pb-4",
                     )}
                   >
-                    {catalogo.itens.map((item, index) => (
+                    {catalogo.itens.map((item, index) => {
+                      const fotos = catalogo.fotos[item.id_modelo_produto] ?? [];
+                      const naSacola = sacola[item.id];
+                      return (
                       <ProdutoCard
                         key={item.id}
                         item={item}
-                        fotos={catalogo.fotos[item.id_modelo_produto] ?? []}
-                        selecionado={selecionados.has(item.id)}
-                        onToggle={() => alternarSelecionado(item.id)}
+                        fotos={fotos}
+                        selecionado={Boolean(naSacola)}
+                        numeracaoLabel={naSacola?.numeracaoLabel ?? numeracaoAtualLabel}
+                        onToggle={() =>
+                          alternarSelecionado(
+                            item,
+                            fotos,
+                            naSacola?.numeracaoLabel ?? numeracaoAtualLabel,
+                          )
+                        }
                         prioridadeImagem={index < 4}
                         labels={{
                           semFoto: t.semFoto,
@@ -1012,12 +1152,13 @@ export default function CatalogoKropCafePage() {
                           selecionado: t.selecionado,
                         }}
                       />
-                    ))}
+                      );
+                    })}
                   </div>
                 </AreaRolavel>
               )}
 
-              {itensSelecionados.length > 0 && (
+              {qtdSelecionados > 0 && (
                 <div className="absolute inset-x-0 bottom-0 z-10 rounded-xl border border-[#d7b56d]/40 bg-stone-950/95 p-2 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur sm:rounded-[1.5rem] sm:p-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <div className="min-w-0">
@@ -1025,16 +1166,28 @@ export default function CatalogoKropCafePage() {
                         {t.selecionados}
                       </p>
                       <p className="mt-0.5 truncate text-sm font-black sm:mt-1 sm:text-base">
-                        {itensSelecionados.length} {t.itens}: {itensSelecionados.map((item) => item.sku).join(", ")}
+                        {qtdSelecionados} {t.itens}:{" "}
+                        {itensSelecionados
+                          .map(({ item, numeracaoLabel }) => `${item.sku} (${numeracaoLabel})`)
+                          .join(", ")}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelecionados(new Set())}
-                      className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:border-white/40 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
-                    >
-                      {t.limparSelecao}
-                    </button>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={limparSacola}
+                        className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:border-white/40 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
+                      >
+                        {t.limparSelecao}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVerCarrinho(true)}
+                        className="rounded-full bg-[#d7b56d] px-3 py-1.5 text-xs font-black text-stone-950 transition hover:bg-[#e2c688] sm:px-4 sm:py-2 sm:text-sm"
+                      >
+                        {t.verCarrinho}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

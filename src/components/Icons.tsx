@@ -139,6 +139,37 @@ export const IconEye = (p: IconProps) => (
   </svg>
 );
 
+export const IconEyeOff = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M3 3l18 18" />
+    <path d="M10.6 10.6a3 3 0 0 0 4.2 4.2" />
+    <path d="M9.9 5.2A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.1" />
+    <path d="M6.1 6.1C3.7 7.8 2 12 2 12s3.5 7 10 7a9.8 9.8 0 0 0 4.3-1" />
+  </svg>
+);
+
+export const IconFileText = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+    <path d="M14 3v5h5" />
+    <path d="M9 13h6M9 17h6" />
+  </svg>
+);
+
+export const IconArrowUpRight = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M7 17 17 7M9 7h8v8" />
+  </svg>
+);
+
+export const IconMoreVertical = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="5" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 export const IconChevronLeft = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="m15 6-6 6 6 6" />
@@ -214,5 +245,12 @@ export const IconList = (p: IconProps) => (
 export const IconCheck = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="M5 12.5 9.5 17 19 7" />
+  </svg>
+);
+
+export const IconCalendar = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="4.5" width="18" height="16" rx="2" />
+    <path d="M3 9h18M8 3v3M16 3v3" />
   </svg>
 );
