@@ -14,10 +14,11 @@ import { fornecedoresService } from "../../services/fornecedores";
 import { locaisEstoqueService } from "../../services/locais-estoque";
 import { ordensCompraService } from "../../services/ordens-compra";
 import { categoriasService } from "../../services/categorias";
+import { vendasService } from "../../services/vendas";
 import { useAsync } from "../../hooks/useAsync";
 import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { cn } from "../../utils/cn";
-import { formatarData, formatarDataHora, formatarMoeda } from "../../utils/format";
+import { formatarData, formatarDataHora, formatarMoeda, traduzirEnum } from "../../utils/format";
 import { obterCustoPrincipal, resolverCustoItem } from "../../utils/custoItem";
 import { resolverMoedaVendaItem } from "../../utils/moedaItemEstoque";
 import {
@@ -25,6 +26,7 @@ import {
   getAllSizeEquivalences,
   getUsDisplayLabel,
 } from "../../utils/sizeConversion";
+import { moedaDaVenda } from "../vendas/vendaOpcoes";
 
 export default function ItemEstoqueDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -78,8 +80,14 @@ export default function ItemEstoqueDetailPage() {
         : Promise.resolve(null),
     [modelo.data?.id_categoria],
   );
+  const vendasDoItem = useAsync(
+    () => (id ? vendasService.listarPorItemEstoque(id) : Promise.resolve([])),
+    [id],
+  );
 
   const temOrdem = Boolean(item.data?.id_ordem_compra && ordem.data);
+  const temVenda = (vendasDoItem.data?.length ?? 0) > 0;
+  const vendaPrincipal = vendasDoItem.data?.[0] ?? null;
   const moedaVendaExibida = item.data
     ? resolverMoedaVendaItem(item.data.moeda_venda, local.data?.tipo_regiao)
     : null;
@@ -304,7 +312,9 @@ export default function ItemEstoqueDetailPage() {
                     )}
                   </F>
                   <F label="Código do fornecedor" mono>
-                    {item.data.codigo_fornecedor ?? "—"}
+                    {modelo.data?.codigo_fornecedor?.trim() ||
+                      item.data.codigo_fornecedor ||
+                      "—"}
                   </F>
                   <F label="Moeda">{ordem.data.moeda_compra}</F>
                   <F label="Valor custo">
@@ -317,7 +327,64 @@ export default function ItemEstoqueDetailPage() {
               </SectionCard>
             ) : null}
 
-            <SectionCard title="Auditoria" className={cn(!temOrdem && "lg:col-span-2")}>
+            {temVenda && vendaPrincipal ? (
+              <SectionCard title="Ordem de venda">
+                <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  <F label="Pedido">
+                    <Link
+                      to={`/vendas/${vendaPrincipal.id}`}
+                      className="font-numeric tabular-nums text-brand-600 hover:text-brand-700"
+                    >
+                      {vendaPrincipal.numero ?? "Ver pedido"}
+                    </Link>
+                  </F>
+                  <F label="Status">
+                    <StatusBadge value={vendaPrincipal.status_venda} />
+                  </F>
+                  <F label="Cliente">
+                    {vendaPrincipal.cliente ? (
+                      <Link
+                        to={`/clientes/${vendaPrincipal.cliente.id}`}
+                        className="text-brand-600 hover:text-brand-700"
+                      >
+                        {vendaPrincipal.cliente.nome}
+                      </Link>
+                    ) : (
+                      (vendaPrincipal.nome_cliente ?? "—")
+                    )}
+                  </F>
+                  <F label="Região">{traduzirEnum(vendaPrincipal.regiao_venda)}</F>
+                  <F label="Data do pedido">
+                    {formatarData(vendaPrincipal.data_pedido)}
+                  </F>
+                  <F label="Valor neste item">
+                    {vendaPrincipal.valor_unitario != null
+                      ? formatarMoeda(
+                          vendaPrincipal.valor_unitario,
+                          moedaDaVenda(vendaPrincipal),
+                        )
+                      : "—"}
+                  </F>
+                  <F label="Total do pedido">
+                    {formatarMoeda(
+                      Number(vendaPrincipal.valor_total),
+                      moedaDaVenda(vendaPrincipal),
+                    )}
+                  </F>
+                </dl>
+                {(vendasDoItem.data?.length ?? 0) > 1 ? (
+                  <p className="mt-3 text-xs text-ink-soft">
+                    Este item aparece em {vendasDoItem.data!.length} pedidos. Mostrando o mais
+                    recente.
+                  </p>
+                ) : null}
+              </SectionCard>
+            ) : null}
+
+            <SectionCard
+              title="Auditoria"
+              className={cn(!temOrdem && !temVenda && "lg:col-span-2")}
+            >
               <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <F label="Cadastro no Tiny">{formatarDataHora(item.data.data_cadastro_tiny)}</F>
                 <F label="Criado em">{formatarDataHora(item.data.criado_em)}</F>

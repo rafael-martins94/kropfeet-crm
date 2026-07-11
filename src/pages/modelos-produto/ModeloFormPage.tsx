@@ -6,6 +6,7 @@ import {
   limparImagensPendentes,
   type ImagemPendente,
 } from "../../components/modelos-produto/ModeloImagensForm";
+import { NomeRapidoModal } from "../../components/NomeRapidoModal";
 import { PageHeader } from "../../components/PageHeader";
 import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SearchableSelectDropdown } from "../../components/SearchableSelectDropdown";
@@ -70,6 +71,8 @@ export default function ModeloFormPage() {
   const [loadingInicial, setLoadingInicial] = useState(edicao);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [modalMarca, setModalMarca] = useState(false);
+  const [modalCategoria, setModalCategoria] = useState(false);
 
   const marcas = useAsync(() => marcasService.listarTodas(), []);
   const categorias = useAsync(() => categoriasService.listarTodas(), []);
@@ -195,6 +198,8 @@ export default function ModeloFormPage() {
                     loading={marcas.loading}
                     emptyLabel="— Sem marca —"
                     searchPlaceholder="Buscar marca…"
+                    createNewLabel="Cadastrar nova marca"
+                    onCreateNew={() => setModalMarca(true)}
                   />
                   <SearchableSelectDropdown
                     label="Categoria"
@@ -210,6 +215,8 @@ export default function ModeloFormPage() {
                     loading={categorias.loading}
                     emptyLabel="— Sem categoria —"
                     searchPlaceholder="Buscar categoria…"
+                    createNewLabel="Cadastrar nova categoria"
+                    onCreateNew={() => setModalCategoria(true)}
                   />
                   <FormInput
                     label="Cor"
@@ -265,6 +272,31 @@ export default function ModeloFormPage() {
           </div>
         </form>
       )}
+
+      <NomeRapidoModal
+        open={modalMarca}
+        onClose={() => setModalMarca(false)}
+        title="Nova marca"
+        label="Nome da marca"
+        placeholder="Ex.: Nike, Adidas, New Balance…"
+        criar={(nome) => marcasService.criar({ nome })}
+        onCriado={(marca) => {
+          upd("id_marca", marca.id);
+          marcas.reload();
+        }}
+      />
+      <NomeRapidoModal
+        open={modalCategoria}
+        onClose={() => setModalCategoria(false)}
+        title="Nova categoria"
+        label="Nome da categoria"
+        placeholder="Ex.: Lifestyle, Running…"
+        criar={(nome) => categoriasService.criar({ nome })}
+        onCriado={(categoria) => {
+          upd("id_categoria", categoria.id);
+          categorias.reload();
+        }}
+      />
     </div>
   );
 }

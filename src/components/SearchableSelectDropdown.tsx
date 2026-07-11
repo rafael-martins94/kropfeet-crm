@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePopoverAnchorRect } from "../hooks/usePopoverAnchorRect";
 import { cn } from "../utils/cn";
-import { IconSearch } from "./Icons";
+import { IconPlus, IconSearch } from "./Icons";
 
 export interface SearchableSelectOption {
   value: string;
@@ -23,6 +23,9 @@ type SearchableSelectDropdownBaseProps = {
   triggerClassName?: string;
   /** Texto do trigger quando nenhuma opção está selecionada (modo múltiplo). */
   emptyLabel?: string;
+  /** Ação no topo do painel para cadastrar um novo item. */
+  onCreateNew?: () => void;
+  createNewLabel?: string;
 };
 
 export type SearchableSelectDropdownProps = SearchableSelectDropdownBaseProps &
@@ -114,6 +117,8 @@ export function SearchableSelectDropdown(props: SearchableSelectDropdownProps) {
     className,
     triggerClassName,
     multiple = false,
+    onCreateNew,
+    createNewLabel = "Cadastrar novo",
   } = props;
   const value = props.value;
   const onChange = props.onChange;
@@ -236,6 +241,19 @@ export function SearchableSelectDropdown(props: SearchableSelectDropdownProps) {
             />
           </div>
         </div>
+        {onCreateNew ? (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 border-b border-line px-3 py-2.5 text-left text-sm font-medium text-brand-700 hover:bg-brand-50/60"
+            onClick={() => {
+              setOpen(false);
+              onCreateNew();
+            }}
+          >
+            <IconPlus width={14} height={14} />
+            {createNewLabel}
+          </button>
+        ) : null}
         {multiple && opcoesPainel.some((o) => o.value !== "") ? (
           <div className="flex gap-3 border-b border-line/80 px-3 py-2 text-xs">
             <button

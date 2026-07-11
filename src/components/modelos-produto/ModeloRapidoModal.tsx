@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { FormInput } from "../FormField";
 import { Modal } from "../Modal";
+import { NomeRapidoModal } from "../NomeRapidoModal";
 import { PrimaryButton, SecondaryButton } from "../PrimaryButton";
 import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
 import {
@@ -50,6 +51,8 @@ export function ModeloRapidoModal({
   const [indicePrincipal, setIndicePrincipal] = useState(0);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [modalMarca, setModalMarca] = useState(false);
+  const [modalCategoria, setModalCategoria] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -166,6 +169,8 @@ export function ModeloRapidoModal({
           loading={marcas.loading}
           emptyLabel="— Sem marca —"
           searchPlaceholder="Buscar marca…"
+          createNewLabel="Cadastrar nova marca"
+          onCreateNew={() => setModalMarca(true)}
         />
         <SearchableSelectDropdown
           label="Categoria"
@@ -178,6 +183,8 @@ export function ModeloRapidoModal({
           loading={categorias.loading}
           emptyLabel="— Sem categoria —"
           searchPlaceholder="Buscar categoria…"
+          createNewLabel="Cadastrar nova categoria"
+          onCreateNew={() => setModalCategoria(true)}
         />
         <FormInput
           label="Cor"
@@ -207,6 +214,31 @@ export function ModeloRapidoModal({
           </div>
         ) : null}
       </form>
+
+      <NomeRapidoModal
+        open={modalMarca}
+        onClose={() => setModalMarca(false)}
+        title="Nova marca"
+        label="Nome da marca"
+        placeholder="Ex.: Nike, Adidas, New Balance…"
+        criar={(nomeMarca) => marcasService.criar({ nome: nomeMarca })}
+        onCriado={(marca) => {
+          setIdMarca(marca.id);
+          marcas.reload();
+        }}
+      />
+      <NomeRapidoModal
+        open={modalCategoria}
+        onClose={() => setModalCategoria(false)}
+        title="Nova categoria"
+        label="Nome da categoria"
+        placeholder="Ex.: Lifestyle, Running…"
+        criar={(nomeCat) => categoriasService.criar({ nome: nomeCat })}
+        onCriado={(categoria) => {
+          setIdCategoria(categoria.id);
+          categorias.reload();
+        }}
+      />
     </Modal>
   );
 }

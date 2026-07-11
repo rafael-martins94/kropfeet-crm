@@ -227,6 +227,70 @@ export const vendasService = {
     });
   },
 
+  /** Vendas que incluem o item de estoque (em geral 0 ou 1, por ser par único). */
+  listarPorItemEstoque: async (
+    idItemEstoque: string,
+  ): Promise<
+    Array<{
+      id: string;
+      numero: string | null;
+      nome_cliente: string | null;
+      status_venda: StatusVenda;
+      regiao_venda: TipoRegiao;
+      data_pedido: string | null;
+      valor_total: number;
+      moeda_venda: string | null;
+      id_cliente: string | null;
+      valor_unitario: number | null;
+      cliente?: { id: string; nome: string } | null;
+    }>
+  > => {
+    const { data, error } = await supabase
+      .from("itens_venda")
+      .select(
+        `valor_unitario,
+         venda:vendas!inner(
+           id, numero, nome_cliente, status_venda, regiao_venda, data_pedido,
+           valor_total, moeda_venda, id_cliente,
+           cliente:clientes(id, nome)
+         )`,
+      )
+      .eq("id_item_estoque", idItemEstoque)
+      .order("criado_em", { ascending: false });
+    if (error) throw error;
+
+    return (data ?? []).flatMap((row) => {
+      const venda = row.venda as unknown as {
+        id: string;
+        numero: string | null;
+        nome_cliente: string | null;
+        status_venda: StatusVenda;
+        regiao_venda: TipoRegiao;
+        data_pedido: string | null;
+        valor_total: number;
+        moeda_venda: string | null;
+        id_cliente: string | null;
+        cliente?: { id: string; nome: string } | null;
+      } | null;
+      if (!venda) return [];
+      return [
+        {
+          id: venda.id,
+          numero: venda.numero,
+          nome_cliente: venda.nome_cliente,
+          status_venda: venda.status_venda,
+          regiao_venda: venda.regiao_venda,
+          data_pedido: venda.data_pedido,
+          valor_total: Number(venda.valor_total),
+          moeda_venda: venda.moeda_venda,
+          id_cliente: venda.id_cliente,
+          valor_unitario: row.valor_unitario != null ? Number(row.valor_unitario) : null,
+          cliente: venda.cliente ?? null,
+        },
+      ];
+    });
+  },
+
   /** Substitui todos os itens da venda pelos informados. */
   substituirItens: async (
     idVenda: string,
