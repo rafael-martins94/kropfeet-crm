@@ -11,6 +11,11 @@ import {
 } from "../utils/listUrlParams";
 import { useDebounce } from "./useDebounce";
 
+function readIsoDateParam(params: URLSearchParams, key: string): string | null {
+  const raw = params.get(key)?.trim() ?? "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
+}
+
 export const COLUNAS_ORDEM_VENDA = [
   "data_pedido",
   "numero",
@@ -48,6 +53,8 @@ export function useVendasFiltros() {
   const searchFromUrl = searchParams.get("q") ?? "";
   const skuFromUrl = searchParams.get("sku") ?? "";
   const marcadorFromUrl = searchParams.get("tag") ?? "";
+  const dataDe = readIsoDateParam(searchParams, "de");
+  const dataAte = readIsoDateParam(searchParams, "ate");
 
   const colunaOrdem = readEnumParam(
     searchParams,
@@ -120,6 +127,14 @@ export function useVendasFiltros() {
     });
   };
 
+  const setPeriodo = (de: string | null, ate: string | null) => {
+    patchParams((next) => {
+      writeParam(next, "de", de);
+      writeParam(next, "ate", ate);
+      next.delete("page");
+    });
+  };
+
   const setOrdenacao = (coluna: ColunaOrdemVenda, ascendente: boolean) => {
     patchParams((next) => {
       writeEnumParam(next, "ordem", coluna, COLUNA_PADRAO);
@@ -154,6 +169,9 @@ export function useVendasFiltros() {
     marcadorDebounced,
     status,
     setStatus,
+    dataDe,
+    dataAte,
+    setPeriodo,
     colunaOrdem,
     ordemAscendente,
     alterarOrdem,

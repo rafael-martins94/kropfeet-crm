@@ -692,6 +692,27 @@ export type Database = {
         }
         Relationships: []
       }
+      vendedores: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       vendas: {
         Row: {
           atualizado_em: string
@@ -709,6 +730,7 @@ export type Database = {
           id_cliente: string | null
           id_endereco_cliente: string | null
           id_tiny: string | null
+          id_vendedor: string | null
           marcadores: Json | null
           moeda_venda: string
           nome_cliente: string | null
@@ -742,6 +764,7 @@ export type Database = {
           id_cliente?: string | null
           id_endereco_cliente?: string | null
           id_tiny?: string | null
+          id_vendedor?: string | null
           marcadores?: Json | null
           nome_cliente?: string | null
           numero?: string | null
@@ -774,6 +797,7 @@ export type Database = {
           id_cliente?: string | null
           id_endereco_cliente?: string | null
           id_tiny?: string | null
+          id_vendedor?: string | null
           marcadores?: Json | null
           nome_cliente?: string | null
           numero?: string | null

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { NomeRapidoModal } from "../../components/NomeRapidoModal";
 import { EnderecoClienteCampos } from "../../components/clientes/EnderecoClienteCampos";
 import { enderecoVazio } from "../../components/clientes/EnderecosClienteEditor";
 import { FieldWrapper, FormDate, FormInput, FormTextarea } from "../../components/FormField";
@@ -32,6 +33,7 @@ import {
 } from "./vendaOpcoes";
 import { vendasService } from "../../services/vendas";
 import { clientesService } from "../../services/clientes";
+import { vendedoresService } from "../../services/vendedores";
 import {
   enderecosClienteService,
   type EnderecoClienteForm,
@@ -64,6 +66,7 @@ type FormState = {
   regiao_venda: TipoRegiao;
   id_cliente: string;
   id_endereco_cliente: string;
+  id_vendedor: string;
   /** Denormalizado a partir do cliente; não aparece na UI. */
   nome_cliente: string;
   data_pedido: string;
@@ -105,6 +108,7 @@ function estadoInicial(regiao: TipoRegiao): FormState {
     regiao_venda: regiao,
     id_cliente: "",
     id_endereco_cliente: "",
+    id_vendedor: "",
     nome_cliente: "",
     data_pedido: hojeIsoDate(),
     forma_pagamento: "",
@@ -175,8 +179,10 @@ export default function VendaFormPage() {
   const [numeroExibicao, setNumeroExibicao] = useState<string | null>(null);
   const [loadingInicial, setLoadingInicial] = useState(!isNovo);
   const [salvando, setSalvando] = useState(false);
+  const [modalVendedor, setModalVendedor] = useState(false);
 
   const clientes = useAsync(() => clientesService.listarTodos(), []);
+  const vendedores = useAsync(() => vendedoresService.listarAtivos(), []);
   const enderecosCliente = useAsync(
     () =>
       form.id_cliente
@@ -187,6 +193,10 @@ export default function VendaFormPage() {
   const opcoesCliente = [
     { value: "", label: "— Sem cliente vinculado —" },
     ...(clientes.data ?? []).map((c) => ({ value: c.id, label: c.nome })),
+  ];
+  const opcoesVendedor = [
+    { value: "", label: "— Sem vendedor —" },
+    ...(vendedores.data ?? []).map((v) => ({ value: v.id, label: v.nome })),
   ];
 
   const listaEnderecos = enderecosCliente.data ?? [];
@@ -222,6 +232,7 @@ export default function VendaFormPage() {
           regiao_venda: v.regiao_venda,
           id_cliente: v.id_cliente ?? "",
           id_endereco_cliente: v.id_endereco_cliente ?? "",
+          id_vendedor: v.id_vendedor ?? "",
           nome_cliente: v.nome_cliente ?? "",
           data_pedido: v.data_pedido ? v.data_pedido.slice(0, 10) : "",
           forma_pagamento: v.forma_pagamento ?? "",
@@ -361,6 +372,7 @@ export default function VendaFormPage() {
     regiao_venda: form.regiao_venda,
     id_cliente: idCliente,
     id_endereco_cliente: idEndereco,
+    id_vendedor: form.id_vendedor || null,
     nome_cliente: nomeCliente,
     data_pedido: dataOuNulo(form.data_pedido),
     forma_pagamento: txtOuNulo(form.forma_pagamento),
@@ -862,6 +874,18 @@ export default function VendaFormPage() {
                         }}
                       />
                     </FieldWrapper>
+                    <FieldWrapper id="vendedor-venda" label="Vendedor">
+                      <SearchableSelectDropdown
+                        value={form.id_vendedor}
+                        options={opcoesVendedor}
+                        loading={vendedores.loading}
+                        searchPlaceholder="Buscar vendedor…"
+                        emptyLabel="— Sem vendedor —"
+                        onChange={(v) => upd("id_vendedor", v)}
+                        onCreateNew={() => setModalVendedor(true)}
+                        createNewLabel="Adicionar vendedor"
+                      />
+                    </FieldWrapper>
                     <FieldWrapper id="status-venda" label="Status">
                       <StatusSelectDropdown
                         value={form.status_venda}
@@ -964,6 +988,19 @@ export default function VendaFormPage() {
           </div>
         </div>
       ) : null}
+
+      <NomeRapidoModal
+        open={modalVendedor}
+        onClose={() => setModalVendedor(false)}
+        title="Novo vendedor"
+        label="Nome"
+        placeholder="Ex.: Karina, Gustavo…"
+        criar={(nome) => vendedoresService.criar(nome)}
+        onCriado={(vendedor) => {
+          upd("id_vendedor", vendedor.id);
+          vendedores.reload();
+        }}
+      />
     </div>
   );
 }

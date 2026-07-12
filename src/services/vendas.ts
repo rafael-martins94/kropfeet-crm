@@ -50,6 +50,7 @@ export interface VendaDetalhada extends Venda {
     enderecos?: Pick<EnderecoCliente, "cep" | "cidade" | "uf" | "principal">[];
   } | null;
   endereco_entrega?: EnderecoCliente | null;
+  vendedor?: { id: string; nome: string } | null;
   /** Itens embutidos na listagem (resumo). */
   itens?: Array<{
     id: string;
@@ -120,7 +121,8 @@ export const vendasService = {
            id, nome, email, telefone, cpf_cnpj, pais,
            enderecos:enderecos_cliente(cep, cidade, uf, principal)
          ),
-         endereco_entrega:enderecos_cliente(*)`,
+         endereco_entrega:enderecos_cliente(*),
+         vendedor:vendedores(id, nome)`,
       )
       .eq("id", id)
       .maybeSingle();
@@ -145,6 +147,9 @@ export const vendasService = {
       regiao?: TipoRegiao | "";
       marcador?: string;
       sku?: string;
+      /** ISO YYYY-MM-DD — filtra data_pedido */
+      dataDe?: string | null;
+      dataAte?: string | null;
     },
   ) => {
     const page = params?.page ?? 1;
@@ -152,6 +157,8 @@ export const vendasService = {
     const termo = params?.search?.trim();
     const marcador = params?.marcador?.trim();
     const sku = params?.sku?.trim();
+    const dataDe = params?.dataDe?.trim() || null;
+    const dataAte = params?.dataAte?.trim() || null;
 
     let idsPorSku: string[] | null = null;
     if (sku) {
@@ -187,6 +194,7 @@ export const vendasService = {
            id, nome, email, telefone, cpf_cnpj, pais,
            enderecos:enderecos_cliente(cep, cidade, uf, principal)
          ),
+         vendedor:vendedores(id, nome),
          itens:itens_venda(
            id, codigo, descricao, quantidade, valor_unitario,
            item_estoque:itens_estoque(id, sku, nome_produto, id_modelo_produto)
@@ -216,6 +224,13 @@ export const vendasService = {
       query = query.or(
         `numero.ilike.${padrao},nome_cliente.ilike.${padrao},codigo_rastreamento.ilike.${padrao}`,
       );
+    }
+
+    if (dataDe) {
+      query = query.gte("data_pedido", `${dataDe}T00:00:00`);
+    }
+    if (dataAte) {
+      query = query.lte("data_pedido", `${dataAte}T23:59:59.999`);
     }
 
     query = query.order(params?.orderBy ?? "data_pedido", {

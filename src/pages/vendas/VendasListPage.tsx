@@ -1,5 +1,6 @@
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { DateRangePicker } from "../../components/DateRangePicker";
 import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
@@ -147,6 +148,8 @@ export default function VendasListPage() {
             regiao,
             marcador: filtros.marcadorDebounced,
             sku: filtros.skuDebounced,
+            dataDe: filtros.dataDe,
+            dataAte: filtros.dataAte,
             orderBy: filtros.colunaOrdem,
             ascending: filtros.ordemAscendente,
           })
@@ -158,6 +161,8 @@ export default function VendasListPage() {
       regiao,
       filtros.marcadorDebounced,
       filtros.skuDebounced,
+      filtros.dataDe,
+      filtros.dataAte,
       filtros.colunaOrdem,
       filtros.ordemAscendente,
     ],
@@ -352,34 +357,38 @@ export default function VendasListPage() {
       >
         <ScrollableListShell
           toolbar={
-            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                <input
-                  value={filtros.search}
-                  onChange={(e) => filtros.setSearch(e.target.value)}
-                  placeholder="Buscar por nº, cliente ou rastreamento…"
-                  className="input-base w-full sm:w-64"
-                />
-                <input
-                  value={filtros.sku}
-                  onChange={(e) => filtros.setSku(e.target.value)}
-                  placeholder="Filtrar por SKU…"
-                  className="input-base w-full font-numeric sm:w-40"
-                />
-                <StatusSelectDropdown
-                  value={filtros.status}
-                  options={statusOpcoes}
-                  onChange={(v) => filtros.setStatus(v as StatusVenda | "")}
-                  className="w-full sm:w-48"
-                />
-                <input
-                  value={filtros.marcador}
-                  onChange={(e) => filtros.setMarcador(e.target.value)}
-                  placeholder="Buscar por tag…"
-                  className="input-base w-full sm:w-52"
-                />
-              </div>
-              <div className="text-xs text-ink-soft">
+            <div className="flex min-w-0 items-center gap-2 border-b border-line px-5 py-3">
+              <input
+                value={filtros.search}
+                onChange={(e) => filtros.setSearch(e.target.value)}
+                placeholder="Nº, cliente ou rastreamento…"
+                className="input-base min-w-0 flex-[0.9]"
+              />
+              <input
+                value={filtros.sku}
+                onChange={(e) => filtros.setSku(e.target.value)}
+                placeholder="SKU…"
+                className="input-base w-[5.5rem] shrink-0 font-numeric"
+              />
+              <DateRangePicker
+                value={{ de: filtros.dataDe, ate: filtros.dataAte }}
+                onChange={({ de, ate }) => filtros.setPeriodo(de, ate)}
+                placeholder="Data do pedido"
+                className="min-w-0 flex-[1.1]"
+              />
+              <StatusSelectDropdown
+                value={filtros.status}
+                options={statusOpcoes}
+                onChange={(v) => filtros.setStatus(v as StatusVenda | "")}
+                className="min-w-0 flex-1"
+              />
+              <input
+                value={filtros.marcador}
+                onChange={(e) => filtros.setMarcador(e.target.value)}
+                placeholder="Tag…"
+                className="input-base min-w-0 w-28 shrink grow-0 basis-28"
+              />
+              <div className="hidden shrink-0 whitespace-nowrap text-xs text-ink-soft xl:block">
                 {data ? `${data.total.toLocaleString("pt-BR")} ordens` : ""}
               </div>
             </div>
@@ -396,7 +405,9 @@ export default function VendasListPage() {
                 tableClassName="table-fixed"
                 emptyTitle="Nenhuma ordem de venda"
                 emptyDescription={
-                  filtros.sku
+                  filtros.dataDe || filtros.dataAte
+                    ? `Nenhuma ordem no período selecionado em ${labelRegiao}.`
+                    : filtros.sku
                     ? `Nenhuma ordem com SKU “${filtros.sku}” em ${labelRegiao}.`
                     : filtros.marcador
                       ? `Nenhuma ordem com a tag “${filtros.marcador}” em ${labelRegiao}.`

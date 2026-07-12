@@ -140,6 +140,7 @@ export default function VendaDetailPage() {
                   )
                 }
               />
+              <F label="Vendedor" value={venda.data.vendedor?.nome ?? "—"} />
               <F label="Data do pedido" value={formatarDataHora(venda.data.data_pedido)} />
             </dl>
             {marcadores.length > 0 ? (
