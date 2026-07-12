@@ -79,6 +79,10 @@ export type VitrineDestinoSaida = Tables["vitrine_destinos_saida"]["Row"];
 export type VitrineDestinoSaidaInsert = Tables["vitrine_destinos_saida"]["Insert"];
 export type VitrineDestinoSaidaUpdate = Tables["vitrine_destinos_saida"]["Update"];
 
+export type VitrineVersao = Tables["vitrine_versoes"]["Row"];
+export type EstadoCaixaVitrine = Database["public"]["Enums"]["estado_caixa_vitrine_enum"];
+export type MotivoVersaoVitrine = Database["public"]["Enums"]["motivo_versao_vitrine_enum"];
+
 export type CambioMoeda = Tables["cambios_moeda"]["Row"];
 export type CambioMoedaInsert = Tables["cambios_moeda"]["Insert"];
 export type CambioMoedaUpdate = Tables["cambios_moeda"]["Update"];

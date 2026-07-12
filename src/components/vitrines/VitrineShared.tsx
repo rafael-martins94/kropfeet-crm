@@ -141,9 +141,10 @@ export function CaixaResumoCard({
   const precoClassName = destaquePreco
     ? "mt-2 font-numeric text-lg font-bold tabular-nums text-brand-800"
     : "mt-1 text-xs font-semibold text-ink";
+  const vendida = item.estado_caixa === "vendida";
 
   return (
-    <div className={cn("flex min-w-0 gap-3", compact ? "items-center" : "items-start")}>
+    <div className={cn("flex min-w-0 gap-3", compact ? "items-center" : "items-start", vendida && "opacity-90")}>
       <FotoThumbnailHover url={foto} alt={modelo} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -152,11 +153,20 @@ export function CaixaResumoCard({
               Caixa {numeroCaixa}
             </span>
           ) : null}
+          {vendida ? <StatusBadge value="vendida" label="Vendido" tom="aviso" /> : null}
           <span className="font-numeric text-xs font-semibold text-ink-muted">SKU {sku}</span>
         </div>
         <p className="mt-1 truncate text-sm font-semibold text-ink">{titulo}</p>
         {mostrarModelo ? <p className="truncate text-xs text-ink-soft">{modelo}</p> : null}
         <p className="mt-1 text-xs text-ink-muted">{numeracoes}</p>
+        {vendida && item.venda_saida ? (
+          <p className="mt-1 text-xs font-medium text-amber-900">
+            OV{" "}
+            <Link to={`/vendas/${item.venda_saida.id}`} className="underline hover:text-brand-700">
+              #{item.venda_saida.numero ?? "—"}
+            </Link>
+          </p>
+        ) : null}
         {mostrarOrdemCompra ? (
           <BotaoOrdemCompraItem
             idOrdemCompra={item.item?.id_ordem_compra}
@@ -194,9 +204,20 @@ export function CaixaResumoCard({
 
 export function VitrineMeta({ vitrine }: { vitrine: VitrineComItens | null }) {
   if (!vitrine) return null;
+  const caixasVazias = vitrine.itens.filter((item) => item.estado_caixa === "vendida").length;
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
       <VitrineStatusBadge status={vitrine.status} />
+      {vitrine.status === "publicada" ? (
+        <StatusBadge value={`versao_${vitrine.versao_atual}`} label={`Versão ${vitrine.versao_atual}`} tom="info" />
+      ) : null}
+      {caixasVazias > 0 ? (
+        <StatusBadge
+          value="alerta_vitrine"
+          label={caixasVazias === 1 ? "1 caixa vazia" : `${caixasVazias} caixas vazias`}
+          tom="aviso"
+        />
+      ) : null}
       <span>{vitrine.nomeUsuario ?? "Responsável não informado"}</span>
       <span>·</span>
       <span>{vitrine.publicado_em ? `Publicada em ${formatarData(vitrine.publicado_em)}` : `Criada em ${formatarData(vitrine.criado_em)}`}</span>

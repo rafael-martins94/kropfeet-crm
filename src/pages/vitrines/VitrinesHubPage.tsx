@@ -122,11 +122,19 @@ export default function VitrinesHubPage() {
                 <h2 className="text-lg font-semibold text-ink">{atual.data.titulo}</h2>
                 <VitrineMeta vitrine={atual.data} />
               </div>
+              {atual.data.itens.some((item) => item.estado_caixa === "vendida") ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  Há caixas vazias na vitrine atual.{" "}
+                  <Link to="/vitrines/atual" className="font-semibold underline">
+                    Abrir e substituir
+                  </Link>
+                </div>
+              ) : null}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Kpi label="Caixas" value={`${atual.data.itens.length}/22`} />
                 <Kpi
-                  label="Itens únicos"
-                  value={String(atual.data.itens.filter((item) => item.snapshot?.item_unico).length)}
+                  label="Caixas vazias"
+                  value={String(atual.data.itens.filter((item) => item.estado_caixa === "vendida").length)}
                 />
                 <Kpi label="Responsável" value={atual.data.nomeUsuario ?? "—"} />
                 <Kpi label="Publicação" value={formatarData(atual.data.publicado_em)} />

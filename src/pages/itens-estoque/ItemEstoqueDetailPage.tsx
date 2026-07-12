@@ -3,12 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { EntityLink } from "../../components/EntityLink";
 import { ModeloImagensGaleria } from "../../components/item-estoque-form/ModeloImagensGaleria";
 import { HistoricoPrecoModal } from "../../components/itens-estoque/HistoricoPrecoModal";
+import { MovimentacoesStatusModal } from "../../components/itens-estoque/MovimentacoesStatusModal";
 import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
 import { PageHeader } from "../../components/PageHeader";
 import { GhostButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import { IconActivity, IconEdit } from "../../components/Icons";
+import { IconActivity, IconArrows, IconEdit } from "../../components/Icons";
 import { itensEstoqueService } from "../../services/itens-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { fornecedoresService } from "../../services/fornecedores";
@@ -34,6 +35,7 @@ export default function ItemEstoqueDetailPage() {
   const navigate = useNavigate();
   const returnToLista = useListReturnTo("/itens-estoque");
   const [historicoPrecoAberto, setHistoricoPrecoAberto] = useState(false);
+  const [movimentacoesAberto, setMovimentacoesAberto] = useState(false);
 
   const item = useAsync(
     () => (id ? itensEstoqueService.obter(id) : Promise.resolve(null)),
@@ -133,16 +135,24 @@ export default function ItemEstoqueDetailPage() {
         backTo={returnToLista}
         actions={
           item.data ? (
-            <SecondaryButton
-              icon={<IconEdit width={16} height={16} />}
-              onClick={() =>
-                navigate(`/itens-estoque/${item.data!.id}/editar`, {
-                  state: { returnTo: returnToLista },
-                })
-              }
-            >
-              Editar
-            </SecondaryButton>
+            <div className="flex flex-wrap items-center gap-2">
+              <SecondaryButton
+                icon={<IconArrows width={16} height={16} />}
+                onClick={() => setMovimentacoesAberto(true)}
+              >
+                Movimentações de status
+              </SecondaryButton>
+              <SecondaryButton
+                icon={<IconEdit width={16} height={16} />}
+                onClick={() =>
+                  navigate(`/itens-estoque/${item.data!.id}/editar`, {
+                    state: { returnTo: returnToLista },
+                  })
+                }
+              >
+                Editar
+              </SecondaryButton>
+            </div>
           ) : null
         }
       />
@@ -401,6 +411,12 @@ export default function ItemEstoqueDetailPage() {
             sku={item.data.sku}
             precoAtual={item.data.preco_venda}
             moedaAtual={moedaVendaExibida}
+          />
+          <MovimentacoesStatusModal
+            open={movimentacoesAberto}
+            onClose={() => setMovimentacoesAberto(false)}
+            idItemEstoque={item.data.id}
+            sku={item.data.sku}
           />
         </div>
       )}

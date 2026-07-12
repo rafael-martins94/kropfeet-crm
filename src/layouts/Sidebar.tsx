@@ -22,6 +22,7 @@ import {
   IconX,
 } from "../components/Icons";
 import { useAuth } from "../contexts/AuthContext";
+import { vitrinesService } from "../services/vitrines";
 import { iniciaisDoNome } from "../utils/format";
 import { cn } from "../utils/cn";
 import type { ReactNode } from "react";
@@ -36,6 +37,7 @@ interface MenuItem {
   label: string;
   icon: ReactNode;
   children?: MenuChild[];
+  badgeKey?: "vitrines";
 }
 
 interface MenuGroup {
@@ -76,7 +78,7 @@ const menu: MenuGroup[] = [
     label: "Operação",
     items: [
       { to: "/locais-estoque", label: "Locais de estoque", icon: <IconPin /> },
-      { to: "/vitrines", label: "Vitrines", icon: <IconBox /> },
+      { to: "/vitrines", label: "Vitrines", icon: <IconBox />, badgeKey: "vitrines" },
       { to: "/conferencia-estoque", label: "Conferência de estoque", icon: <IconCheck /> },
       { to: "/ordens-compra", label: "Ordens de compra", icon: <IconCart /> },
       { to: "/fornecedores", label: "Fornecedores", icon: <IconTruck /> },
@@ -189,15 +191,18 @@ function MenuItemLink({
   item,
   collapsed,
   onNavigate,
+  badgeCount,
 }: {
   item: MenuItem;
   collapsed: boolean;
   onNavigate: () => void;
+  badgeCount?: number;
 }) {
   const { pathname } = useLocation();
   const temFilhos = Boolean(item.children?.length);
   const sobRotaPai = caminhoSobPrefixo(pathname, item.to);
   const [aberto, setAberto] = useState(sobRotaPai);
+  const mostrarBadge = (badgeCount ?? 0) > 0;
 
   useEffect(() => {
     if (sobRotaPai) setAberto(true);
@@ -208,10 +213,10 @@ function MenuItemLink({
       <NavLink
         to={item.to}
         onClick={onNavigate}
-        title={collapsed ? item.label : undefined}
+        title={collapsed ? (mostrarBadge ? `${item.label} (${badgeCount})` : item.label) : undefined}
         className={({ isActive }) =>
           cn(
-            "flex items-center rounded-lg text-sm font-medium transition",
+            "relative flex items-center rounded-lg text-sm font-medium transition",
             collapsed ? "h-10 w-full justify-center" : "gap-3 px-3 py-2",
             isActive
               ? "bg-brand-600 text-white shadow-sm"
@@ -220,7 +225,20 @@ function MenuItemLink({
         }
       >
         <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center">{item.icon}</span>
-        {!collapsed ? <span className="truncate">{item.label}</span> : null}
+        {!collapsed ? (
+          <>
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {mostrarBadge ? (
+              <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[0.65rem] font-semibold tabular-nums text-white">
+                {badgeCount}
+              </span>
+            ) : null}
+          </>
+        ) : mostrarBadge ? (
+          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[0.58rem] font-bold text-white">
+            {badgeCount}
+          </span>
+        ) : null}
       </NavLink>
     );
   }
@@ -304,10 +322,29 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(STORAGE_KEY) === "1";
   });
+  const [alertasVitrine, setAlertasVitrine] = useState(0);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
+
+  useEffect(() => {
+    let cancelado = false;
+    const carregar = async () => {
+      try {
+        const count = await vitrinesService.contarAlertasAtual();
+        if (!cancelado) setAlertasVitrine(count);
+      } catch {
+        if (!cancelado) setAlertasVitrine(0);
+      }
+    };
+    void carregar();
+    const timer = window.setInterval(carregar, 60_000);
+    return () => {
+      cancelado = true;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   return (
     <>
@@ -371,7 +408,12 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               <ul className="space-y-0.5">
                 {grupo.items.map((item) => (
                   <li key={item.to}>
-                    <MenuItemLink item={item} collapsed={collapsed} onNavigate={onCloseMobile} />
+                    <MenuItemLink
+                      item={item}
+                      collapsed={collapsed}
+                      onNavigate={onCloseMobile}
+                      badgeCount={item.badgeKey === "vitrines" ? alertasVitrine : undefined}
+                    />
                   </li>
                 ))}
               </ul>

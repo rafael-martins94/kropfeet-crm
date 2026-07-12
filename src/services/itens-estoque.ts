@@ -157,6 +157,21 @@ export interface ItemEstoquePrecoHistorico {
   nome_usuario?: string | null;
 }
 
+export interface ItemEstoqueStatusHistorico {
+  id: string;
+  id_item_estoque: string;
+  status_anterior: StatusItem | null;
+  status_novo: StatusItem;
+  id_usuario: string | null;
+  id_venda: string | null;
+  origem: string;
+  criado_em: string;
+  nome_usuario?: string | null;
+  sku?: string | null;
+  nome_produto?: string | null;
+  numero_venda?: string | null;
+}
+
 function normalizarFiltroLista<T extends string>(
   valor: T | T[] | "" | undefined,
 ): T[] {
@@ -191,6 +206,67 @@ function ordenarPorLocalNome<T extends { id: string; id_modelo_produto: string; 
     if (cmpModelo !== 0) return cmpModelo;
     return a.id.localeCompare(b.id);
   });
+}
+
+async function enriquecerHistoricoStatus(
+  rows: ItemEstoqueStatusHistorico[],
+): Promise<ItemEstoqueStatusHistorico[]> {
+  if (rows.length === 0) return [];
+
+  const idsUsuarios = [...new Set(rows.map((r) => r.id_usuario).filter(Boolean))] as string[];
+  const idsVendasSemNumero = [
+    ...new Set(
+      rows.filter((r) => r.id_venda && !r.numero_venda).map((r) => r.id_venda!),
+    ),
+  ];
+
+  const nomes = new Map<string, string>();
+  if (idsUsuarios.length > 0) {
+    const { data: perfis } = await (supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          in: (c: string, v: string[]) => Promise<{
+            data: Array<{ id: string; nome: string }> | null;
+            error: unknown;
+          }>;
+        };
+      };
+    })
+      .from("perfis_usuario")
+      .select("id, nome")
+      .in("id", idsUsuarios);
+    for (const p of perfis ?? []) {
+      nomes.set(p.id, p.nome);
+    }
+  }
+
+  const numerosVenda = new Map<string, string | null>();
+  if (idsVendasSemNumero.length > 0) {
+    const { data: vendas } = await (supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          in: (c: string, v: string[]) => Promise<{
+            data: Array<{ id: string; numero: string | null }> | null;
+            error: unknown;
+          }>;
+        };
+      };
+    })
+      .from("vendas")
+      .select("id, numero")
+      .in("id", idsVendasSemNumero);
+    for (const v of vendas ?? []) {
+      numerosVenda.set(v.id, v.numero);
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    nome_usuario: row.id_usuario ? nomes.get(row.id_usuario) ?? null : null,
+    numero_venda:
+      row.numero_venda ??
+      (row.id_venda ? numerosVenda.get(row.id_venda) ?? null : null),
+  }));
 }
 
 export const itensEstoqueService = {
@@ -269,6 +345,73 @@ export const itensEstoqueService = {
       ...row,
       nome_usuario: row.id_usuario ? nomes.get(row.id_usuario) ?? null : null,
     }));
+  },
+
+  listarHistoricoStatus: async (idItem: string): Promise<ItemEstoqueStatusHistorico[]> => {
+    const { data, error } = await supabase
+      .from("itens_estoque_status_historico")
+      .select("*")
+      .eq("id_item_estoque", idItem)
+      .order("criado_em", { ascending: false });
+    if (error) throw error;
+    return enriquecerHistoricoStatus((data ?? []) as ItemEstoqueStatusHistorico[]);
+  },
+
+  listarMovimentacoesStatus: async (params?: {
+    page?: number;
+    pageSize?: number;
+    idItem?: string | null;
+  }): Promise<PaginatedResult<ItemEstoqueStatusHistorico>> => {
+    const page = params?.page ?? 1;
+    const pageSize = params?.pageSize ?? 40;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from("itens_estoque_status_historico")
+      .select(
+        `*,
+         item:itens_estoque!itens_estoque_status_historico_id_item_estoque_fkey(id, sku, nome_produto),
+         venda:vendas!itens_estoque_status_historico_id_venda_fkey(id, numero)`,
+        { count: "exact" },
+      )
+      .order("criado_em", { ascending: false })
+      .range(from, to);
+
+    if (params?.idItem) {
+      query = query.eq("id_item_estoque", params.idItem);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    type RowRaw = ItemEstoqueStatusHistorico & {
+      item?: { id: string; sku: string; nome_produto: string } | null;
+      venda?: { id: string; numero: string | null } | null;
+    };
+
+    const base = ((data ?? []) as unknown as RowRaw[]).map((row) => ({
+      id: row.id,
+      id_item_estoque: row.id_item_estoque,
+      status_anterior: row.status_anterior,
+      status_novo: row.status_novo,
+      id_usuario: row.id_usuario,
+      id_venda: row.id_venda,
+      origem: row.origem,
+      criado_em: row.criado_em,
+      sku: row.item?.sku ?? null,
+      nome_produto: row.item?.nome_produto ?? null,
+      numero_venda: row.venda?.numero ?? null,
+    }));
+
+    const enriquecidos = await enriquecerHistoricoStatus(base);
+
+    return {
+      data: enriquecidos,
+      total: count ?? 0,
+      page,
+      pageSize,
+    };
   },
 
   deletar: (id: string) => deletar("itens_estoque", id),

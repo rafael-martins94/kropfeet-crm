@@ -857,6 +857,32 @@ export type Database = {
     Functions: {
       show_limit: { Args: Record<string, never>; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      definir_contexto_historico_item: {
+        Args: {
+          p_origem?: string | null
+          p_id_venda?: string | null
+          p_id_usuario?: string | null
+        }
+        Returns: undefined
+      }
+      atualizar_status_item_estoque: {
+        Args: {
+          p_id_item: string
+          p_status_novo: Database["public"]["Enums"]["status_item_enum"]
+          p_origem?: string | null
+          p_id_venda?: string | null
+          p_id_usuario?: string | null
+        }
+        Returns: undefined
+      }
+      reverter_itens_removidos_venda: {
+        Args: { p_id_venda: string; p_ids_anteriores: string[] }
+        Returns: number
+      }
+      sincronizar_efeitos_venda: {
+        Args: { p_id_venda: string }
+        Returns: Json
+      }
     }
     Enums: {
       canal_venda_enum:

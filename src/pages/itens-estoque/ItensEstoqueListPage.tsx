@@ -13,7 +13,8 @@ import { RowActionsDotsMenu } from "../../components/RowActionsDotsMenu";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusItemFilterDropdown } from "../../components/StatusItemFilterDropdown";
-import { IconArrowUpRight, IconEdit, IconEye, IconEyeOff, IconPlus, IconTrash } from "../../components/Icons";
+import { IconArrowUpRight, IconArrows, IconEdit, IconEye, IconEyeOff, IconPlus, IconTrash } from "../../components/Icons";
+import { MovimentacoesStatusModal } from "../../components/itens-estoque/MovimentacoesStatusModal";
 import {
   itensEstoqueService,
   COLUNAS_ORDEM_ITEM_ESTOQUE,
@@ -130,6 +131,7 @@ export default function ItensEstoqueListPage() {
   const [statusMassa, setStatusMassa] = useState<StatusItem>("em_estoque");
   const [aplicandoMassa, setAplicandoMassa] = useState(false);
   const [excluindoMassa, setExcluindoMassa] = useState(false);
+  const [modalMovimentacoesAberto, setModalMovimentacoesAberto] = useState(false);
 
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
   const [visivelCafeUpdatingId, setVisivelCafeUpdatingId] = useState<string | null>(null);
@@ -591,12 +593,20 @@ export default function ItensEstoqueListPage() {
         }
         breadcrumbs={[{ label: "Catálogo" }, { label: "Itens de estoque" }]}
         actions={
-          <PrimaryButton
-            icon={<IconPlus width={16} height={16} />}
-            onClick={() => navigate("/ordens-compra/novo")}
-          >
-            Nova ordem de compra
-          </PrimaryButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <SecondaryButton
+              icon={<IconArrows width={16} height={16} />}
+              onClick={() => setModalMovimentacoesAberto(true)}
+            >
+              Movimentações de status
+            </SecondaryButton>
+            <PrimaryButton
+              icon={<IconPlus width={16} height={16} />}
+              onClick={() => navigate("/ordens-compra/novo")}
+            >
+              Nova ordem de compra
+            </PrimaryButton>
+          </div>
         }
       />
 
@@ -713,6 +723,11 @@ export default function ItensEstoqueListPage() {
           }
         />
       </SectionCard>
+
+      <MovimentacoesStatusModal
+        open={modalMovimentacoesAberto}
+        onClose={() => setModalMovimentacoesAberto(false)}
+      />
     </div>
   );
 }

@@ -117,28 +117,51 @@ export async function substituirItensVenda(
   idVenda: string,
   itens: DadosItemVendaParseado[],
 ): Promise<void> {
+  const anteriores = await supabase
+    .from("itens_venda")
+    .select("id_item_estoque")
+    .eq("id_venda", idVenda);
+  if (anteriores.error) throw anteriores.error;
+
+  const idsAnteriores = (anteriores.data ?? [])
+    .map((row) => row.id_item_estoque)
+    .filter((id): id is string => Boolean(id));
+
   const remocao = await supabase.from("itens_venda").delete().eq("id_venda", idVenda);
   if (remocao.error) throw remocao.error;
 
-  if (itens.length === 0) return;
+  if (itens.length > 0) {
+    const linhas = [];
+    for (const item of itens) {
+      const idItemEstoque = await resolverItemEstoque(supabase, item);
+      linhas.push({
+        id_venda: idVenda,
+        id_item_estoque: idItemEstoque,
+        id_produto_tiny: item.idProdutoTiny,
+        codigo: item.codigo,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        valor_unitario: item.valorUnitario,
+        dados_tiny: item.dadosTiny,
+      });
+    }
 
-  const linhas = [];
-  for (const item of itens) {
-    const idItemEstoque = await resolverItemEstoque(supabase, item);
-    linhas.push({
-      id_venda: idVenda,
-      id_item_estoque: idItemEstoque,
-      id_produto_tiny: item.idProdutoTiny,
-      codigo: item.codigo,
-      descricao: item.descricao,
-      quantidade: item.quantidade,
-      valor_unitario: item.valorUnitario,
-      dados_tiny: item.dadosTiny,
-    });
+    const insercao = await supabase.from("itens_venda").insert(linhas);
+    if (insercao.error) throw insercao.error;
   }
 
-  const insercao = await supabase.from("itens_venda").insert(linhas);
-  if (insercao.error) throw insercao.error;
+  if (idsAnteriores.length > 0) {
+    const reverter = await supabase.rpc("reverter_itens_removidos_venda", {
+      p_id_venda: idVenda,
+      p_ids_anteriores: idsAnteriores,
+    });
+    if (reverter.error) throw reverter.error;
+  }
+
+  const sync = await supabase.rpc("sincronizar_efeitos_venda", {
+    p_id_venda: idVenda,
+  });
+  if (sync.error) throw sync.error;
 }
 
 /** Substitui as parcelas da venda (remove as antigas e reaplica a regra Tiny de pago). */

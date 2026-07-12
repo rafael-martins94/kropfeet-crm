@@ -257,7 +257,14 @@ const styles = StyleSheet.create({
 
 function nomeExibicaoPdf(item: VitrineItemDetalhado): string {
   const snapshot = snapshotDoItem(item);
-  return item.nome_exibicao?.trim() || snapshot?.nome_exibicao?.trim() || "—";
+  return (
+    item.nome_exibicao?.trim() ||
+    snapshot?.nome_exibicao?.trim() ||
+    snapshot?.nome_modelo ||
+    item.item?.modelo?.nome_modelo ||
+    item.item?.nome_produto ||
+    "—"
+  );
 }
 
 function skuPdf(item: VitrineItemDetalhado): string {
@@ -265,8 +272,17 @@ function skuPdf(item: VitrineItemDetalhado): string {
   return snapshot?.sku ?? item.item?.sku ?? "—";
 }
 
-function precoPdf(preco: number | null | undefined, moeda: string | null | undefined): string {
+function formatarPrecoPdf(preco: number | null | undefined, moeda: string | null | undefined): string {
   return preco != null ? formatarMoeda(preco, moeda ?? "EUR") : "—";
+}
+
+function precoPdf(
+  item: VitrineItemDetalhado,
+  snapshot: ReturnType<typeof snapshotDoItem>,
+): string {
+  const preco = snapshot?.preco ?? item.item?.preco_venda;
+  const moeda = snapshot?.moeda ?? item.item?.moeda_venda;
+  return formatarPrecoPdf(preco, moeda);
 }
 
 function fotoPdf(
@@ -339,7 +355,7 @@ function TabelaCorrespondencias({ linhas }: { linhas: VitrineCorrespondenciaSnap
             <View key={corr.id_item_estoque ?? corr.sku} style={rowStyle}>
               <Text style={[styles.colSku, styles.cellSku]}>{corr.sku}</Text>
               <Text style={[styles.colNumeracao, styles.cellText]}>{formatarNumeracoes(corr)}</Text>
-              <Text style={[styles.colValor, styles.cellValor]}>{precoPdf(corr.preco, corr.moeda)}</Text>
+              <Text style={[styles.colValor, styles.cellValor]}>{formatarPrecoPdf(corr.preco, corr.moeda)}</Text>
             </View>
           );
         })}
@@ -373,12 +389,17 @@ function VitrinePdfItem({
             <View style={styles.cardTopLeft}>
               <Text style={styles.caixaBadge}>Caixa {item.numero_caixa}</Text>
               <Text style={styles.skuBadge}>SKU {skuPdf(item)}</Text>
+              {item.estado_caixa === "vendida" ? (
+                <Text style={styles.unicoBadge}>Vendido</Text>
+              ) : null}
             </View>
-            <Text style={styles.precoPrincipal}>{precoPdf(snapshot?.preco, snapshot?.moeda)}</Text>
+            <Text style={styles.precoPrincipal}>{precoPdf(item, snapshot)}</Text>
           </View>
           <Text style={styles.nomeExibicao}>{nomeExibicaoPdf(item)}</Text>
           <NumeracaoChips item={{ item: item.item, snapshot }} />
-          {correspondencias.length === 0 ? (
+          {item.estado_caixa === "vendida" ? (
+            <Text style={styles.unicoBadge}>Caixa vazia — substituir na vitrine atual</Text>
+          ) : correspondencias.length === 0 ? (
             <Text style={styles.unicoBadge}>Único</Text>
           ) : (
             <TabelaCorrespondencias linhas={correspondencias} />

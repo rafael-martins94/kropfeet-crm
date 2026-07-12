@@ -132,7 +132,16 @@ export const vendasService = {
     return data as VendaDetalhada | null;
   },
   criar: (dados: VendaInsert) => inserir("vendas", dados),
-  atualizar: (id: string, patch: VendaUpdate) => atualizar("vendas", id, patch),
+  atualizar: async (id: string, patch: VendaUpdate) => {
+    const atualizada = await atualizar("vendas", id, patch);
+    if (patch.status_venda !== undefined) {
+      const { error } = await supabase.rpc("sincronizar_efeitos_venda", {
+        p_id_venda: id,
+      });
+      if (error) throw error;
+    }
+    return atualizada;
+  },
   deletar: (id: string) => deletar("vendas", id),
 
   contarPorRegiao: async (): Promise<Record<"brasil" | "europa", number>> => {
@@ -396,25 +405,48 @@ export const vendasService = {
       valor_unitario: number;
     }>,
   ): Promise<void> => {
+    const { data: anteriores, error: erroAnteriores } = await supabase
+      .from("itens_venda")
+      .select("id_item_estoque")
+      .eq("id_venda", idVenda);
+    if (erroAnteriores) throw erroAnteriores;
+
+    const idsAnteriores = (anteriores ?? [])
+      .map((row) => row.id_item_estoque)
+      .filter((id): id is string => Boolean(id));
+
     const { error: erroRemocao } = await supabase
       .from("itens_venda")
       .delete()
       .eq("id_venda", idVenda);
     if (erroRemocao) throw erroRemocao;
 
-    if (itens.length === 0) return;
+    if (itens.length > 0) {
+      const { error: erroInsercao } = await supabase.from("itens_venda").insert(
+        itens.map((item) => ({
+          id_venda: idVenda,
+          id_item_estoque: item.id_item_estoque,
+          codigo: item.codigo ?? null,
+          descricao: item.descricao ?? null,
+          quantidade: item.quantidade,
+          valor_unitario: item.valor_unitario,
+        })),
+      );
+      if (erroInsercao) throw erroInsercao;
+    }
 
-    const { error: erroInsercao } = await supabase.from("itens_venda").insert(
-      itens.map((item) => ({
-        id_venda: idVenda,
-        id_item_estoque: item.id_item_estoque,
-        codigo: item.codigo ?? null,
-        descricao: item.descricao ?? null,
-        quantidade: item.quantidade,
-        valor_unitario: item.valor_unitario,
-      })),
-    );
-    if (erroInsercao) throw erroInsercao;
+    if (idsAnteriores.length > 0) {
+      const { error: erroReverter } = await supabase.rpc("reverter_itens_removidos_venda", {
+        p_id_venda: idVenda,
+        p_ids_anteriores: idsAnteriores,
+      });
+      if (erroReverter) throw erroReverter;
+    }
+
+    const { error: erroSync } = await supabase.rpc("sincronizar_efeitos_venda", {
+      p_id_venda: idVenda,
+    });
+    if (erroSync) throw erroSync;
   },
 
   obterParcelas: async (idVenda: string): Promise<ParcelaVenda[]> => {

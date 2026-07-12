@@ -107,10 +107,11 @@ async function processarItem(
     return true;
   }
 
-  const upd = await supabase
-    .from("itens_estoque")
-    .update({ status_item: novo })
-    .eq("id", item.id);
+  const upd = await supabase.rpc("atualizar_status_item_estoque", {
+    p_id_item: item.id,
+    p_status_novo: novo,
+    p_origem: "tiny",
+  });
   if (upd.error) {
     throw new Error(formatarErroDesconhecido(upd.error));
   }

@@ -4,6 +4,7 @@ import type {
   EtapaVitrine,
   ItemEstoque,
   LocalEstoque,
+  MotivoVersaoVitrine,
   PaginatedResult,
   PaginationParams,
   StatusItem,
@@ -15,6 +16,7 @@ import type {
 } from "../types/entities";
 import { idsLocaisPorRegiao } from "./itens-estoque";
 import { locaisEstoqueService } from "./locais-estoque";
+import { modelosProdutoService } from "./modelos-produto";
 import { resolverMoedaVendaItem } from "../utils/moedaItemEstoque";
 
 const sb = supabase as unknown as {
@@ -75,7 +77,17 @@ export interface VitrineItemDetalhado extends Omit<VitrineItem, "snapshot"> {
       tipo_regiao?: string | null;
     } | null;
   }) | null;
+  venda_saida?: { id: string; numero: string | null } | null;
   snapshot: VitrineItemSnapshot | null;
+}
+
+export interface VitrineVersaoResumo {
+  id: string;
+  numero: number;
+  motivo: MotivoVersaoVitrine;
+  id_venda: string | null;
+  criado_em: string;
+  snapshot_caixas: Json;
 }
 
 export interface VitrineDestinoDetalhado extends VitrineDestinoSaida {
@@ -113,7 +125,8 @@ const SELECT_ITEM_DETALHADO = `
       categoria:categorias(id, nome)
     ),
     local:locais_estoque(id, nome, codigo, pais, tipo_regiao)
-  )
+  ),
+  venda_saida:vendas!vitrine_itens_id_venda_saida_fkey(id, numero)
 `;
 
 const SELECT_DESTINO_DETALHADO = `
@@ -530,5 +543,124 @@ export const vitrinesService = {
       }));
 
     return mapped;
+  },
+
+  contarAlertasAtual: async (): Promise<number> => {
+    const { data, error } = await supabase.rpc("vitrine_contar_alertas_atual");
+    if (error) throw error;
+    return Number(data ?? 0);
+  },
+
+  listarVersoes: async (idVitrine: string): Promise<VitrineVersaoResumo[]> => {
+    const { data, error } = await sb
+      .from("vitrine_versoes")
+      .select("id, numero, motivo, id_venda, criado_em, snapshot_caixas")
+      .eq("id_vitrine", idVitrine)
+      .order("numero", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as VitrineVersaoResumo[];
+  },
+
+  listarCandidatosSubstituicao: async (
+    busca?: string,
+  ): Promise<
+    Array<{
+      id: string;
+      sku: string;
+      nome_produto: string;
+      id_modelo_produto: string | null;
+      foto_url: string | null;
+      numeracao_br: number | null;
+      numeracao_eu: number | null;
+      numeracao_us: string | null;
+      local_nome: string | null;
+    }>
+  > => {
+    const idLocalVitrine = await vitrinesService.resolverLocalVitrine();
+    const atual = await vitrinesService.obterAtual();
+    const idsNaVitrine = new Set<string>();
+    if (atual) {
+      const itens = await vitrinesService.listarItens(atual.id);
+      for (const item of itens) {
+        if (item.estado_caixa === "ocupada") idsNaVitrine.add(item.id_item_estoque);
+      }
+    }
+
+    let query = supabase
+      .from("itens_estoque")
+      .select(
+        "id, sku, nome_produto, id_modelo_produto, numeracao_br, numeracao_eu, numeracao_us, local:locais_estoque(nome, tipo_regiao, ativo)",
+      )
+      .eq("status_item", "em_estoque")
+      .order("sku", { ascending: true })
+      .limit(80);
+
+    const termo = busca?.trim();
+    if (termo) {
+      const padrao = termo.replace(/[%_,]/g, "");
+      if (padrao) {
+        query = query.or(`sku.ilike.%${padrao}%,nome_produto.ilike.%${padrao}%`);
+      }
+    }
+    if (idLocalVitrine) {
+      query = query.neq("id_local_estoque", idLocalVitrine);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const filtrados = ((data ?? []) as unknown as Array<{
+      id: string;
+      sku: string;
+      nome_produto: string;
+      id_modelo_produto: string | null;
+      numeracao_br: number | null;
+      numeracao_eu: number | null;
+      numeracao_us: string | null;
+      local?:
+        | { nome: string | null; tipo_regiao: string | null; ativo: boolean | null }
+        | Array<{ nome: string | null; tipo_regiao: string | null; ativo: boolean | null }>
+        | null;
+    }>)
+      .map((row) => {
+        const local = Array.isArray(row.local) ? row.local[0] : row.local;
+        return { row, local };
+      })
+      .filter(
+        ({ row, local }) =>
+          local?.ativo &&
+          local?.tipo_regiao === "europa" &&
+          !idsNaVitrine.has(row.id),
+      );
+
+    const idsModelo = filtrados
+      .map(({ row }) => row.id_modelo_produto)
+      .filter((id): id is string => Boolean(id));
+    const thumbs = await modelosProdutoService.listarUrlsPorModelos(idsModelo);
+
+    return filtrados.map(({ row, local }) => ({
+      id: row.id,
+      sku: row.sku,
+      nome_produto: row.nome_produto,
+      id_modelo_produto: row.id_modelo_produto,
+      foto_url: row.id_modelo_produto ? thumbs[row.id_modelo_produto] ?? null : null,
+      numeracao_br: row.numeracao_br,
+      numeracao_eu: row.numeracao_eu,
+      numeracao_us: row.numeracao_us,
+      local_nome: local?.nome ?? null,
+    }));
+  },
+
+  substituirCaixa: async (
+    idVitrineItem: string,
+    idItemNovo: string,
+    idUsuario?: string,
+  ): Promise<void> => {
+    const { error } = await supabase.rpc("substituir_caixa_vitrine", {
+      p_id_vitrine_item: idVitrineItem,
+      p_id_item_novo: idItemNovo,
+      ...(idUsuario ? { p_id_usuario: idUsuario } : {}),
+    });
+    if (error) throw error;
   },
 };

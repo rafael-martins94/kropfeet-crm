@@ -493,6 +493,54 @@ export type Database = {
         }
         Relationships: []
       }
+      itens_estoque_status_historico: {
+        Row: {
+          criado_em: string
+          id: string
+          id_item_estoque: string
+          id_usuario: string | null
+          id_venda: string | null
+          origem: string
+          status_anterior: Database["public"]["Enums"]["status_item_enum"] | null
+          status_novo: Database["public"]["Enums"]["status_item_enum"]
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          id_item_estoque: string
+          id_usuario?: string | null
+          id_venda?: string | null
+          origem?: string
+          status_anterior?: Database["public"]["Enums"]["status_item_enum"] | null
+          status_novo: Database["public"]["Enums"]["status_item_enum"]
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          id_item_estoque?: string
+          id_usuario?: string | null
+          id_venda?: string | null
+          origem?: string
+          status_anterior?: Database["public"]["Enums"]["status_item_enum"] | null
+          status_novo?: Database["public"]["Enums"]["status_item_enum"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_estoque_status_historico_id_item_estoque_fkey"
+            columns: ["id_item_estoque"]
+            isOneToOne: false
+            referencedRelation: "itens_estoque"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_estoque_status_historico_id_venda_fkey"
+            columns: ["id_venda"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itens_estoque_ordem_compra_excecoes: {
         Row: {
           criado_em: string
@@ -1031,35 +1079,44 @@ export type Database = {
         Row: {
           atualizado_em: string
           criado_em: string
+          estado_caixa: Database["public"]["Enums"]["estado_caixa_vitrine_enum"]
           id: string
           id_item_estoque: string
+          id_venda_saida: string | null
           id_vitrine: string
           nome_exibicao: string | null
           numero_caixa: number | null
           ordem_selecao: number
           snapshot: Json | null
+          vendido_em: string | null
         }
         Insert: {
           atualizado_em?: string
           criado_em?: string
+          estado_caixa?: Database["public"]["Enums"]["estado_caixa_vitrine_enum"]
           id?: string
           id_item_estoque: string
+          id_venda_saida?: string | null
           id_vitrine: string
           nome_exibicao?: string | null
           numero_caixa?: number | null
           ordem_selecao?: number
           snapshot?: Json | null
+          vendido_em?: string | null
         }
         Update: {
           atualizado_em?: string
           criado_em?: string
+          estado_caixa?: Database["public"]["Enums"]["estado_caixa_vitrine_enum"]
           id?: string
           id_item_estoque?: string
+          id_venda_saida?: string | null
           id_vitrine?: string
           nome_exibicao?: string | null
           numero_caixa?: number | null
           ordem_selecao?: number
           snapshot?: Json | null
+          vendido_em?: string | null
         }
         Relationships: [
           {
@@ -1070,7 +1127,62 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "vitrine_itens_id_venda_saida_fkey"
+            columns: ["id_venda_saida"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "vitrine_itens_id_vitrine_fkey"
+            columns: ["id_vitrine"]
+            isOneToOne: false
+            referencedRelation: "vitrines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vitrine_versoes: {
+        Row: {
+          criado_em: string
+          criado_por: string | null
+          id: string
+          id_venda: string | null
+          id_vitrine: string
+          motivo: Database["public"]["Enums"]["motivo_versao_vitrine_enum"]
+          numero: number
+          snapshot_caixas: Json
+        }
+        Insert: {
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          id_venda?: string | null
+          id_vitrine: string
+          motivo: Database["public"]["Enums"]["motivo_versao_vitrine_enum"]
+          numero: number
+          snapshot_caixas?: Json
+        }
+        Update: {
+          criado_em?: string
+          criado_por?: string | null
+          id?: string
+          id_venda?: string | null
+          id_vitrine?: string
+          motivo?: Database["public"]["Enums"]["motivo_versao_vitrine_enum"]
+          numero?: number
+          snapshot_caixas?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vitrine_versoes_id_venda_fkey"
+            columns: ["id_venda"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vitrine_versoes_id_vitrine_fkey"
             columns: ["id_vitrine"]
             isOneToOne: false
             referencedRelation: "vitrines"
@@ -1090,6 +1202,7 @@ export type Database = {
           publicado_em: string | null
           status: Database["public"]["Enums"]["status_vitrine_enum"]
           titulo: string
+          versao_atual: number
         }
         Insert: {
           atualizado_em?: string
@@ -1102,6 +1215,7 @@ export type Database = {
           publicado_em?: string | null
           status?: Database["public"]["Enums"]["status_vitrine_enum"]
           titulo: string
+          versao_atual?: number
         }
         Update: {
           atualizado_em?: string
@@ -1114,6 +1228,7 @@ export type Database = {
           publicado_em?: string | null
           status?: Database["public"]["Enums"]["status_vitrine_enum"]
           titulo?: string
+          versao_atual?: number
         }
         Relationships: []
       }
@@ -1184,13 +1299,51 @@ export type Database = {
         Returns: Json
       }
       is_admin: { Args: Record<string, never>; Returns: boolean }
+      definir_contexto_historico_item: {
+        Args: {
+          p_origem?: string | null
+          p_id_venda?: string | null
+          p_id_usuario?: string | null
+        }
+        Returns: undefined
+      }
+      atualizar_status_item_estoque: {
+        Args: {
+          p_id_item: string
+          p_status_novo: Database["public"]["Enums"]["status_item_enum"]
+          p_origem?: string | null
+          p_id_venda?: string | null
+          p_id_usuario?: string | null
+        }
+        Returns: undefined
+      }
       publicar_vitrine: {
         Args: { p_id_usuario?: string; p_id_vitrine: string }
+        Returns: Json
+      }
+      reverter_itens_removidos_venda: {
+        Args: { p_id_venda: string; p_ids_anteriores: string[] }
+        Returns: number
+      }
+      sincronizar_efeitos_venda: {
+        Args: { p_id_venda: string }
+        Returns: Json
+      }
+      substituir_caixa_vitrine: {
+        Args: {
+          p_id_vitrine_item: string
+          p_id_item_novo: string
+          p_id_usuario?: string
+        }
         Returns: Json
       }
       validar_itens_vitrine: {
         Args: { p_ids: string[] }
         Returns: { id_item: string; motivo: string | null; valido: boolean }[]
+      }
+      vitrine_contar_alertas_atual: {
+        Args: Record<string, never>
+        Returns: number
       }
       vitrines_contagem_modelo: {
         Args: { p_local_ids?: string[] | null; p_modelo_ids: string[] }
@@ -1206,6 +1359,7 @@ export type Database = {
         | "loja_fisica"
         | "marketplace"
         | "outro"
+      estado_caixa_vitrine_enum: "ocupada" | "vendida"
       etapa_vitrine_enum:
         | "selecao"
         | "organizacao"
@@ -1214,6 +1368,11 @@ export type Database = {
         | "revisao"
       frete_status_enum: "nao_aplicavel" | "pendente" | "pago"
       local_venda_enum: "galeria" | "online"
+      motivo_versao_vitrine_enum:
+        | "publicacao"
+        | "venda"
+        | "substituicao"
+        | "cancelamento"
       origem_cadastro_enum: "manual" | "tiny" | "importacao_planilha" | "api"
       sistema_numeracao_enum: "br" | "eu" | "us" | "outro"
       situacao_fornecedor_enum: "ativo" | "inativo"
