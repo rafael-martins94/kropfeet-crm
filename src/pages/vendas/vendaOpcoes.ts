@@ -42,6 +42,28 @@ export const regiaoVendaOpcoes: OpcaoSimples[] = [
   { value: "outros", label: "Outros" },
 ];
 
+export const freteStatusOpcoes: OpcaoSimples[] = [
+  { value: "nao_aplicavel", label: "Não aplicável" },
+  { value: "pendente", label: "Pendente" },
+  { value: "pago", label: "Pago" },
+];
+
+export const localVendaOpcoes: OpcaoSimples[] = [
+  { value: "", label: "— Não informado —" },
+  { value: "galeria", label: "Galeria" },
+  { value: "online", label: "Online" },
+];
+
+export function labelFreteStatus(valor: string | null | undefined): string {
+  if (!valor) return "—";
+  return freteStatusOpcoes.find((o) => o.value === valor)?.label ?? valor;
+}
+
+export function labelLocalVenda(valor: string | null | undefined): string {
+  if (!valor) return "—";
+  return localVendaOpcoes.find((o) => o.value === valor)?.label ?? valor;
+}
+
 const REGIOES_ROTA = new Set(["brasil", "europa", "outros"]);
 
 export function parseRegiaoVendaRota(

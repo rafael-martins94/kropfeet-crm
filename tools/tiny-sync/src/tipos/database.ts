@@ -713,24 +713,50 @@ export type Database = {
         }
         Relationships: []
       }
+      formas_envio: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
       vendas: {
         Row: {
           atualizado_em: string
           codigo_rastreamento: string | null
+          codigo_venda_adquirente: string | null
           criado_em: string
           dados_tiny: Json | null
           data_entrega: string | null
           data_envio: string | null
           data_faturamento: string | null
+          data_pagamento_frete: string | null
           data_pedido: string | null
           data_prevista: string | null
           deposito: string | null
           forma_pagamento: string | null
+          frete_status: Database["public"]["Enums"]["frete_status_enum"]
           id: string
           id_cliente: string | null
           id_endereco_cliente: string | null
+          id_forma_envio: string | null
           id_tiny: string | null
           id_vendedor: string | null
+          local_venda: Database["public"]["Enums"]["local_venda_enum"] | null
           marcadores: Json | null
           moeda_venda: string
           nome_cliente: string | null
@@ -751,20 +777,25 @@ export type Database = {
         Insert: {
           atualizado_em?: string
           codigo_rastreamento?: string | null
+          codigo_venda_adquirente?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_entrega?: string | null
           data_envio?: string | null
           data_faturamento?: string | null
+          data_pagamento_frete?: string | null
           data_pedido?: string | null
           data_prevista?: string | null
           deposito?: string | null
           forma_pagamento?: string | null
+          frete_status?: Database["public"]["Enums"]["frete_status_enum"]
           id?: string
           id_cliente?: string | null
           id_endereco_cliente?: string | null
+          id_forma_envio?: string | null
           id_tiny?: string | null
           id_vendedor?: string | null
+          local_venda?: Database["public"]["Enums"]["local_venda_enum"] | null
           marcadores?: Json | null
           nome_cliente?: string | null
           numero?: string | null
@@ -784,20 +815,25 @@ export type Database = {
         Update: {
           atualizado_em?: string
           codigo_rastreamento?: string | null
+          codigo_venda_adquirente?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_entrega?: string | null
           data_envio?: string | null
           data_faturamento?: string | null
+          data_pagamento_frete?: string | null
           data_pedido?: string | null
           data_prevista?: string | null
           deposito?: string | null
           forma_pagamento?: string | null
+          frete_status?: Database["public"]["Enums"]["frete_status_enum"]
           id?: string
           id_cliente?: string | null
           id_endereco_cliente?: string | null
+          id_forma_envio?: string | null
           id_tiny?: string | null
           id_vendedor?: string | null
+          local_venda?: Database["public"]["Enums"]["local_venda_enum"] | null
           marcadores?: Json | null
           nome_cliente?: string | null
           numero?: string | null
@@ -831,6 +867,8 @@ export type Database = {
         | "marketplace"
         | "outro"
       origem_cadastro_enum: "manual" | "tiny" | "importacao_planilha" | "api"
+      frete_status_enum: "nao_aplicavel" | "pendente" | "pago"
+      local_venda_enum: "galeria" | "online"
       sistema_numeracao_enum: "br" | "eu" | "us" | "outro"
       situacao_fornecedor_enum: "ativo" | "inativo"
       status_item_enum:

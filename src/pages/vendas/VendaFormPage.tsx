@@ -26,6 +26,8 @@ import {
   caminhoListaVendas,
   formaPagamentoOpcoes,
   formaPagamentoUsaParcelas,
+  freteStatusOpcoes,
+  localVendaOpcoes,
   moedaPorRegiao,
   opcoesComValorAtual,
   parseRegiaoVendaRota,
@@ -34,6 +36,7 @@ import {
 import { vendasService } from "../../services/vendas";
 import { clientesService } from "../../services/clientes";
 import { vendedoresService } from "../../services/vendedores";
+import { formasEnvioService } from "../../services/formas-envio";
 import {
   enderecosClienteService,
   type EnderecoClienteForm,
@@ -41,7 +44,14 @@ import {
 import { useAsync } from "../../hooks/useAsync";
 import { useToast } from "../../contexts/ToastContext";
 import { mensagemErro } from "../../utils/errors";
-import type { StatusVenda, TipoRegiao, VendaInsert, VendaUpdate } from "../../types/entities";
+import type {
+  FreteStatus,
+  LocalVenda,
+  StatusVenda,
+  TipoRegiao,
+  VendaInsert,
+  VendaUpdate,
+} from "../../types/entities";
 import { formatarMoeda, traduzirEnum } from "../../utils/format";
 import { cn } from "../../utils/cn";
 import {
@@ -67,13 +77,18 @@ type FormState = {
   id_cliente: string;
   id_endereco_cliente: string;
   id_vendedor: string;
+  id_forma_envio: string;
+  local_venda: LocalVenda | "";
   /** Denormalizado a partir do cliente; não aparece na UI. */
   nome_cliente: string;
   data_pedido: string;
   forma_pagamento: string;
+  codigo_venda_adquirente: string;
   codigo_rastreamento: string;
   url_rastreamento: string;
   valor_frete: string;
+  frete_status: FreteStatus;
+  data_pagamento_frete: string;
   valor_desconto: string;
   outras_despesas: string;
   valor_total: string;
@@ -109,12 +124,17 @@ function estadoInicial(regiao: TipoRegiao): FormState {
     id_cliente: "",
     id_endereco_cliente: "",
     id_vendedor: "",
+    id_forma_envio: "",
+    local_venda: "",
     nome_cliente: "",
     data_pedido: hojeIsoDate(),
     forma_pagamento: "",
+    codigo_venda_adquirente: "",
     codigo_rastreamento: "",
     url_rastreamento: "",
     valor_frete: "0",
+    frete_status: "nao_aplicavel",
+    data_pagamento_frete: "",
     valor_desconto: "0",
     outras_despesas: "0",
     valor_total: "0",
@@ -180,9 +200,11 @@ export default function VendaFormPage() {
   const [loadingInicial, setLoadingInicial] = useState(!isNovo);
   const [salvando, setSalvando] = useState(false);
   const [modalVendedor, setModalVendedor] = useState(false);
+  const [modalFormaEnvio, setModalFormaEnvio] = useState(false);
 
   const clientes = useAsync(() => clientesService.listarTodos(), []);
   const vendedores = useAsync(() => vendedoresService.listarAtivos(), []);
+  const formasEnvio = useAsync(() => formasEnvioService.listarAtivas(), []);
   const enderecosCliente = useAsync(
     () =>
       form.id_cliente
@@ -197,6 +219,10 @@ export default function VendaFormPage() {
   const opcoesVendedor = [
     { value: "", label: "— Sem vendedor —" },
     ...(vendedores.data ?? []).map((v) => ({ value: v.id, label: v.nome })),
+  ];
+  const opcoesFormaEnvio = [
+    { value: "", label: "— Sem forma de envio —" },
+    ...(formasEnvio.data ?? []).map((f) => ({ value: f.id, label: f.nome })),
   ];
 
   const listaEnderecos = enderecosCliente.data ?? [];
@@ -233,12 +259,19 @@ export default function VendaFormPage() {
           id_cliente: v.id_cliente ?? "",
           id_endereco_cliente: v.id_endereco_cliente ?? "",
           id_vendedor: v.id_vendedor ?? "",
+          id_forma_envio: v.id_forma_envio ?? "",
+          local_venda: v.local_venda ?? "",
           nome_cliente: v.nome_cliente ?? "",
           data_pedido: v.data_pedido ? v.data_pedido.slice(0, 10) : "",
           forma_pagamento: v.forma_pagamento ?? "",
+          codigo_venda_adquirente: v.codigo_venda_adquirente ?? "",
           codigo_rastreamento: v.codigo_rastreamento ?? "",
           url_rastreamento: v.url_rastreamento ?? "",
           valor_frete: String(v.valor_frete ?? 0),
+          frete_status: v.frete_status ?? "nao_aplicavel",
+          data_pagamento_frete: v.data_pagamento_frete
+            ? v.data_pagamento_frete.slice(0, 10)
+            : "",
           valor_desconto: String(v.valor_desconto ?? 0),
           outras_despesas: String(v.outras_despesas ?? 0),
           valor_total: String(v.valor_total ?? 0),
@@ -334,6 +367,15 @@ export default function VendaFormPage() {
   const updValor = (campo: "valor_frete" | "valor_desconto" | "outras_despesas", valor: string) => {
     setForm((s) => {
       const next = { ...s, [campo]: valor };
+      if (campo === "valor_frete") {
+        const frete = num(valor);
+        if (frete > 0 && s.frete_status === "nao_aplicavel") {
+          next.frete_status = "pendente";
+        } else if (frete <= 0 && s.frete_status === "pendente") {
+          next.frete_status = "nao_aplicavel";
+          next.data_pagamento_frete = "";
+        }
+      }
       const subtotal = totalItensVenda(itens);
       const total = Math.max(
         0,
@@ -344,6 +386,15 @@ export default function VendaFormPage() {
       );
       return { ...next, valor_total: String(Number(total.toFixed(2))) };
     });
+  };
+
+  const updFreteStatus = (status: FreteStatus) => {
+    setForm((s) => ({
+      ...s,
+      frete_status: status,
+      data_pagamento_frete:
+        status === "pago" ? s.data_pagamento_frete || hojeIsoDate() : "",
+    }));
   };
 
   const updClienteNovo = <K extends keyof ClienteNovoForm>(k: K, v: ClienteNovoForm[K]) =>
@@ -373,12 +424,18 @@ export default function VendaFormPage() {
     id_cliente: idCliente,
     id_endereco_cliente: idEndereco,
     id_vendedor: form.id_vendedor || null,
+    id_forma_envio: form.id_forma_envio || null,
+    local_venda: (form.local_venda || null) as LocalVenda | null,
     nome_cliente: nomeCliente,
     data_pedido: dataOuNulo(form.data_pedido),
     forma_pagamento: txtOuNulo(form.forma_pagamento),
+    codigo_venda_adquirente: txtOuNulo(form.codigo_venda_adquirente),
     codigo_rastreamento: txtOuNulo(form.codigo_rastreamento),
     url_rastreamento: txtOuNulo(form.url_rastreamento),
     valor_frete: num(form.valor_frete),
+    frete_status: form.frete_status,
+    data_pagamento_frete:
+      form.frete_status === "pago" ? dataOuNulo(form.data_pagamento_frete) : null,
     valor_desconto: num(form.valor_desconto),
     outras_despesas: num(form.outras_despesas),
     valor_total: num(form.valor_total),
@@ -756,19 +813,27 @@ export default function VendaFormPage() {
                   description="Forma do pedido e, se quiser, o detalhe das parcelas (vencimento, meio e pago). Parcelas não são obrigatórias."
                 >
                   <div className="space-y-5">
-                    <FieldWrapper id="forma-pagamento" label="Forma de pagamento">
-                      <SearchableSelectDropdown
-                        value={form.forma_pagamento}
-                        options={opcoesComValorAtual(
-                          formaPagamentoOpcoes,
-                          form.forma_pagamento,
-                          "— Não informado —",
-                        )}
-                        searchPlaceholder="Buscar forma…"
-                        emptyLabel="— Não informado —"
-                        onChange={(v) => upd("forma_pagamento", v)}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <FieldWrapper id="forma-pagamento" label="Forma de pagamento">
+                        <SearchableSelectDropdown
+                          value={form.forma_pagamento}
+                          options={opcoesComValorAtual(
+                            formaPagamentoOpcoes,
+                            form.forma_pagamento,
+                            "— Não informado —",
+                          )}
+                          searchPlaceholder="Buscar forma…"
+                          emptyLabel="— Não informado —"
+                          onChange={(v) => upd("forma_pagamento", v)}
+                        />
+                      </FieldWrapper>
+                      <FormInput
+                        label="Código de venda"
+                        value={form.codigo_venda_adquirente}
+                        onChange={(e) => upd("codigo_venda_adquirente", e.target.value)}
+                        placeholder="Código da adquirente…"
                       />
-                    </FieldWrapper>
+                    </div>
 
                     <div className="border-t border-line pt-4">
                       <ParcelasVendaEditor
@@ -796,6 +861,18 @@ export default function VendaFormPage() {
                   description="Opcional na criação — pode completar depois."
                 >
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <FieldWrapper id="forma-envio" label="Forma de envio">
+                      <SearchableSelectDropdown
+                        value={form.id_forma_envio}
+                        options={opcoesFormaEnvio}
+                        loading={formasEnvio.loading}
+                        searchPlaceholder="Buscar forma…"
+                        emptyLabel="— Sem forma de envio —"
+                        onChange={(v) => upd("id_forma_envio", v)}
+                        onCreateNew={() => setModalFormaEnvio(true)}
+                        createNewLabel="Adicionar forma de envio"
+                      />
+                    </FieldWrapper>
                     <FormInput
                       label="Código de rastreamento"
                       value={form.codigo_rastreamento}
@@ -805,7 +882,6 @@ export default function VendaFormPage() {
                       label="URL de rastreamento"
                       value={form.url_rastreamento}
                       onChange={(e) => upd("url_rastreamento", e.target.value)}
-                      wrapperClassName="sm:col-span-2"
                     />
                     <FormTextarea
                       label="Observação"
@@ -886,6 +962,13 @@ export default function VendaFormPage() {
                         createNewLabel="Adicionar vendedor"
                       />
                     </FieldWrapper>
+                    <FieldWrapper id="local-venda" label="Local de venda">
+                      <StatusSelectDropdown
+                        value={form.local_venda}
+                        options={localVendaOpcoes}
+                        onChange={(v) => upd("local_venda", v as LocalVenda | "")}
+                      />
+                    </FieldWrapper>
                     <FieldWrapper id="status-venda" label="Status">
                       <StatusSelectDropdown
                         value={form.status_venda}
@@ -905,6 +988,20 @@ export default function VendaFormPage() {
                         onChange={(e) => updValor("valor_frete", e.target.value)}
                         inputMode="decimal"
                       />
+                      <FieldWrapper id="frete-status" label="Status do frete">
+                        <StatusSelectDropdown
+                          value={form.frete_status}
+                          options={freteStatusOpcoes}
+                          onChange={(v) => updFreteStatus(v as FreteStatus)}
+                        />
+                      </FieldWrapper>
+                      {form.frete_status === "pago" ? (
+                        <FormDate
+                          label="Data pagamento frete"
+                          value={form.data_pagamento_frete}
+                          onChange={(e) => upd("data_pagamento_frete", e.target.value)}
+                        />
+                      ) : null}
                       <FormInput
                         label="Desconto"
                         value={form.valor_desconto}
@@ -999,6 +1096,18 @@ export default function VendaFormPage() {
         onCriado={(vendedor) => {
           upd("id_vendedor", vendedor.id);
           vendedores.reload();
+        }}
+      />
+      <NomeRapidoModal
+        open={modalFormaEnvio}
+        onClose={() => setModalFormaEnvio(false)}
+        title="Nova forma de envio"
+        label="Nome"
+        placeholder="Ex.: CTT, Retirada pessoalmente…"
+        criar={(nome) => formasEnvioService.criar(nome)}
+        onCriado={(forma) => {
+          upd("id_forma_envio", forma.id);
+          formasEnvio.reload();
         }}
       />
     </div>

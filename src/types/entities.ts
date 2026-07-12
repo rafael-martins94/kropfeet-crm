@@ -44,9 +44,16 @@ export type Vendedor = Tables["vendedores"]["Row"];
 export type VendedorInsert = Tables["vendedores"]["Insert"];
 export type VendedorUpdate = Tables["vendedores"]["Update"];
 
+export type FormaEnvio = Tables["formas_envio"]["Row"];
+export type FormaEnvioInsert = Tables["formas_envio"]["Insert"];
+export type FormaEnvioUpdate = Tables["formas_envio"]["Update"];
+
 export type Venda = Tables["vendas"]["Row"];
 export type VendaInsert = Tables["vendas"]["Insert"];
 export type VendaUpdate = Tables["vendas"]["Update"];
+
+export type FreteStatus = Database["public"]["Enums"]["frete_status_enum"];
+export type LocalVenda = Database["public"]["Enums"]["local_venda_enum"];
 
 export type ItemVenda = Tables["itens_venda"]["Row"];
 export type ParcelaVenda = Tables["parcelas_venda"]["Row"];

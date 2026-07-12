@@ -51,6 +51,7 @@ export interface VendaDetalhada extends Venda {
   } | null;
   endereco_entrega?: EnderecoCliente | null;
   vendedor?: { id: string; nome: string } | null;
+  forma_envio?: { id: string; nome: string } | null;
   /** Itens embutidos na listagem (resumo). */
   itens?: Array<{
     id: string;
@@ -122,7 +123,8 @@ export const vendasService = {
            enderecos:enderecos_cliente(cep, cidade, uf, principal)
          ),
          endereco_entrega:enderecos_cliente(*),
-         vendedor:vendedores(id, nome)`,
+         vendedor:vendedores(id, nome),
+         forma_envio:formas_envio(id, nome)`,
       )
       .eq("id", id)
       .maybeSingle();
@@ -195,6 +197,7 @@ export const vendasService = {
            enderecos:enderecos_cliente(cep, cidade, uf, principal)
          ),
          vendedor:vendedores(id, nome),
+         forma_envio:formas_envio(id, nome),
          itens:itens_venda(
            id, codigo, descricao, quantidade, valor_unitario,
            item_estoque:itens_estoque(id, sku, nome_produto, id_modelo_produto)

@@ -18,6 +18,8 @@ import {
   caminhoListaVendas,
   formaPagamentoUsaParcelas,
   labelFormaPagamento,
+  labelFreteStatus,
+  labelLocalVenda,
   lerMarcadores,
   moedaDaVenda,
   parcelaEstaPagaPorForma,
@@ -141,6 +143,7 @@ export default function VendaDetailPage() {
                 }
               />
               <F label="Vendedor" value={venda.data.vendedor?.nome ?? "—"} />
+              <F label="Local de venda" value={labelLocalVenda(venda.data.local_venda)} />
               <F label="Data do pedido" value={formatarDataHora(venda.data.data_pedido)} />
             </dl>
             {marcadores.length > 0 ? (
@@ -208,13 +211,18 @@ export default function VendaDetailPage() {
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <F label="Total produtos" value={formatarMoeda(Number(venda.data.total_produtos), moeda)} />
               <F label="Frete" value={formatarMoeda(Number(venda.data.valor_frete), moeda)} />
+              <F label="Status do frete" value={labelFreteStatus(venda.data.frete_status)} />
+              <F
+                label="Data pagamento frete"
+                value={formatarData(venda.data.data_pagamento_frete)}
+              />
               <F label="Desconto" value={formatarMoeda(Number(venda.data.valor_desconto), moeda)} />
               <F label="Outras despesas" value={formatarMoeda(Number(venda.data.outras_despesas), moeda)} />
               <F label="Total do pedido" value={formatarMoeda(Number(venda.data.valor_total), moeda)} />
             </dl>
           </SectionCard>
 
-          <SectionCard title="Pagamento, parcelas e envio">
+          <SectionCard title="Pagamento e parcelas">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <F
                 label="Forma de pagamento"
@@ -226,30 +234,9 @@ export default function VendaDetailPage() {
                   value={usaParcelas || parcelas.length > 1 ? `${parcelas.length}x` : String(parcelas.length)}
                 />
               ) : null}
+              <F label="Código de venda" value={venda.data.codigo_venda_adquirente ?? "—"} />
               <F label="Depósito" value={venda.data.deposito ?? "—"} />
               <F label="Data faturamento" value={formatarData(venda.data.data_faturamento)} />
-              <F
-                label="Rastreamento"
-                value={
-                  venda.data.codigo_rastreamento ? (
-                    venda.data.url_rastreamento ? (
-                      <a
-                        href={venda.data.url_rastreamento}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex max-w-full items-center gap-1 text-brand-700 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-800 hover:decoration-brand-500"
-                      >
-                        <span className="min-w-0 truncate">{venda.data.codigo_rastreamento}</span>
-                        <IconArrowUpRight width={13} height={13} className="shrink-0 opacity-80" aria-hidden />
-                      </a>
-                    ) : (
-                      venda.data.codigo_rastreamento
-                    )
-                  ) : (
-                    "—"
-                  )
-                }
-              />
             </dl>
 
             {parcelas.length > 0 ? (
@@ -432,18 +419,45 @@ export default function VendaDetailPage() {
             )}
           </SectionCard>
 
-          {venda.data.obs || venda.data.obs_interna ? (
-            <SectionCard title="Observações">
-              {venda.data.obs ? (
-                <p className="whitespace-pre-wrap text-sm text-ink">{venda.data.obs}</p>
-              ) : null}
-              {venda.data.obs_interna ? (
-                <p className="mt-2 whitespace-pre-wrap text-xs text-ink-soft">
-                  Interna: {venda.data.obs_interna}
-                </p>
-              ) : null}
-            </SectionCard>
-          ) : null}
+          <SectionCard title="Envio e observações">
+            <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <F label="Forma de envio" value={venda.data.forma_envio?.nome ?? "—"} />
+              <F
+                label="Rastreamento"
+                value={
+                  venda.data.codigo_rastreamento ? (
+                    venda.data.url_rastreamento ? (
+                      <a
+                        href={venda.data.url_rastreamento}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex max-w-full items-center gap-1 text-brand-700 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-800 hover:decoration-brand-500"
+                      >
+                        <span className="min-w-0 truncate">{venda.data.codigo_rastreamento}</span>
+                        <IconArrowUpRight width={13} height={13} className="shrink-0 opacity-80" aria-hidden />
+                      </a>
+                    ) : (
+                      venda.data.codigo_rastreamento
+                    )
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+            </dl>
+            {venda.data.obs || venda.data.obs_interna ? (
+              <div className="mt-5 space-y-2 border-t border-line pt-4">
+                {venda.data.obs ? (
+                  <p className="whitespace-pre-wrap text-sm text-ink">{venda.data.obs}</p>
+                ) : null}
+                {venda.data.obs_interna ? (
+                  <p className="whitespace-pre-wrap text-xs text-ink-soft">
+                    Interna: {venda.data.obs_interna}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </SectionCard>
 
           <SectionCard title="Auditoria">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
