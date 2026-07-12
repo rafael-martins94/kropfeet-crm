@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { EntityLink } from "../../components/EntityLink";
 import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
@@ -122,13 +123,15 @@ export default function LocalEstoqueDetailPage() {
       key: "produto",
       header: "Produto",
       render: (it) => (
-        <Link
+        <EntityLink
           to={`/itens-estoque/${it.id}`}
-          className="block truncate text-sm font-medium text-ink hover:text-brand-700"
+          appearance="plain"
+          truncate
+          className="text-sm font-medium"
           title={it.nome_produto}
         >
           {it.nome_produto}
-        </Link>
+        </EntityLink>
       ),
     },
     {

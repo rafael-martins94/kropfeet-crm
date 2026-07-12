@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { EnderecoClienteCampos } from "../../components/clientes/EnderecoClienteCampos";
 import { enderecoVazio } from "../../components/clientes/EnderecosClienteEditor";
@@ -17,9 +17,14 @@ import {
   type ItemVendaFormLinha,
 } from "../../components/vendas/ItensVendaEditor";
 import {
+  novaParcelaVendaLinha,
+  ParcelasVendaEditor,
+  type ParcelaVendaFormLinha,
+} from "../../components/vendas/ParcelasVendaEditor";
+import {
   caminhoListaVendas,
   formaPagamentoOpcoes,
-  meioPagamentoOpcoes,
+  formaPagamentoUsaParcelas,
   moedaPorRegiao,
   opcoesComValorAtual,
   parseRegiaoVendaRota,
@@ -32,6 +37,8 @@ import {
   type EnderecoClienteForm,
 } from "../../services/enderecos-cliente";
 import { useAsync } from "../../hooks/useAsync";
+import { useToast } from "../../contexts/ToastContext";
+import { mensagemErro } from "../../utils/errors";
 import type { StatusVenda, TipoRegiao, VendaInsert, VendaUpdate } from "../../types/entities";
 import { formatarMoeda, traduzirEnum } from "../../utils/format";
 import { cn } from "../../utils/cn";
@@ -61,7 +68,6 @@ type FormState = {
   nome_cliente: string;
   data_pedido: string;
   forma_pagamento: string;
-  meio_pagamento: string;
   codigo_rastreamento: string;
   url_rastreamento: string;
   valor_frete: string;
@@ -102,7 +108,6 @@ function estadoInicial(regiao: TipoRegiao): FormState {
     nome_cliente: "",
     data_pedido: hojeIsoDate(),
     forma_pagamento: "",
-    meio_pagamento: "",
     codigo_rastreamento: "",
     url_rastreamento: "",
     valor_frete: "0",
@@ -153,9 +158,9 @@ export default function VendaFormPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const isNovo = !id;
   const regiaoQuery = parseRegiaoVendaRota(searchParams.get("regiao")) ?? "brasil";
-  const erroRef = useRef<HTMLDivElement | null>(null);
 
   const [form, setForm] = useState<FormState>(() => estadoInicial(regiaoQuery));
   const [modoNovoCliente, setModoNovoCliente] = useState(false);
@@ -166,10 +171,10 @@ export default function VendaFormPage() {
     enderecoNovoVazio(regiaoQuery),
   );
   const [itens, setItens] = useState<ItemVendaFormLinha[]>([]);
+  const [parcelas, setParcelas] = useState<ParcelaVendaFormLinha[]>([]);
   const [numeroExibicao, setNumeroExibicao] = useState<string | null>(null);
   const [loadingInicial, setLoadingInicial] = useState(!isNovo);
   const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
 
   const clientes = useAsync(() => clientesService.listarTodos(), []);
   const enderecosCliente = useAsync(
@@ -185,9 +190,9 @@ export default function VendaFormPage() {
   ];
 
   const listaEnderecos = enderecosCliente.data ?? [];
-  const precisaFormEndereco =
-    modoNovoCliente ||
-    Boolean(form.id_cliente && !enderecosCliente.loading && listaEnderecos.length === 0);
+  const clienteSemEndereco = Boolean(
+    form.id_cliente && !enderecosCliente.loading && listaEnderecos.length === 0,
+  );
   const clienteSelecionado = (clientes.data ?? []).find((c) => c.id === form.id_cliente);
 
   useEffect(() => {
@@ -197,13 +202,18 @@ export default function VendaFormPage() {
       setClienteNovo(clienteNovoVazio(regiaoQuery));
       setEnderecoNovo(enderecoNovoVazio(regiaoQuery));
       setItens([]);
+      setParcelas([]);
       setLoadingInicial(false);
       return;
     }
     setLoadingInicial(true);
     setModoNovoCliente(false);
-    Promise.all([vendasService.obter(id), vendasService.obterItens(id)])
-      .then(([v, listaItens]) => {
+    Promise.all([
+      vendasService.obter(id),
+      vendasService.obterItens(id),
+      vendasService.obterParcelas(id),
+    ])
+      .then(([v, listaItens, listaParcelas]) => {
         if (!v) return;
         setNumeroExibicao(v.numero);
         setForm({
@@ -215,7 +225,6 @@ export default function VendaFormPage() {
           nome_cliente: v.nome_cliente ?? "",
           data_pedido: v.data_pedido ? v.data_pedido.slice(0, 10) : "",
           forma_pagamento: v.forma_pagamento ?? "",
-          meio_pagamento: v.meio_pagamento ?? "",
           codigo_rastreamento: v.codigo_rastreamento ?? "",
           url_rastreamento: v.url_rastreamento ?? "",
           valor_frete: String(v.valor_frete ?? 0),
@@ -236,10 +245,22 @@ export default function VendaFormPage() {
             valor_unitario: String(iv.valor_unitario ?? 0),
           })),
         );
+        setParcelas(
+          listaParcelas.map((p) =>
+            novaParcelaVendaLinha({
+              key: p.id,
+              data_vencimento: p.data_vencimento ?? "",
+              valor: String(p.valor ?? 0),
+              forma_pagamento: p.forma_pagamento ?? "",
+              meio_pagamento: p.meio_pagamento ?? "",
+              pago: p.pago,
+            }),
+          ),
+        );
       })
-      .catch((e) => setErro(e instanceof Error ? e.message : "Erro ao carregar."))
+      .catch((e) => toast.erro(mensagemErro(e), "Erro ao carregar"))
       .finally(() => setLoadingInicial(false));
-  }, [id, regiaoQuery]);
+  }, [id, regiaoQuery, toast]);
 
   useEffect(() => {
     const lista = enderecosCliente.data;
@@ -270,10 +291,6 @@ export default function VendaFormPage() {
     enderecosCliente.loading,
     enderecosCliente.data,
   ]);
-
-  useEffect(() => {
-    if (erro) erroRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [erro]);
 
   const enderecoSelecionado = listaEnderecos.find((e) => e.id === form.id_endereco_cliente);
   const opcoesEndereco = [
@@ -347,7 +364,6 @@ export default function VendaFormPage() {
     nome_cliente: nomeCliente,
     data_pedido: dataOuNulo(form.data_pedido),
     forma_pagamento: txtOuNulo(form.forma_pagamento),
-    meio_pagamento: txtOuNulo(form.meio_pagamento),
     codigo_rastreamento: txtOuNulo(form.codigo_rastreamento),
     url_rastreamento: txtOuNulo(form.url_rastreamento),
     valor_frete: num(form.valor_frete),
@@ -365,7 +381,6 @@ export default function VendaFormPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSalvando(true);
-    setErro(null);
     try {
       let idCliente = form.id_cliente || null;
       let idEndereco = form.id_endereco_cliente || null;
@@ -375,9 +390,6 @@ export default function VendaFormPage() {
         const nome = clienteNovo.nome.trim();
         if (!nome) {
           throw new Error("Informe o nome do cliente.");
-        }
-        if (!enderecoTemDados(enderecoNovo) || !enderecoMinimoOk(enderecoNovo)) {
-          throw new Error("Informe ao menos a cidade do endereço de entrega.");
         }
 
         const criado = await clientesService.criar({
@@ -389,32 +401,21 @@ export default function VendaFormPage() {
         idCliente = criado.id;
         nomeCliente = criado.nome;
 
-        const enderecoCriado = await enderecosClienteService.criar(criado.id, {
-          ...enderecoNovo,
-          principal: true,
-          rotulo: enderecoNovo.rotulo.trim() || "Principal",
-          pais: enderecoNovo.pais.trim() || criado.pais || paisPorRegiao(form.regiao_venda),
-        });
-        idEndereco = enderecoCriado.id;
-      } else {
-        const selecionado = (clientes.data ?? []).find((c) => c.id === form.id_cliente);
-        nomeCliente = selecionado?.nome ?? txtOuNulo(form.nome_cliente);
-
-        if (idCliente && listaEnderecos.length === 0) {
-          if (!enderecoTemDados(enderecoNovo) || !enderecoMinimoOk(enderecoNovo)) {
-            throw new Error("Informe ao menos a cidade do endereço de entrega.");
-          }
-          const enderecoCriado = await enderecosClienteService.criar(idCliente, {
+        // Endereço opcional.
+        if (enderecoTemDados(enderecoNovo) && enderecoMinimoOk(enderecoNovo)) {
+          const enderecoCriado = await enderecosClienteService.criar(criado.id, {
             ...enderecoNovo,
             principal: true,
             rotulo: enderecoNovo.rotulo.trim() || "Principal",
-            pais:
-              enderecoNovo.pais.trim() ||
-              selecionado?.pais ||
-              paisPorRegiao(form.regiao_venda),
+            pais: enderecoNovo.pais.trim() || criado.pais || paisPorRegiao(form.regiao_venda),
           });
           idEndereco = enderecoCriado.id;
+        } else {
+          idEndereco = null;
         }
+      } else {
+        const selecionado = (clientes.data ?? []).find((c) => c.id === form.id_cliente);
+        nomeCliente = selecionado?.nome ?? txtOuNulo(form.nome_cliente);
       }
 
       const payload = montarPayloadBase(idCliente, idEndereco, nomeCliente);
@@ -436,17 +437,40 @@ export default function VendaFormPage() {
         valor_unitario: num(item.valor_unitario),
       }));
 
+      const parcelasPayload = parcelas.map((p, idx) => ({
+        numero: idx + 1,
+        data_vencimento: dataOuNulo(p.data_vencimento),
+        valor: num(p.valor),
+        forma_pagamento: txtOuNulo(p.forma_pagamento),
+        meio_pagamento: txtOuNulo(p.meio_pagamento),
+        pago: p.pago,
+      }));
+
+      if (
+        parcelasPayload.length === 0 &&
+        formaPagamentoUsaParcelas(form.forma_pagamento)
+      ) {
+        toast.aviso(
+          "Sem parcelas cadastradas. Em múltiplas/crédito o ideal é detalhar os vencimentos.",
+          "Parcelas opcionais",
+        );
+      }
+
       if (id) {
         await vendasService.atualizar(id, payload);
         await vendasService.substituirItens(id, itensPayload);
+        await vendasService.substituirParcelas(id, parcelasPayload);
+        toast.sucesso("Ordem de venda atualizada.");
         navigate(`/vendas/${id}`);
       } else {
         const criada = await vendasService.criar(payload as VendaInsert);
         await vendasService.substituirItens(criada.id, itensPayload);
+        await vendasService.substituirParcelas(criada.id, parcelasPayload);
+        toast.sucesso("Ordem de venda criada.");
         navigate(`/vendas/${criada.id}`);
       }
     } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao salvar.");
+      toast.erro(mensagemErro(err), "Não foi possível salvar");
     } finally {
       setSalvando(false);
     }
@@ -488,14 +512,14 @@ export default function VendaFormPage() {
           </SectionCard>
         ) : (
           <form id="venda-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid gap-6 lg:grid-cols-5">
-              <div className="space-y-6 lg:col-span-3">
+            <div className="grid gap-6 lg:grid-cols-12">
+              <div className="space-y-6 lg:order-2 lg:col-span-9">
                 <SectionCard
                   title="Cliente e entrega"
                   description={
                     modoNovoCliente
-                      ? "Cadastre o cliente e o endereço neste pedido."
-                      : "Quem compra e para onde enviar."
+                      ? "Cadastre o cliente neste pedido. Endereço é opcional."
+                      : "Quem compra e, se houver, o endereço de entrega."
                   }
                   titleAccessory={
                     modoNovoCliente ? (
@@ -559,6 +583,11 @@ export default function VendaFormPage() {
                                   .filter(Boolean)
                                   .join(" · ") || "Sem contato cadastrado"}
                               </p>
+                              {clienteSemEndereco ? (
+                                <p className="mt-1.5 text-xs font-medium text-amber-800">
+                                  Sem endereço cadastrado.
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         ) : null}
@@ -617,17 +646,17 @@ export default function VendaFormPage() {
                       )}
                     >
                       {modoNovoCliente ? (
-                        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
-                          2 · Endereço de entrega
-                        </p>
-                      ) : null}
-
-                      {modoNovoCliente ? (
-                        <EnderecoClienteCampos
-                          value={enderecoNovo}
-                          onChange={(patch) => setEnderecoNovo((s) => ({ ...s, ...patch }))}
-                          idPrefix="endereco-novo"
-                        />
+                        <>
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
+                            2 · Endereço de entrega
+                          </p>
+                          <p className="mb-4 text-xs text-ink-soft">Opcional.</p>
+                          <EnderecoClienteCampos
+                            value={enderecoNovo}
+                            onChange={(patch) => setEnderecoNovo((s) => ({ ...s, ...patch }))}
+                            idPrefix="endereco-novo"
+                          />
+                        </>
                       ) : !form.id_cliente ? (
                         <div className="rounded-xl border border-dashed border-line bg-surface-subtle/30 px-4 py-8 text-center">
                           <p className="text-sm text-ink-soft">
@@ -637,16 +666,8 @@ export default function VendaFormPage() {
                       ) : enderecosCliente.loading ? (
                         <p className="text-sm text-ink-soft">Carregando endereços…</p>
                       ) : listaEnderecos.length === 0 ? (
-                        <div className="space-y-4">
-                          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                            Este cliente ainda não tem endereço. Preencha abaixo — será salvo
-                            junto com o pedido.
-                          </div>
-                          <EnderecoClienteCampos
-                            value={enderecoNovo}
-                            onChange={(patch) => setEnderecoNovo((s) => ({ ...s, ...patch }))}
-                            idPrefix="endereco-cliente"
-                          />
+                        <div className="rounded-xl border border-dashed border-line bg-surface-subtle/30 px-4 py-6 text-center">
+                          <p className="text-sm text-ink-soft">Sem endereço neste pedido.</p>
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -656,7 +677,7 @@ export default function VendaFormPage() {
                               options={opcoesEndereco}
                               loading={enderecosCliente.loading}
                               searchPlaceholder="Buscar endereço…"
-                              emptyLabel="— Selecione o endereço —"
+                              emptyLabel="— Sem endereço neste pedido —"
                               onChange={(v) => upd("id_endereco_cliente", v)}
                             />
                           </FieldWrapper>
@@ -718,8 +739,11 @@ export default function VendaFormPage() {
                   />
                 </SectionCard>
 
-                <SectionCard title="Pagamento" description="Forma e meio usados neste pedido.">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <SectionCard
+                  title="Pagamento e parcelas"
+                  description="Forma do pedido e, se quiser, o detalhe das parcelas (vencimento, meio e pago). Parcelas não são obrigatórias."
+                >
+                  <div className="space-y-5">
                     <FieldWrapper id="forma-pagamento" label="Forma de pagamento">
                       <SearchableSelectDropdown
                         value={form.forma_pagamento}
@@ -733,19 +757,25 @@ export default function VendaFormPage() {
                         onChange={(v) => upd("forma_pagamento", v)}
                       />
                     </FieldWrapper>
-                    <FieldWrapper id="meio-pagamento" label="Meio de pagamento">
-                      <SearchableSelectDropdown
-                        value={form.meio_pagamento}
-                        options={opcoesComValorAtual(
-                          meioPagamentoOpcoes,
-                          form.meio_pagamento,
-                          "— Não informado —",
-                        )}
-                        searchPlaceholder="Buscar meio…"
-                        emptyLabel="— Não informado —"
-                        onChange={(v) => upd("meio_pagamento", v)}
+
+                    <div className="border-t border-line pt-4">
+                      <ParcelasVendaEditor
+                        value={parcelas}
+                        onChange={setParcelas}
+                        valorTotalPedido={
+                          itens.length > 0
+                            ? Math.max(
+                                0,
+                                totalItensVenda(itens) +
+                                  num(form.valor_frete) +
+                                  num(form.outras_despesas) -
+                                  num(form.valor_desconto),
+                              )
+                            : num(form.valor_total)
+                        }
+                        moeda={moeda}
                       />
-                    </FieldWrapper>
+                    </div>
                   </div>
                 </SectionCard>
 
@@ -775,7 +805,7 @@ export default function VendaFormPage() {
                     />
                     <FormTextarea
                       label="Observação interna"
-                      rows={2}
+                      rows={5}
                       value={form.obs_interna}
                       onChange={(e) => upd("obs_interna", e.target.value)}
                       placeholder="Só para a equipe…"
@@ -785,7 +815,7 @@ export default function VendaFormPage() {
                 </SectionCard>
               </div>
 
-              <div className="space-y-6 lg:col-span-2 lg:sticky lg:top-4 lg:self-start">
+              <div className="space-y-6 lg:order-1 lg:col-span-3 lg:sticky lg:top-4 lg:self-start">
                 <SectionCard
                   title="Pedido"
                   description={
@@ -878,7 +908,7 @@ export default function VendaFormPage() {
                   </div>
                 </SectionCard>
 
-                <SectionCard title="Tags" description="Para filtrar na listagem.">
+                <SectionCard title="Tags" description="Filtrar na listagem.">
                   <MarcadoresEditor
                     value={form.marcadores}
                     onChange={(v) => upd("marcadores", v)}
@@ -891,12 +921,12 @@ export default function VendaFormPage() {
                   </p>
                   <p className="mt-2 font-medium text-ink">{nomeClienteResumo}</p>
                   <p className="mt-0.5 text-ink-soft">
-                    {precisaFormEndereco
+                    {modoNovoCliente
                       ? enderecoNovo.cidade.trim()
                         ? [enderecoNovo.cidade, enderecoNovo.uf || enderecoNovo.pais]
                             .filter(Boolean)
                             .join(" · ")
-                        : "Endereço a cadastrar"
+                        : "Sem endereço"
                       : enderecoSelecionado
                         ? formatarLocalidade(enderecoSelecionado) || "Endereço selecionado"
                         : "Sem endereço"}
@@ -908,14 +938,6 @@ export default function VendaFormPage() {
               </div>
             </div>
 
-            {erro ? (
-              <div
-                ref={erroRef}
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-              >
-                {erro}
-              </div>
-            ) : null}
           </form>
         )}
       </div>

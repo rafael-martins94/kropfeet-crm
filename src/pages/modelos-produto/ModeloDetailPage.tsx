@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
+import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { DangerButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
@@ -98,8 +99,28 @@ export default function ModeloDetailPage() {
             >
               <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <Field label="Nome" value={modelo.data.nome_modelo} />
-                <Field label="Marca" value={marca.data?.nome ?? "—"} />
-                <Field label="Categoria" value={categoria.data?.nome ?? "—"} />
+                <Field
+                  label="Marca"
+                  value={
+                    marca.data ? (
+                      <EntityLink to={`/marcas/${marca.data.id}`}>{marca.data.nome}</EntityLink>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
+                <Field
+                  label="Categoria"
+                  value={
+                    categoria.data ? (
+                      <EntityLink to={`/categorias/${categoria.data.id}`}>
+                        {categoria.data.nome}
+                      </EntityLink>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
                 <Field label="Cor" value={modelo.data.cor ?? "—"} />
                 <Field
                   label="Código do fornecedor"

@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ToastProvider } from "./contexts/ToastContext";
 import { AppLayout } from "./layouts/AppLayout";
 import { ProtectedRoute, PublicOnlyRoute } from "./routes/ProtectedRoute";
 
@@ -64,6 +65,7 @@ import UsuarioFormPage from "./pages/usuarios/UsuarioFormPage";
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <Routes>
         <Route path="/catalogo-kropcafe" element={<CatalogoKropCafePage />} />
 
@@ -143,6 +145,7 @@ export default function App() {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </ToastProvider>
     </AuthProvider>
   );
 }

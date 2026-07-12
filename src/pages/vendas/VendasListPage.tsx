@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
@@ -16,8 +16,12 @@ import {
 import { vendasService, type VendaDetalhada } from "../../services/vendas";
 import { clientesService } from "../../services/clientes";
 import { useAsync } from "../../hooks/useAsync";
-import { useDebounce } from "../../hooks/useDebounce";
+import {
+  useVendasFiltros,
+  type ColunaOrdemVenda,
+} from "../../hooks/useVendasFiltros";
 import { formatarData, formatarMoeda, traduzirEnum } from "../../utils/format";
+import { cn } from "../../utils/cn";
 import type { StatusVenda } from "../../types/entities";
 import {
   lerMarcadores,
@@ -25,6 +29,7 @@ import {
   parseRegiaoVendaRota,
   type MarcadorVenda,
 } from "./vendaOpcoes";
+import { useState } from "react";
 
 const statusOpcoes: Array<{ value: StatusVenda | ""; label: string }> = [
   { value: "", label: "Todos os status" },
@@ -35,6 +40,46 @@ const statusOpcoes: Array<{ value: StatusVenda | ""; label: string }> = [
   { value: "finalizado", label: "Finalizado" },
   { value: "cancelado", label: "Cancelado" },
 ];
+
+function CabecalhoOrdenavel({
+  label,
+  coluna,
+  colunaAtiva,
+  ascendente,
+  onOrdem,
+  className,
+}: {
+  label: string;
+  coluna: ColunaOrdemVenda;
+  colunaAtiva: ColunaOrdemVenda;
+  ascendente: boolean;
+  onOrdem: (c: ColunaOrdemVenda) => void;
+  className?: string;
+}) {
+  const ativo = colunaAtiva === coluna;
+  return (
+    <button
+      type="button"
+      className={cn(
+        "-mx-2 -my-1 inline-flex w-full items-center gap-x-1.5 rounded px-2 py-1 text-left text-xs font-semibold uppercase tracking-wider transition-colors",
+        ativo ? "text-ink" : "text-ink-soft hover:bg-brand-50/60 hover:text-ink",
+        className,
+      )}
+      onClick={() => onOrdem(coluna)}
+    >
+      <span className="leading-snug">{label}</span>
+      {ativo ? (
+        <span className="shrink-0 text-brand-600" aria-hidden>
+          {ascendente ? "↑" : "↓"}
+        </span>
+      ) : (
+        <span className="shrink-0 opacity-35" aria-hidden>
+          ↕
+        </span>
+      )}
+    </button>
+  );
+}
 
 function TagsVenda({ marcadores }: { marcadores: MarcadorVenda[] }) {
   if (marcadores.length === 0) {
@@ -75,7 +120,9 @@ function SkusVenda({ venda }: { venda: VendaDetalhada }) {
         {visiveis.join(", ")}
       </div>
       {resto > 0 ? (
-        <div className="text-[11px] text-ink-soft">+{resto} SKU{resto === 1 ? "" : "s"}</div>
+        <div className="text-[11px] text-ink-soft">
+          +{resto} SKU{resto === 1 ? "" : "s"}
+        </div>
       ) : null}
     </div>
   );
@@ -86,30 +133,34 @@ export default function VendasListPage() {
   const segmento = pathname.split("/").filter(Boolean).pop();
   const regiao = parseRegiaoVendaRota(segmento);
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<StatusVenda | "">("");
-  const [marcador, setMarcador] = useState("");
-  const [sku, setSku] = useState("");
-  const [busca, setBusca] = useState("");
+  const filtros = useVendasFiltros();
   const [vendaItensModal, setVendaItensModal] = useState<VendaDetalhada | null>(null);
-  const buscaDebounced = useDebounce(busca, 350);
-  const marcadorDebounced = useDebounce(marcador, 350);
-  const skuDebounced = useDebounce(sku, 350);
 
   const { data, loading, error } = useAsync(
     () =>
       regiao
         ? vendasService.listarComRelacoes({
-            page,
+            page: filtros.page,
             pageSize: 20,
-            status,
-            search: buscaDebounced,
+            status: filtros.status,
+            search: filtros.searchDebounced,
             regiao,
-            marcador: marcadorDebounced,
-            sku: skuDebounced,
+            marcador: filtros.marcadorDebounced,
+            sku: filtros.skuDebounced,
+            orderBy: filtros.colunaOrdem,
+            ascending: filtros.ordemAscendente,
           })
         : Promise.resolve(null),
-    [page, status, buscaDebounced, regiao, marcadorDebounced, skuDebounced],
+    [
+      filtros.page,
+      filtros.status,
+      filtros.searchDebounced,
+      regiao,
+      filtros.marcadorDebounced,
+      filtros.skuDebounced,
+      filtros.colunaOrdem,
+      filtros.ordemAscendente,
+    ],
   );
 
   if (!regiao) {
@@ -121,20 +172,37 @@ export default function VendasListPage() {
   const columns: Column<VendaDetalhada>[] = [
     {
       key: "numero",
-      header: "Pedido",
+      header: (
+        <CabecalhoOrdenavel
+          label="Pedido"
+          coluna="numero"
+          colunaAtiva={filtros.colunaOrdem}
+          ascendente={filtros.ordemAscendente}
+          onOrdem={filtros.alterarOrdem}
+        />
+      ),
       width: "110px",
       render: (v) => (
-        <Link
+        <EntityLink
           to={`/vendas/${v.id}`}
-          className="font-numeric tabular-nums text-sm font-medium text-ink hover:text-brand-700"
+          appearance="plain"
+          className="font-numeric tabular-nums text-sm font-medium"
         >
           {v.numero ?? "—"}
-        </Link>
+        </EntityLink>
       ),
     },
     {
       key: "cliente",
-      header: "Cliente",
+      header: (
+        <CabecalhoOrdenavel
+          label="Cliente"
+          coluna="nome_cliente"
+          colunaAtiva={filtros.colunaOrdem}
+          ascendente={filtros.ordemAscendente}
+          onOrdem={filtros.alterarOrdem}
+        />
+      ),
       width: "220px",
       render: (v) => {
         const principal = v.cliente
@@ -143,7 +211,9 @@ export default function VendasListPage() {
         return (
           <div className="min-w-0">
             <div className="truncate font-medium text-ink">
-              {v.cliente?.nome ?? v.nome_cliente ?? <span className="text-ink-faint">—</span>}
+              {v.cliente?.nome ?? v.nome_cliente ?? (
+                <span className="text-ink-faint">—</span>
+              )}
             </div>
             {principal?.cidade || principal?.uf ? (
               <div className="truncate text-xs text-ink-soft">
@@ -167,7 +237,15 @@ export default function VendasListPage() {
     },
     {
       key: "data",
-      header: "Data",
+      header: (
+        <CabecalhoOrdenavel
+          label="Data"
+          coluna="data_pedido"
+          colunaAtiva={filtros.colunaOrdem}
+          ascendente={filtros.ordemAscendente}
+          onOrdem={filtros.alterarOrdem}
+        />
+      ),
       width: "110px",
       render: (v) => (
         <span className="text-xs text-ink-soft">{formatarData(v.data_pedido)}</span>
@@ -175,7 +253,16 @@ export default function VendasListPage() {
     },
     {
       key: "total",
-      header: "Total",
+      header: (
+        <CabecalhoOrdenavel
+          label="Total"
+          coluna="valor_total"
+          colunaAtiva={filtros.colunaOrdem}
+          ascendente={filtros.ordemAscendente}
+          onOrdem={filtros.alterarOrdem}
+          className="justify-end"
+        />
+      ),
       width: "130px",
       className: "text-right",
       render: (v) => (
@@ -186,7 +273,15 @@ export default function VendasListPage() {
     },
     {
       key: "status",
-      header: "Status",
+      header: (
+        <CabecalhoOrdenavel
+          label="Status"
+          coluna="status_venda"
+          colunaAtiva={filtros.colunaOrdem}
+          ascendente={filtros.ordemAscendente}
+          onOrdem={filtros.alterarOrdem}
+        />
+      ),
       width: "140px",
       render: (v) => <StatusBadge value={v.status_venda} />,
     },
@@ -260,38 +355,26 @@ export default function VendasListPage() {
             <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 <input
-                  value={busca}
-                  onChange={(e) => {
-                    setBusca(e.target.value);
-                    setPage(1);
-                  }}
+                  value={filtros.search}
+                  onChange={(e) => filtros.setSearch(e.target.value)}
                   placeholder="Buscar por nº, cliente ou rastreamento…"
                   className="input-base w-full sm:w-64"
                 />
                 <input
-                  value={sku}
-                  onChange={(e) => {
-                    setSku(e.target.value);
-                    setPage(1);
-                  }}
+                  value={filtros.sku}
+                  onChange={(e) => filtros.setSku(e.target.value)}
                   placeholder="Filtrar por SKU…"
                   className="input-base w-full font-numeric sm:w-40"
                 />
                 <StatusSelectDropdown
-                  value={status}
+                  value={filtros.status}
                   options={statusOpcoes}
-                  onChange={(v) => {
-                    setStatus(v as StatusVenda | "");
-                    setPage(1);
-                  }}
+                  onChange={(v) => filtros.setStatus(v as StatusVenda | "")}
                   className="w-full sm:w-48"
                 />
                 <input
-                  value={marcador}
-                  onChange={(e) => {
-                    setMarcador(e.target.value);
-                    setPage(1);
-                  }}
+                  value={filtros.marcador}
+                  onChange={(e) => filtros.setMarcador(e.target.value)}
                   placeholder="Buscar por tag…"
                   className="input-base w-full sm:w-52"
                 />
@@ -313,10 +396,10 @@ export default function VendasListPage() {
                 tableClassName="table-fixed"
                 emptyTitle="Nenhuma ordem de venda"
                 emptyDescription={
-                  sku
-                    ? `Nenhuma ordem com SKU “${sku}” em ${labelRegiao}.`
-                    : marcador
-                      ? `Nenhuma ordem com a tag “${marcador}” em ${labelRegiao}.`
+                  filtros.sku
+                    ? `Nenhuma ordem com SKU “${filtros.sku}” em ${labelRegiao}.`
+                    : filtros.marcador
+                      ? `Nenhuma ordem com a tag “${filtros.marcador}” em ${labelRegiao}.`
                       : `Não há pedidos em ${labelRegiao} ainda. Crie uma nova ordem ou importe do Tiny.`
                 }
               />
@@ -328,7 +411,7 @@ export default function VendasListPage() {
                 page={data.page}
                 pageSize={data.pageSize}
                 total={data.total}
-                onPageChange={setPage}
+                onPageChange={filtros.setPage}
               />
             ) : null
           }

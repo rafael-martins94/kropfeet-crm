@@ -2,6 +2,7 @@ import { supabase } from "../lib/supabase";
 import type {
   EnderecoCliente,
   PaginationParams,
+  ParcelaVenda,
   StatusVenda,
   TipoRegiao,
   Venda,
@@ -63,6 +64,48 @@ export interface VendaDetalhada extends Venda {
       id_modelo_produto: string | null;
     } | null;
   }> | null;
+}
+
+export type ParcelaVendaInput = {
+  numero: number;
+  data_vencimento: string | null;
+  valor: number;
+  forma_pagamento: string | null;
+  meio_pagamento: string | null;
+  dias?: number | null;
+  obs?: string | null;
+  pago: boolean;
+};
+
+export type ResumoFinanceiroVenda = {
+  valorPago: number;
+  totalParcelado: number;
+  saldoDevedor: number;
+};
+
+/** `contareceber` = ainda nao pago; demais formas = pago. */
+export function parcelaEstaPagaPorForma(forma: string | null | undefined): boolean {
+  return (forma ?? "").trim().toLowerCase() !== "contareceber";
+}
+
+export function resumoFinanceiroVenda(
+  valorTotal: number,
+  parcelas: Array<{ valor: number; pago: boolean }>,
+): ResumoFinanceiroVenda {
+  const total = Number.isFinite(valorTotal) ? valorTotal : 0;
+  const totalParcelado = parcelas.reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
+  const valorPago = parcelas.reduce(
+    (acc, p) => (p.pago ? acc + (Number(p.valor) || 0) : acc),
+    0,
+  );
+  // Saldo = o que falta receber: total do pedido menos o ja pago.
+  // Se ainda houver valor nao parcelado, ele tambem entra no saldo.
+  const saldoDevedor = Math.max(0, total - valorPago);
+  return {
+    valorPago: Number(valorPago.toFixed(2)),
+    totalParcelado: Number(totalParcelado.toFixed(2)),
+    saldoDevedor: Number(saldoDevedor.toFixed(2)),
+  };
 }
 
 export const vendasService = {
@@ -352,6 +395,67 @@ export const vendasService = {
         quantidade: item.quantidade,
         valor_unitario: item.valor_unitario,
       })),
+    );
+    if (erroInsercao) throw erroInsercao;
+  },
+
+  obterParcelas: async (idVenda: string): Promise<ParcelaVenda[]> => {
+    const { data, error } = await supabase
+      .from("parcelas_venda")
+      .select("*")
+      .eq("id_venda", idVenda)
+      .order("numero", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as ParcelaVenda[];
+  },
+
+  atualizarParcela: async (
+    idParcela: string,
+    patch: { pago?: boolean; forma_pagamento?: string | null; meio_pagamento?: string | null },
+  ): Promise<ParcelaVenda> => {
+    const payload = { ...patch };
+    if (payload.forma_pagamento !== undefined) {
+      payload.pago = parcelaEstaPagaPorForma(payload.forma_pagamento);
+    }
+    const { data, error } = await supabase
+      .from("parcelas_venda")
+      .update(payload)
+      .eq("id", idParcela)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return data as ParcelaVenda;
+  },
+
+  /** Substitui todas as parcelas da venda pelas informadas. */
+  substituirParcelas: async (
+    idVenda: string,
+    parcelas: ParcelaVendaInput[],
+  ): Promise<void> => {
+    const { error: erroRemocao } = await supabase
+      .from("parcelas_venda")
+      .delete()
+      .eq("id_venda", idVenda);
+    if (erroRemocao) throw erroRemocao;
+
+    if (parcelas.length === 0) return;
+
+    const { error: erroInsercao } = await supabase.from("parcelas_venda").insert(
+      parcelas.map((p, idx) => {
+        const forma = p.forma_pagamento ?? null;
+        const pagoForcado = !parcelaEstaPagaPorForma(forma) ? false : p.pago;
+        return {
+          id_venda: idVenda,
+          numero: p.numero || idx + 1,
+          data_vencimento: p.data_vencimento,
+          valor: p.valor,
+          forma_pagamento: forma,
+          meio_pagamento: p.meio_pagamento ?? null,
+          dias: p.dias ?? null,
+          obs: p.obs ?? null,
+          pago: pagoForcado,
+        };
+      }),
     );
     if (erroInsercao) throw erroInsercao;
   },

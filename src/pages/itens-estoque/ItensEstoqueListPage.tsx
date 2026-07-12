@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { EntityLink } from "../../components/EntityLink";
 import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
 import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
 import { ItensEstoqueFiltrosToolbar } from "../../components/itens-estoque/ItensEstoqueFiltrosToolbar";
@@ -23,6 +24,7 @@ import { modelosProdutoService } from "../../services/modelos-produto";
 import { useAsync } from "../../hooks/useAsync";
 import { useItensEstoqueFiltros } from "../../hooks/useItensEstoqueFiltros";
 import { useListDetailNavigation } from "../../hooks/useListDetailNavigation";
+import { useToast } from "../../contexts/ToastContext";
 import type { StatusItem } from "../../types/entities";
 import { cn } from "../../utils/cn";
 import { mensagemErro } from "../../utils/errors";
@@ -95,6 +97,7 @@ const statusOpcoesAlteracao: Array<{ value: StatusItem; label: string }> = [
 
 export default function ItensEstoqueListPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const filtros = useItensEstoqueFiltros();
   const { toDetail } = useListDetailNavigation();
   const linkItem = (path: string) => toDetail(path);
@@ -127,10 +130,8 @@ export default function ItensEstoqueListPage() {
   const [statusMassa, setStatusMassa] = useState<StatusItem>("em_estoque");
   const [aplicandoMassa, setAplicandoMassa] = useState(false);
   const [excluindoMassa, setExcluindoMassa] = useState(false);
-  const [erroMassa, setErroMassa] = useState<string | null>(null);
 
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
-  const [erroStatusInline, setErroStatusInline] = useState<string | null>(null);
   const [visivelCafeUpdatingId, setVisivelCafeUpdatingId] = useState<string | null>(null);
   const [visivelCafeOverrides, setVisivelCafeOverrides] = useState<Record<string, boolean>>({});
 
@@ -176,8 +177,6 @@ export default function ItensEstoqueListPage() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-    setErroMassa(null);
-    setErroStatusInline(null);
   }, [filtros.paramsListagem]);
 
   const idsPaginaAtual = useMemo(() => rows.map((r) => r.id), [rows]);
@@ -195,7 +194,6 @@ export default function ItensEstoqueListPage() {
       else next.add(id);
       return next;
     });
-    setErroMassa(null);
   };
 
   const alternarPaginaInteira = () => {
@@ -208,12 +206,10 @@ export default function ItensEstoqueListPage() {
       }
       return next;
     });
-    setErroMassa(null);
   };
 
   const limparSelecao = () => {
     setSelectedIds(new Set());
-    setErroMassa(null);
   };
 
   const alterarStatusNaLinha = async (
@@ -222,13 +218,12 @@ export default function ItensEstoqueListPage() {
     novo: StatusItem | "",
   ) => {
     if (novo === "" || novo === statusAtual) return;
-    setErroStatusInline(null);
     setStatusUpdatingId(idItem);
     try {
       await itensEstoqueService.atualizar(idItem, { status_item: novo });
       reload();
     } catch (e) {
-      setErroStatusInline(mensagemErro(e));
+      toast.erro(mensagemErro(e), "Erro ao atualizar status");
     } finally {
       setStatusUpdatingId(null);
     }
@@ -236,14 +231,13 @@ export default function ItensEstoqueListPage() {
 
   const alternarVisivelCafeNaLinha = async (idItem: string, visivelAtual: boolean) => {
     const novo = !visivelAtual;
-    setErroStatusInline(null);
     setVisivelCafeUpdatingId(idItem);
     setVisivelCafeOverrides((prev) => ({ ...prev, [idItem]: novo }));
     try {
       await itensEstoqueService.atualizar(idItem, { visivel_cafe: novo });
     } catch (e) {
       setVisivelCafeOverrides((prev) => ({ ...prev, [idItem]: visivelAtual }));
-      setErroStatusInline(mensagemErro(e));
+      toast.erro(mensagemErro(e), "Erro ao atualizar vitrine");
     } finally {
       setVisivelCafeUpdatingId(null);
     }
@@ -252,14 +246,16 @@ export default function ItensEstoqueListPage() {
   const aplicarStatusEmMassa = async () => {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
-    setErroMassa(null);
     setAplicandoMassa(true);
     try {
       await itensEstoqueService.atualizarStatusEmMassa(ids, statusMassa);
+      toast.sucesso(
+        `Status atualizado em ${ids.length.toLocaleString("pt-BR")} item(ns).`,
+      );
       limparSelecao();
       reload();
     } catch (e) {
-      setErroMassa(mensagemErro(e));
+      toast.erro(mensagemErro(e), "Erro na ação em massa");
     } finally {
       setAplicandoMassa(false);
     }
@@ -273,14 +269,14 @@ export default function ItensEstoqueListPage() {
       `Excluir permanentemente ${n.toLocaleString("pt-BR")} item(ns) de estoque?\n\nEsta ação não pode ser desfeita.`,
     );
     if (!ok) return;
-    setErroMassa(null);
     setExcluindoMassa(true);
     try {
       await itensEstoqueService.deletarEmMassa(ids);
+      toast.sucesso(`${n.toLocaleString("pt-BR")} item(ns) excluído(s).`);
       limparSelecao();
       reload();
     } catch (e) {
-      setErroMassa(mensagemErro(e));
+      toast.erro(mensagemErro(e), "Erro ao excluir");
     } finally {
       setExcluindoMassa(false);
     }
@@ -375,14 +371,16 @@ export default function ItensEstoqueListPage() {
       render: (it) => {
         const detalhe = linkItem(`/itens-estoque/${it.id}`);
         return (
-        <Link
+        <EntityLink
           to={detalhe.to}
           state={detalhe.options?.state}
-          className="block truncate text-sm font-medium text-ink hover:text-brand-700"
+          appearance="plain"
+          truncate
+          className="text-sm font-medium"
           title={it.nome_produto}
         >
           {it.nome_produto}
-        </Link>
+        </EntityLink>
         );
       },
     },
@@ -637,20 +635,7 @@ export default function ItensEstoqueListPage() {
             />
           }
           banner={
-            <>
-              {erroStatusInline ? (
-                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-red-200 bg-red-50 px-5 py-2.5 text-sm text-red-900">
-                  <span className="min-w-0 pt-0.5">{erroStatusInline}</span>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-red-900 underline-offset-2 hover:underline"
-                    onClick={() => setErroStatusInline(null)}
-                  >
-                    Fechar
-                  </button>
-                </div>
-              ) : null}
-              {selectedIds.size > 0 ? (
+            selectedIds.size > 0 ? (
               <div className="flex flex-col gap-3 border-b border-line bg-brand-500/[0.06] px-5 py-3 sm:flex-row sm:flex-wrap sm:items-center">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm font-medium text-ink">
@@ -700,12 +685,8 @@ export default function ItensEstoqueListPage() {
                     Excluir
                   </DangerButton>
                 </div>
-                {erroMassa ? (
-                  <p className="w-full text-sm text-red-700 sm:order-last">{erroMassa}</p>
-                ) : null}
               </div>
-              ) : null}
-            </>
+            ) : null
           }
           body={
             error ? (

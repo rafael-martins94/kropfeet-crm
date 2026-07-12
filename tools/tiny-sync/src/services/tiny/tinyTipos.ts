@@ -222,6 +222,16 @@ export interface TinyPedidoMarcador {
   cor?: string;
 }
 
+export interface TinyPedidoParcela {
+  obs?: string;
+  data?: string;
+  dias?: string | number;
+  valor?: string | number;
+  meio_pagamento?: string | null;
+  forma_pagamento?: string | null;
+  [chave: string]: unknown;
+}
+
 export interface TinyPedidoDetalhe {
   id: string;
   numero?: string;
@@ -234,6 +244,7 @@ export interface TinyPedidoDetalhe {
   cliente?: TinyPedidoClienteDetalhe;
   itens?: Array<{ item: TinyPedidoItemDetalhe }>;
   marcadores?: Array<{ marcador: TinyPedidoMarcador }>;
+  parcelas?: Array<{ parcela: TinyPedidoParcela }>;
   condicao_pagamento?: string;
   forma_pagamento?: string;
   meio_pagamento?: string;

@@ -1,9 +1,10 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import type { ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
 import { SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import { IconEdit, IconPin, IconUser } from "../../components/Icons";
+import { IconArrowUpRight, IconEdit, IconPin, IconUser } from "../../components/Icons";
 import { clientesService } from "../../services/clientes";
 import { enderecosClienteService } from "../../services/enderecos-cliente";
 import { useAsync } from "../../hooks/useAsync";
@@ -15,6 +16,24 @@ import {
   labelNome,
 } from "../../utils/documento";
 import { formatarEnderecoLinha, formatarLocalidade } from "../../utils/endereco";
+
+function LinkAcao({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      className="inline-flex max-w-full items-center gap-1 text-brand-700 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-800 hover:decoration-brand-500"
+    >
+      <span className="min-w-0 truncate">{children}</span>
+      <IconArrowUpRight width={13} height={13} className="shrink-0 opacity-80" aria-hidden />
+    </a>
+  );
+}
 
 export default function ClienteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -78,13 +97,9 @@ export default function ClienteDetailPage() {
               label="Contato"
               value={
                 data.email ? (
-                  <a href={`mailto:${data.email}`} className="text-brand-600 hover:text-brand-700">
-                    {data.email}
-                  </a>
+                  <LinkAcao href={`mailto:${data.email}`}>{data.email}</LinkAcao>
                 ) : data.telefone ? (
-                  <a href={`tel:${data.telefone}`} className="text-brand-600 hover:text-brand-700">
-                    {data.telefone}
-                  </a>
+                  <LinkAcao href={`tel:${data.telefone}`}>{data.telefone}</LinkAcao>
                 ) : (
                   "—"
                 )
@@ -125,9 +140,7 @@ export default function ClienteDetailPage() {
                   label="E-mail"
                   value={
                     data.email ? (
-                      <a href={`mailto:${data.email}`} className="text-brand-600 hover:text-brand-700">
-                        {data.email}
-                      </a>
+                      <LinkAcao href={`mailto:${data.email}`}>{data.email}</LinkAcao>
                     ) : (
                       "—"
                     )
@@ -137,9 +150,7 @@ export default function ClienteDetailPage() {
                   label="Telefone"
                   value={
                     data.telefone ? (
-                      <a href={`tel:${data.telefone}`} className="text-brand-600 hover:text-brand-700">
-                        {data.telefone}
-                      </a>
+                      <LinkAcao href={`tel:${data.telefone}`}>{data.telefone}</LinkAcao>
                     ) : (
                       "—"
                     )

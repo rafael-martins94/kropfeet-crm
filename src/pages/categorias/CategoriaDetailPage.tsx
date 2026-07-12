@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { DangerButton, PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
@@ -62,12 +63,9 @@ export default function CategoriaDetailPage() {
       header: "Modelo",
       render: (m) => (
         <div className="min-w-0">
-          <Link
-            to={`/modelos-produto/${m.id}`}
-            className="block truncate font-medium text-ink hover:text-brand-700"
-          >
+          <EntityLink to={`/modelos-produto/${m.id}`} appearance="plain" truncate className="font-medium">
             {m.nome_modelo}
-          </Link>
+          </EntityLink>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-soft">
             <span className="truncate">{m.slug}</span>
             {m.cor ? (

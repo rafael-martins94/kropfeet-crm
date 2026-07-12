@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
@@ -31,12 +32,9 @@ export default function FornecedoresListPage() {
       header: "Fornecedor",
       render: (f) => (
         <div className="min-w-0">
-          <Link
-            to={`/fornecedores/${f.id}`}
-            className="block truncate font-medium text-ink hover:text-brand-700"
-          >
+          <EntityLink to={`/fornecedores/${f.id}`} appearance="plain" truncate className="font-medium">
             {f.nome}
-          </Link>
+          </EntityLink>
           {f.fantasia ? (
             <div className="truncate text-xs text-ink-soft">{f.fantasia}</div>
           ) : null}

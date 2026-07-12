@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
 import { SecondaryButton } from "../../components/PrimaryButton";
@@ -5,26 +6,33 @@ import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { EmptyState } from "../../components/EmptyState";
 import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
-import { IconCalendar, IconCart, IconEdit, IconTag } from "../../components/Icons";
-import { vendasService } from "../../services/vendas";
+import { IconCalendar, IconCart, IconEdit, IconTag, IconArrowUpRight } from "../../components/Icons";
+import { EntityLink } from "../../components/EntityLink";
+import { resumoFinanceiroVenda, vendasService } from "../../services/vendas";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { useAsync } from "../../hooks/useAsync";
 import { formatarData, formatarDataHora, formatarMoeda, traduzirEnum } from "../../utils/format";
 import { obterCustoPrincipal } from "../../utils/custoItem";
 import { formatarEnderecoLinha, formatarLocalidade } from "../../utils/endereco";
-import { caminhoListaVendas, moedaDaVenda } from "./vendaOpcoes";
-
-interface MarcadorPedido {
-  id?: string;
-  descricao?: string;
-  cor?: string;
-}
+import {
+  caminhoListaVendas,
+  formaPagamentoUsaParcelas,
+  labelFormaPagamento,
+  lerMarcadores,
+  moedaDaVenda,
+  parcelaEstaPagaPorForma,
+} from "./vendaOpcoes";
 
 export default function VendaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [atualizandoParcelaId, setAtualizandoParcelaId] = useState<string | null>(null);
   const venda = useAsync(() => (id ? vendasService.obterDetalhada(id) : Promise.resolve(null)), [id]);
   const itens = useAsync(() => (id ? vendasService.obterItens(id) : Promise.resolve([])), [id]);
+  const parcelasAsync = useAsync(
+    () => (id ? vendasService.obterParcelas(id) : Promise.resolve([])),
+    [id],
+  );
   const modeloIds = (itens.data ?? [])
     .map((iv) => iv.item_estoque?.id_modelo_produto)
     .filter((v): v is string => Boolean(v));
@@ -40,12 +48,25 @@ export default function VendaDetailPage() {
   const enderecoEntrega = venda.data?.endereco_entrega ?? null;
   const enderecoLinha = enderecoEntrega ? formatarEnderecoLinha(enderecoEntrega) : "";
   const localidadeEntrega = enderecoEntrega ? formatarLocalidade(enderecoEntrega) : "";
-  const marcadores = Array.isArray(venda.data?.marcadores)
-    ? (venda.data?.marcadores as MarcadorPedido[])
-    : [];
+  const marcadores = lerMarcadores(venda.data?.marcadores);
+  const parcelas = parcelasAsync.data ?? [];
+  const formaPagamento = venda.data?.forma_pagamento ?? null;
+  const usaParcelas = formaPagamentoUsaParcelas(formaPagamento);
   const listaRegiao = caminhoListaVendas(venda.data?.regiao_venda);
   const moeda = venda.data ? moedaDaVenda(venda.data) : "BRL";
   const labelRegiao = traduzirEnum(venda.data?.regiao_venda);
+  const resumo = resumoFinanceiroVenda(Number(venda.data?.valor_total ?? 0), parcelas);
+
+  const alternarPago = async (idParcela: string, pagoAtual: boolean, forma: string | null) => {
+    if (!parcelaEstaPagaPorForma(forma)) return;
+    setAtualizandoParcelaId(idParcela);
+    try {
+      await vendasService.atualizarParcela(idParcela, { pago: !pagoAtual });
+      parcelasAsync.reload();
+    } finally {
+      setAtualizandoParcelaId(null);
+    }
+  };
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -113,9 +134,7 @@ export default function VendaDetailPage() {
                 label="Cliente"
                 value={
                   cliente ? (
-                    <Link to={`/clientes/${cliente.id}`} className="text-brand-600 hover:text-brand-700">
-                      {cliente.nome}
-                    </Link>
+                    <EntityLink to={`/clientes/${cliente.id}`}>{cliente.nome}</EntityLink>
                   ) : (
                     venda.data.nome_cliente ?? "—"
                   )
@@ -194,10 +213,18 @@ export default function VendaDetailPage() {
             </dl>
           </SectionCard>
 
-          <SectionCard title="Pagamento e envio">
+          <SectionCard title="Pagamento, parcelas e envio">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-              <F label="Forma de pagamento" value={venda.data.forma_pagamento ?? "—"} />
-              <F label="Meio de pagamento" value={venda.data.meio_pagamento ?? "—"} />
+              <F
+                label="Forma de pagamento"
+                value={labelFormaPagamento(venda.data.forma_pagamento)}
+              />
+              {parcelas.length > 0 ? (
+                <F
+                  label="Parcelas"
+                  value={usaParcelas || parcelas.length > 1 ? `${parcelas.length}x` : String(parcelas.length)}
+                />
+              ) : null}
               <F label="Depósito" value={venda.data.deposito ?? "—"} />
               <F label="Data faturamento" value={formatarData(venda.data.data_faturamento)} />
               <F
@@ -205,8 +232,14 @@ export default function VendaDetailPage() {
                 value={
                   venda.data.codigo_rastreamento ? (
                     venda.data.url_rastreamento ? (
-                      <a href={venda.data.url_rastreamento} target="_blank" rel="noreferrer" className="text-brand-600 hover:text-brand-700">
-                        {venda.data.codigo_rastreamento}
+                      <a
+                        href={venda.data.url_rastreamento}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex max-w-full items-center gap-1 text-brand-700 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-800 hover:decoration-brand-500"
+                      >
+                        <span className="min-w-0 truncate">{venda.data.codigo_rastreamento}</span>
+                        <IconArrowUpRight width={13} height={13} className="shrink-0 opacity-80" aria-hidden />
                       </a>
                     ) : (
                       venda.data.codigo_rastreamento
@@ -217,6 +250,105 @@ export default function VendaDetailPage() {
                 }
               />
             </dl>
+
+            {parcelas.length > 0 ? (
+              <div className="mt-5 border-t border-line pt-4">
+                <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <div className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+                      Valor pago
+                    </div>
+                    <div className="mt-1 font-numeric tabular-nums text-sm font-semibold text-ink">
+                      {formatarMoeda(resumo.valorPago, moeda)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+                      Total parcelado
+                    </div>
+                    <div className="mt-1 font-numeric tabular-nums text-sm font-semibold text-ink">
+                      {formatarMoeda(resumo.totalParcelado, moeda)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+                      Saldo devedor
+                    </div>
+                    <div className="mt-1 font-numeric tabular-nums text-sm font-semibold text-brand-700">
+                      {formatarMoeda(resumo.saldoDevedor, moeda)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-2 text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+                  Detalhe das parcelas
+                </div>
+                {parcelasAsync.loading ? (
+                  <div className="text-sm text-ink-soft">Carregando parcelas…</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="table-base">
+                      <thead>
+                        <tr>
+                          <th className="w-16">Nº</th>
+                          <th>Data</th>
+                          <th className="text-right">Valor</th>
+                          <th>Forma de pagamento</th>
+                          <th>Meio</th>
+                          <th className="text-center">Pago</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parcelas.map((p) => {
+                          const contaReceber = !parcelaEstaPagaPorForma(p.forma_pagamento);
+                          return (
+                            <tr key={p.id}>
+                              <td className="font-numeric tabular-nums text-xs">
+                                {p.numero}/{parcelas.length}
+                              </td>
+                              <td className="font-numeric tabular-nums text-xs">
+                                {formatarData(p.data_vencimento)}
+                              </td>
+                              <td className="text-right font-numeric tabular-nums text-xs">
+                                {formatarMoeda(Number(p.valor), moeda)}
+                              </td>
+                              <td className="text-sm">
+                                {labelFormaPagamento(p.forma_pagamento)}
+                              </td>
+                              <td className="text-sm text-ink-soft">
+                                {p.meio_pagamento ?? "—"}
+                              </td>
+                              <td className="text-center">
+                                <button
+                                  type="button"
+                                  disabled={contaReceber || atualizandoParcelaId === p.id}
+                                  title={
+                                    contaReceber
+                                      ? "Conta a receber — ainda não pago"
+                                      : p.pago
+                                        ? "Marcar como não pago"
+                                        : "Marcar como pago"
+                                  }
+                                  onClick={() =>
+                                    alternarPago(p.id, p.pago, p.forma_pagamento)
+                                  }
+                                  className="disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                  <StatusBadge
+                                    value={p.pago ? "pago" : "em_aberto"}
+                                    label={p.pago ? "Pago" : "Em aberto"}
+                                  />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </SectionCard>
 
           <SectionCard title="Itens da ordem" noPadding>

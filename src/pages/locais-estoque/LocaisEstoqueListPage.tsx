@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
@@ -46,9 +47,9 @@ export default function LocaisEstoqueListPage() {
       key: "nome",
       header: "Nome",
       render: (l) => (
-        <Link to={`/locais-estoque/${l.id}`} className="font-medium text-ink hover:text-brand-700">
+        <EntityLink to={`/locais-estoque/${l.id}`} appearance="plain" className="font-medium">
           {l.nome}
-        </Link>
+        </EntityLink>
       ),
     },
     {

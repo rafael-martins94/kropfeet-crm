@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { EntityLink } from "../../components/EntityLink";
 import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
 import { IconBox, IconEdit } from "../../components/Icons";
 import { PageHeader } from "../../components/PageHeader";
@@ -124,12 +125,9 @@ export default function OrdemCompraDetailPage() {
                   </p>
                   <p className="text-lg font-semibold text-ink">
                     {ordem.data.fornecedor ? (
-                      <Link
-                        to={`/fornecedores/${ordem.data.fornecedor.id}`}
-                        className="text-brand-700 hover:text-brand-800"
-                      >
+                      <EntityLink to={`/fornecedores/${ordem.data.fornecedor.id}`}>
                         {ordem.data.fornecedor.nome}
-                      </Link>
+                      </EntityLink>
                     ) : (
                       "—"
                     )}

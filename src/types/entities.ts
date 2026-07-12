@@ -45,6 +45,9 @@ export type VendaInsert = Tables["vendas"]["Insert"];
 export type VendaUpdate = Tables["vendas"]["Update"];
 
 export type ItemVenda = Tables["itens_venda"]["Row"];
+export type ParcelaVenda = Tables["parcelas_venda"]["Row"];
+export type ParcelaVendaInsert = Tables["parcelas_venda"]["Insert"];
+export type ParcelaVendaUpdate = Tables["parcelas_venda"]["Update"];
 export type MovimentacaoEstoque = Tables["movimentacoes_estoque"]["Row"];
 
 export type Conferencia = Tables["conferencias"]["Row"];

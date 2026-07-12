@@ -5,7 +5,7 @@ import {
   paraDataIso,
   paraNumeroOuNulo,
 } from "../../utils/normalizacao.js";
-import type { TinyPedidoDetalhe, TinyPedidoItemDetalhe } from "./tinyTipos.js";
+import type { TinyPedidoDetalhe, TinyPedidoItemDetalhe, TinyPedidoParcela } from "./tinyTipos.js";
 
 type StatusVenda = Database["public"]["Enums"]["status_venda_enum"];
 
@@ -15,6 +15,18 @@ export interface DadosItemVendaParseado {
   descricao: string | null;
   quantidade: number;
   valorUnitario: number;
+  dadosTiny: Json;
+}
+
+export interface DadosParcelaVendaParseada {
+  numero: number;
+  dataVencimento: string | null;
+  valor: number;
+  formaPagamento: string | null;
+  meioPagamento: string | null;
+  dias: number | null;
+  obs: string | null;
+  pago: boolean;
   dadosTiny: Json;
 }
 
@@ -37,7 +49,6 @@ export interface DadosVendaParseada {
   outrasDespesas: number;
   valorTotal: number;
   formaPagamento: string | null;
-  meioPagamento: string | null;
   deposito: string | null;
   codigoRastreamento: string | null;
   urlRastreamento: string | null;
@@ -46,6 +57,7 @@ export interface DadosVendaParseada {
   marcadores: Json | null;
   dadosTiny: Json;
   itens: DadosItemVendaParseado[];
+  parcelas: DadosParcelaVendaParseada[];
 }
 
 function semAcento(valor: string): string {
@@ -94,6 +106,41 @@ function parseItemPedido(item: TinyPedidoItemDetalhe): DadosItemVendaParseado {
   };
 }
 
+/** `contareceber` = ainda nao pago; demais formas = pago. */
+export function parcelaEstaPaga(formaPagamento: string | null | undefined): boolean {
+  return (formaPagamento ?? "").trim().toLowerCase() !== "contareceber";
+}
+
+function parseParcelasPedido(
+  pedido: TinyPedidoDetalhe,
+): DadosParcelaVendaParseada[] {
+  const raw = pedido.parcelas;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+
+  const meioPedido = normalizarTexto(pedido.meio_pagamento);
+  const saida: DadosParcelaVendaParseada[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const nested = (entry as { parcela?: TinyPedidoParcela }).parcela;
+    const p = nested && typeof nested === "object" ? nested : (entry as TinyPedidoParcela);
+    const formaPagamento = normalizarTexto(p.forma_pagamento);
+    const dias = paraNumeroOuNulo(p.dias);
+
+    saida.push({
+      numero: saida.length + 1,
+      dataVencimento: paraDataApenas(p.data),
+      valor: paraNumeroOuNulo(p.valor) ?? 0,
+      formaPagamento,
+      meioPagamento: normalizarTexto(p.meio_pagamento) ?? meioPedido,
+      dias: dias != null ? Math.trunc(dias) : null,
+      obs: normalizarTexto(p.obs),
+      pago: parcelaEstaPaga(formaPagamento),
+      dadosTiny: p as unknown as Json,
+    });
+  }
+  return saida;
+}
+
 export function parsePedidoTiny(
   pedido: TinyPedidoDetalhe,
   regiaoVenda: Database["public"]["Enums"]["tipo_regiao_enum"] = "brasil",
@@ -127,7 +174,6 @@ export function parsePedidoTiny(
     outrasDespesas: paraNumeroOuNulo(pedido.outras_despesas) ?? 0,
     valorTotal: paraNumeroOuNulo(pedido.total_pedido) ?? 0,
     formaPagamento: normalizarTexto(pedido.forma_pagamento),
-    meioPagamento: normalizarTexto(pedido.meio_pagamento),
     deposito: normalizarTexto(pedido.deposito),
     codigoRastreamento: normalizarTexto(pedido.codigo_rastreamento),
     urlRastreamento: normalizarTexto(pedido.url_rastreamento),
@@ -136,5 +182,6 @@ export function parsePedidoTiny(
     marcadores,
     dadosTiny: pedido as unknown as Json,
     itens,
+    parcelas: parseParcelasPedido(pedido),
   };
 }

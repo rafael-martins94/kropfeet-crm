@@ -1,6 +1,7 @@
 import type { Database } from "../../../tipos/database.js";
 import type {
   DadosItemVendaParseado,
+  DadosParcelaVendaParseada,
   DadosVendaParseada,
 } from "../../tiny/tinyParserPedidos.js";
 import type { SupabaseAppClient } from "../clienteSupabase.js";
@@ -34,7 +35,6 @@ function montarPayloadVenda(
     outras_despesas: dados.outrasDespesas,
     valor_total: dados.valorTotal,
     forma_pagamento: dados.formaPagamento,
-    meio_pagamento: dados.meioPagamento,
     deposito: dados.deposito,
     codigo_rastreamento: dados.codigoRastreamento,
     url_rastreamento: dados.urlRastreamento,
@@ -138,5 +138,33 @@ export async function substituirItensVenda(
   }
 
   const insercao = await supabase.from("itens_venda").insert(linhas);
+  if (insercao.error) throw insercao.error;
+}
+
+/** Substitui as parcelas da venda (remove as antigas e reaplica a regra Tiny de pago). */
+export async function substituirParcelasVenda(
+  supabase: SupabaseAppClient,
+  idVenda: string,
+  parcelas: DadosParcelaVendaParseada[],
+): Promise<void> {
+  const remocao = await supabase.from("parcelas_venda").delete().eq("id_venda", idVenda);
+  if (remocao.error) throw remocao.error;
+
+  if (parcelas.length === 0) return;
+
+  const linhas = parcelas.map((p) => ({
+    id_venda: idVenda,
+    numero: p.numero,
+    data_vencimento: p.dataVencimento,
+    valor: p.valor,
+    forma_pagamento: p.formaPagamento,
+    meio_pagamento: p.meioPagamento,
+    dias: p.dias,
+    obs: p.obs,
+    pago: p.pago,
+    dados_tiny: p.dadosTiny,
+  }));
+
+  const insercao = await supabase.from("parcelas_venda").insert(linhas);
   if (insercao.error) throw insercao.error;
 }

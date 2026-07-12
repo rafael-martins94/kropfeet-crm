@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { PrimaryButton } from "../../components/PrimaryButton";
@@ -80,9 +81,9 @@ export default function CategoriasListPage() {
       key: "nome",
       header: "Nome",
       render: (c) => (
-        <Link to={`/categorias/${c.id}`} className="font-medium text-ink hover:text-brand-700">
+        <EntityLink to={`/categorias/${c.id}`} appearance="plain" className="font-medium">
           {c.nome}
-        </Link>
+        </EntityLink>
       ),
     },
     {

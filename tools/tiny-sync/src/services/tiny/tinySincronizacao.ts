@@ -17,6 +17,7 @@ import { upsertOrdemCompraTinyPorItem } from "../supabase/repositorios/ordensCom
 import { obterOuCriarClientePorPedido, upsertClienteCompletoPorContato } from "../supabase/repositorios/clientes.js";
 import {
   substituirItensVenda,
+  substituirParcelasVenda,
   upsertVendaPorTiny,
 } from "../supabase/repositorios/vendas.js";
 import {
@@ -734,6 +735,7 @@ async function persistirPedidoTiny(
     idEnderecoCliente,
   );
   await substituirItensVenda(supabase, idVenda, parsed.itens);
+  await substituirParcelasVenda(supabase, idVenda, parsed.parcelas);
 
   return resultado;
 }

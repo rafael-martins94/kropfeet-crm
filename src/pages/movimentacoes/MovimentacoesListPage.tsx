@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
+import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
@@ -35,15 +35,12 @@ export default function MovimentacoesListPage() {
       header: "Item",
       render: (m) =>
         m.item_estoque ? (
-          <Link
-            to={`/itens-estoque/${m.item_estoque.id}`}
-            className="font-medium text-ink hover:text-brand-700"
-          >
+          <EntityLink to={`/itens-estoque/${m.item_estoque.id}`} appearance="plain" className="font-medium">
             {m.item_estoque.nome_produto}
             <span className="ml-2 font-numeric tabular-nums text-xs text-ink-soft">
               SKU {m.item_estoque.sku}
             </span>
-          </Link>
+          </EntityLink>
         ) : (
           <span className="text-ink-faint">—</span>
         ),
@@ -74,12 +71,13 @@ export default function MovimentacoesListPage() {
       width: "120px",
       render: (m) =>
         m.venda ? (
-          <Link
+          <EntityLink
             to={`/vendas/${m.venda.id}`}
-            className="font-numeric tabular-nums text-xs text-brand-600 hover:text-brand-700"
+            appearance="plain"
+            className="font-numeric tabular-nums text-xs"
           >
             #{m.venda.id.slice(0, 8)}
-          </Link>
+          </EntityLink>
         ) : (
           <span className="text-ink-faint">—</span>
         ),

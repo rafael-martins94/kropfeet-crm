@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { EntityLink } from "../../components/EntityLink";
 import { ModeloImagensGaleria } from "../../components/item-estoque-form/ModeloImagensGaleria";
 import { HistoricoPrecoModal } from "../../components/itens-estoque/HistoricoPrecoModal";
 import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
@@ -7,7 +8,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { GhostButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import { IconActivity, IconEdit, IconEye } from "../../components/Icons";
+import { IconActivity, IconEdit } from "../../components/Icons";
 import { itensEstoqueService } from "../../services/itens-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { fornecedoresService } from "../../services/fornecedores";
@@ -192,26 +193,15 @@ export default function ItemEstoqueDetailPage() {
                 />
 
                 {modelo.data ? (
-                  <div className="flex flex-col gap-3 rounded-xl border border-line bg-brand-50/35 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
-                        Modelo vinculado
-                      </p>
-                      <p className="mt-1 truncate text-base font-semibold text-ink">
+                  <div className="rounded-xl border border-line bg-brand-50/35 p-4">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+                      Modelo vinculado
+                    </p>
+                    <div className="mt-1">
+                      <EntityLink to={`/modelos-produto/${modelo.data.id}`} truncate>
                         {modelo.data.nome_modelo}
-                      </p>
+                      </EntityLink>
                     </div>
-                    <Link
-                      to={`/modelos-produto/${modelo.data.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        "btn-secondary shrink-0 self-start sm:self-center",
-                      )}
-                    >
-                      <IconEye width={16} height={16} />
-                      Ver modelo
-                    </Link>
                   </div>
                 ) : (
                   <div className="rounded-xl border border-dashed border-line bg-surface-muted/30 px-4 py-3 text-sm text-ink-soft">
@@ -222,12 +212,9 @@ export default function ItemEstoqueDetailPage() {
                 <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <F label="Local de estoque">
                     {local.data ? (
-                      <Link
-                        to={`/locais-estoque/${local.data.id}`}
-                        className="text-brand-600 hover:text-brand-700"
-                      >
+                      <EntityLink to={`/locais-estoque/${local.data.id}`}>
                         {local.data.nome}
-                      </Link>
+                      </EntityLink>
                     ) : (
                       "—"
                     )}
@@ -238,16 +225,21 @@ export default function ItemEstoqueDetailPage() {
                       "—"}
                   </F>
                   <F label="Categoria (modelo)">
-                    {categoria.loading ? "…" : categoria.data?.nome ?? "—"}
+                    {categoria.loading
+                      ? "…"
+                      : categoria.data ? (
+                          <EntityLink to={`/categorias/${categoria.data.id}`}>
+                            {categoria.data.nome}
+                          </EntityLink>
+                        ) : (
+                          "—"
+                        )}
                   </F>
                   {!temOrdem && fornecedor.data ? (
                     <F label="Fornecedor">
-                      <Link
-                        to={`/fornecedores/${fornecedor.data.id}`}
-                        className="text-brand-600 hover:text-brand-700"
-                      >
+                      <EntityLink to={`/fornecedores/${fornecedor.data.id}`}>
                         {fornecedor.data.nome}
-                      </Link>
+                      </EntityLink>
                     </F>
                   ) : null}
                   <F label="ID Tiny" mono>
@@ -275,21 +267,15 @@ export default function ItemEstoqueDetailPage() {
               {temOrdem && ordem.data ? (
                 <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <F label="Pedido">
-                    <Link
-                      to={`/ordens-compra/${ordem.data.id}`}
-                      className="text-brand-600 hover:text-brand-700"
-                    >
+                    <EntityLink to={`/ordens-compra/${ordem.data.id}`}>
                       Ver ordem ({formatarData(ordem.data.data_compra)})
-                    </Link>
+                    </EntityLink>
                   </F>
                   <F label="Fornecedor">
                     {fornecedor.data ? (
-                      <Link
-                        to={`/fornecedores/${fornecedor.data.id}`}
-                        className="text-brand-600 hover:text-brand-700"
-                      >
+                      <EntityLink to={`/fornecedores/${fornecedor.data.id}`}>
                         {fornecedor.data.nome}
-                      </Link>
+                      </EntityLink>
                     ) : (
                       "—"
                     )}
@@ -319,24 +305,21 @@ export default function ItemEstoqueDetailPage() {
                 <>
                   <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <F label="Pedido">
-                      <Link
+                      <EntityLink
                         to={`/vendas/${vendaPrincipal.id}`}
-                        className="font-numeric tabular-nums text-brand-600 hover:text-brand-700"
+                        className="font-numeric tabular-nums"
                       >
                         {vendaPrincipal.numero ?? "Ver pedido"}
-                      </Link>
+                      </EntityLink>
                     </F>
                     <F label="Status">
                       <StatusBadge value={vendaPrincipal.status_venda} />
                     </F>
                     <F label="Cliente">
                       {vendaPrincipal.cliente ? (
-                        <Link
-                          to={`/clientes/${vendaPrincipal.cliente.id}`}
-                          className="text-brand-600 hover:text-brand-700"
-                        >
+                        <EntityLink to={`/clientes/${vendaPrincipal.cliente.id}`}>
                           {vendaPrincipal.cliente.nome}
-                        </Link>
+                        </EntityLink>
                       ) : (
                         (vendaPrincipal.nome_cliente ?? "—")
                       )}

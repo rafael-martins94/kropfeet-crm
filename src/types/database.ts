@@ -598,6 +598,54 @@ export type Database = {
         }
         Relationships: []
       }
+      parcelas_venda: {
+        Row: {
+          atualizado_em: string
+          criado_em: string
+          dados_tiny: Json | null
+          data_vencimento: string | null
+          dias: number | null
+          forma_pagamento: string | null
+          id: string
+          id_venda: string
+          meio_pagamento: string | null
+          numero: number
+          obs: string | null
+          pago: boolean
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          criado_em?: string
+          dados_tiny?: Json | null
+          data_vencimento?: string | null
+          dias?: number | null
+          forma_pagamento?: string | null
+          id?: string
+          id_venda: string
+          meio_pagamento?: string | null
+          numero: number
+          obs?: string | null
+          pago?: boolean
+          valor?: number
+        }
+        Update: {
+          atualizado_em?: string
+          criado_em?: string
+          dados_tiny?: Json | null
+          data_vencimento?: string | null
+          dias?: number | null
+          forma_pagamento?: string | null
+          id?: string
+          id_venda?: string
+          meio_pagamento?: string | null
+          numero?: number
+          obs?: string | null
+          pago?: boolean
+          valor?: number
+        }
+        Relationships: []
+      }
       locais_estoque: {
         Row: {
           ativo: boolean
@@ -788,7 +836,6 @@ export type Database = {
           id_tiny: string | null
           marcadores: Json | null
           marcadores_texto: string | null
-          meio_pagamento: string | null
           moeda_venda: string
           nome_cliente: string | null
           numero: string | null
@@ -822,7 +869,6 @@ export type Database = {
           id_endereco_cliente?: string | null
           id_tiny?: string | null
           marcadores?: Json | null
-          meio_pagamento?: string | null
           nome_cliente?: string | null
           numero?: string | null
           numero_ecommerce?: string | null
@@ -855,7 +901,6 @@ export type Database = {
           id_endereco_cliente?: string | null
           id_tiny?: string | null
           marcadores?: Json | null
-          meio_pagamento?: string | null
           nome_cliente?: string | null
           numero?: string | null
           numero_ecommerce?: string | null

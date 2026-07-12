@@ -55,23 +55,23 @@ export function MarcadoresEditor({ value, onChange }: MarcadoresEditorProps) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {value.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {value.map((m, i) => (
             <span
               key={m.id ?? `${m.descricao}-${i}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-subtle py-1 pl-2.5 pr-1 text-xs text-ink"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-subtle py-1 pl-2.5 pr-1 text-xs text-ink"
             >
               <span
                 className="h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: m.cor || "#808080" }}
               />
-              <span className="max-w-[12rem] truncate">{m.descricao ?? "—"}</span>
+              <span className="min-w-0 truncate">{m.descricao ?? "—"}</span>
               <button
                 type="button"
                 onClick={() => remover(i)}
-                className="flex h-4 w-4 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-red-100 hover:text-red-600"
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-red-100 hover:text-red-600"
                 aria-label={`Remover ${m.descricao ?? "marcador"}`}
               >
                 <IconX width={11} height={11} />
@@ -80,21 +80,21 @@ export function MarcadoresEditor({ value, onChange }: MarcadoresEditorProps) {
           ))}
         </div>
       ) : (
-        <p className="flex items-center gap-1.5 text-xs text-ink-faint">
-          <IconTag width={14} height={14} />
-          Nenhum marcador. Adicione tags para organizar o pedido.
+        <p className="flex items-start gap-1.5 text-xs text-ink-faint">
+          <IconTag width={14} height={14} className="mt-0.5 shrink-0" />
+          <span>Nenhuma tag ainda.</span>
         </p>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-1.5">
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-1.5">
           {CORES_PADRAO.map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setCor(c)}
               className={cn(
-                "h-5 w-5 rounded-full ring-2 ring-offset-1 ring-offset-surface transition-transform hover:scale-110",
+                "h-5 w-5 shrink-0 rounded-full ring-2 ring-offset-1 ring-offset-surface transition-transform hover:scale-110",
                 cor === c ? "ring-ink/40" : "ring-transparent",
               )}
               style={{ backgroundColor: c }}
@@ -102,22 +102,24 @@ export function MarcadoresEditor({ value, onChange }: MarcadoresEditorProps) {
             />
           ))}
         </div>
-        <div className="flex flex-1 items-center gap-2">
+
+        <div className="flex min-w-0 items-center gap-2">
           <input
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Novo marcador…"
-            className="input-base flex-1"
+            placeholder="Nova tag…"
+            className="input-base min-w-0 flex-1 px-2.5 py-1.5 text-sm"
           />
           <button
             type="button"
             onClick={adicionar}
             disabled={!texto.trim()}
-            className="btn-secondary shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-secondary shrink-0 px-2.5 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Adicionar tag"
+            title="Adicionar"
           >
             <IconPlus width={16} height={16} />
-            <span>Adicionar</span>
           </button>
         </div>
       </div>
