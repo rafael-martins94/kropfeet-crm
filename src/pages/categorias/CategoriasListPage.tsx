@@ -4,11 +4,11 @@ import { DataTable, type Column } from "../../components/DataTable";
 import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
-import { PrimaryButton } from "../../components/PrimaryButton";
+import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SearchInput } from "../../components/SearchInput";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
-import { IconEdit, IconEye, IconPlus, IconTrash } from "../../components/Icons";
+import { IconEdit, IconEye, IconPlus, IconSwap, IconTrash } from "../../components/Icons";
 import { categoriasService } from "../../services/categorias";
 import { useAsync } from "../../hooks/useAsync";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -141,12 +141,20 @@ export default function CategoriasListPage() {
         title="Categorias"
         breadcrumbs={[{ label: "Catálogo" }, { label: "Categorias" }]}
         actions={
-          <PrimaryButton
-            icon={<IconPlus width={16} height={16} />}
-            onClick={abrirNovo}
-          >
-            Nova categoria
-          </PrimaryButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <SecondaryButton
+              icon={<IconSwap width={16} height={16} />}
+              onClick={() => navigate("/categorias/ajustar")}
+            >
+              Ajustar categorias
+            </SecondaryButton>
+            <PrimaryButton
+              icon={<IconPlus width={16} height={16} />}
+              onClick={abrirNovo}
+            >
+              Nova categoria
+            </PrimaryButton>
+          </div>
         }
       />
 
