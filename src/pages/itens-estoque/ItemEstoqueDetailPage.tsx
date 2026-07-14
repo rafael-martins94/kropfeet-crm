@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { EntityLink } from "../../components/EntityLink";
 import { ModeloImagensGaleria } from "../../components/item-estoque-form/ModeloImagensGaleria";
+import { EtiquetaItemModal } from "../../components/itens-estoque/EtiquetaItemModal";
 import { HistoricoPrecoModal } from "../../components/itens-estoque/HistoricoPrecoModal";
 import { MovimentacoesStatusModal } from "../../components/itens-estoque/MovimentacoesStatusModal";
 import { PrecoVendaItem } from "../../components/itens-estoque/PrecoVendaItem";
@@ -9,7 +10,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { GhostButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import { IconActivity, IconArrows, IconEdit } from "../../components/Icons";
+import { IconActivity, IconArrows, IconEdit, IconPrinter } from "../../components/Icons";
 import { itensEstoqueService } from "../../services/itens-estoque";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { fornecedoresService } from "../../services/fornecedores";
@@ -36,6 +37,7 @@ export default function ItemEstoqueDetailPage() {
   const returnToLista = useListReturnTo("/itens-estoque");
   const [historicoPrecoAberto, setHistoricoPrecoAberto] = useState(false);
   const [movimentacoesAberto, setMovimentacoesAberto] = useState(false);
+  const [etiquetaAberta, setEtiquetaAberta] = useState(false);
 
   const item = useAsync(
     () => (id ? itensEstoqueService.obter(id) : Promise.resolve(null)),
@@ -136,6 +138,14 @@ export default function ItemEstoqueDetailPage() {
         actions={
           item.data ? (
             <div className="flex flex-wrap items-center gap-2">
+              <SecondaryButton
+                className="h-8 gap-1.5 px-2.5 py-1.5 text-xs"
+                icon={<IconPrinter width={14} height={14} />}
+                onClick={() => setEtiquetaAberta(true)}
+                disabled={!item.data.sku?.trim()}
+              >
+                Etiqueta
+              </SecondaryButton>
               <SecondaryButton
                 icon={<IconArrows width={16} height={16} />}
                 onClick={() => setMovimentacoesAberto(true)}
@@ -416,6 +426,11 @@ export default function ItemEstoqueDetailPage() {
             open={movimentacoesAberto}
             onClose={() => setMovimentacoesAberto(false)}
             idItemEstoque={item.data.id}
+            sku={item.data.sku}
+          />
+          <EtiquetaItemModal
+            open={etiquetaAberta}
+            onClose={() => setEtiquetaAberta(false)}
             sku={item.data.sku}
           />
         </div>

@@ -254,3 +254,10 @@ export const IconCalendar = (p: IconProps) => (
     <path d="M3 9h18M8 3v3M16 3v3" />
   </svg>
 );
+
+export const IconPrinter = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M7 3h10v4H7zM6 9h12a2 2 0 0 1 2 2v5h-3v4H7v-4H4v-5a2 2 0 0 1 2-2z" />
+    <path d="M9 14h6v5H9z" />
+  </svg>
+);
