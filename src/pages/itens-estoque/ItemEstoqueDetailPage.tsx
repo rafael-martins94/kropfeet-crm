@@ -139,18 +139,11 @@ export default function ItemEstoqueDetailPage() {
           item.data ? (
             <div className="flex flex-wrap items-center gap-2">
               <SecondaryButton
-                className="h-8 gap-1.5 px-2.5 py-1.5 text-xs"
-                icon={<IconPrinter width={14} height={14} />}
+                icon={<IconPrinter width={16} height={16} />}
                 onClick={() => setEtiquetaAberta(true)}
                 disabled={!item.data.sku?.trim()}
               >
                 Etiqueta
-              </SecondaryButton>
-              <SecondaryButton
-                icon={<IconArrows width={16} height={16} />}
-                onClick={() => setMovimentacoesAberto(true)}
-              >
-                Movimentações de status
               </SecondaryButton>
               <SecondaryButton
                 icon={<IconEdit width={16} height={16} />}
@@ -394,7 +387,18 @@ export default function ItemEstoqueDetailPage() {
               </p>
             </SectionCard>
 
-            <SectionCard title="Auditoria">
+            <SectionCard
+              title="Auditoria"
+              actions={
+                <GhostButton
+                  type="button"
+                  icon={<IconArrows width={16} height={16} />}
+                  onClick={() => setMovimentacoesAberto(true)}
+                >
+                  Movimentações de status
+                </GhostButton>
+              }
+            >
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <F label="Cadastro no Tiny">{formatarDataHora(item.data.data_cadastro_tiny)}</F>
                 <F label="Criado em">{formatarDataHora(item.data.criado_em)}</F>
