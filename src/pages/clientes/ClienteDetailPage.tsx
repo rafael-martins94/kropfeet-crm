@@ -16,6 +16,7 @@ import {
   labelNome,
 } from "../../utils/documento";
 import { formatarEnderecoLinha, formatarLocalidade } from "../../utils/endereco";
+import { lerMarcadores, TagsLista } from "../../components/vendas/MarcadoresEditor";
 
 function LinkAcao({
   href,
@@ -170,6 +171,10 @@ export default function ClienteDetailPage() {
               </dl>
             </SectionCard>
           </div>
+
+          <SectionCard title="Tags">
+            <TagsLista marcadores={lerMarcadores(data.marcadores)} />
+          </SectionCard>
 
           <SectionCard title="Endereços">
             {enderecos.loading ? (

@@ -25,11 +25,12 @@ function resolverEnderecoPrincipal(cliente: ClienteComEnderecosResumo) {
 }
 
 export const clientesService = {
-  listar: async (params?: PaginationParams & { pais?: string }) => {
+  listar: async (params?: PaginationParams & { pais?: string; marcador?: string }) => {
     const page = params?.page ?? 1;
     const pageSize = params?.pageSize ?? 20;
     const termo = params?.search?.trim();
     const pais = params?.pais?.trim();
+    const marcador = params?.marcador?.trim();
 
     let query = supabase
       .from("clientes")
@@ -48,6 +49,10 @@ export const clientesService = {
       query = query.or(
         `nome.ilike.${padrao},email.ilike.${padrao},telefone.ilike.${padrao},instagram.ilike.${padrao},pais.ilike.${padrao},cpf_cnpj.ilike.${padrao}`,
       );
+    }
+
+    if (marcador) {
+      query = query.ilike("marcadores_texto", `%${marcador.replace(/%/g, "")}%`);
     }
 
     query = query.order(params?.orderBy ?? "criado_em", {

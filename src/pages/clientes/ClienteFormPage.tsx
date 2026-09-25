@@ -5,10 +5,16 @@ import {
   enderecoDeRegistro,
   enderecoVazio,
 } from "../../components/clientes/EnderecosClienteEditor";
+import { TelefoneComDdi } from "../../components/clientes/TelefoneComDdi";
 import { FieldWrapper, FormInput, FormTextarea } from "../../components/FormField";
 import { PageHeader } from "../../components/PageHeader";
 import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
+import {
+  lerMarcadores,
+  MarcadoresEditor,
+  type Marcador,
+} from "../../components/vendas/MarcadoresEditor";
 import { SearchableSelectDropdown } from "../../components/SearchableSelectDropdown";
 import { clientesService } from "../../services/clientes";
 import {
@@ -16,6 +22,7 @@ import {
   type EnderecoClienteForm,
 } from "../../services/enderecos-cliente";
 import { limparParaBanco } from "../../utils/format";
+import { codigoPorNomePais } from "../../utils/paises";
 import {
   formatarCnpj,
   formatarCpf,
@@ -38,6 +45,7 @@ type FormState = {
   instagram: string;
   pais: string;
   observacoes: string;
+  marcadores: Marcador[];
 };
 
 const vazio: FormState = {
@@ -52,6 +60,7 @@ const vazio: FormState = {
   instagram: "",
   pais: "Brasil",
   observacoes: "",
+  marcadores: [],
 };
 
 export default function ClienteFormPage() {
@@ -83,6 +92,7 @@ export default function ClienteFormPage() {
           instagram: c.instagram ?? "",
           pais: c.pais ?? "Brasil",
           observacoes: c.observacoes ?? "",
+          marcadores: lerMarcadores(c.marcadores),
         });
         setEnderecos(
           listaEnderecos.length > 0
@@ -121,13 +131,17 @@ export default function ClienteFormPage() {
     setSalvando(true);
     setErro(null);
     try {
+      const { marcadores, ...campos } = form;
       const payload = limparParaBanco({
-        ...form,
+        ...campos,
         tipo_pessoa: form.tipo_pessoa === "" ? null : form.tipo_pessoa,
         fantasia: ehFisica ? null : form.fantasia,
         inscricao_estadual: ehFisica ? null : form.inscricao_estadual,
         rg: ehJuridica ? null : form.rg,
       }) as unknown as ClienteInsert;
+      payload.marcadores = (
+        marcadores.length > 0 ? marcadores : null
+      ) as ClienteInsert["marcadores"];
 
       if (id) {
         await clientesService.atualizar(id, payload);
@@ -246,12 +260,15 @@ export default function ClienteFormPage() {
                   value={form.email}
                   onChange={(e) => upd("email", e.target.value)}
                 />
-                <FormInput
-                  label="Telefone"
-                  value={form.telefone}
-                  onChange={(e) => upd("telefone", e.target.value)}
-                  placeholder="(00) 00000-0000"
-                />
+                <FieldWrapper id="cliente-telefone" label="Telefone">
+                  <TelefoneComDdi
+                    id="cliente-telefone"
+                    valor={form.telefone}
+                    onChange={(telefone) => upd("telefone", telefone)}
+                    codigoSugerido={codigoPorNomePais(form.pais) ?? "BR"}
+                    placeholder="00000-0000"
+                  />
+                </FieldWrapper>
                 <FormInput
                   label="Instagram"
                   value={form.instagram}
@@ -266,6 +283,13 @@ export default function ClienteFormPage() {
               </div>
             </SectionCard>
           </div>
+
+          <SectionCard title="Tags" description="Classifique o cliente. A lista de clientes pode ser filtrada por essas tags.">
+            <MarcadoresEditor
+              value={form.marcadores}
+              onChange={(marcadores) => upd("marcadores", marcadores)}
+            />
+          </SectionCard>
 
           <SectionCard
             title="Endereços"

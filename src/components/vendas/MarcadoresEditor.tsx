@@ -25,6 +25,48 @@ interface MarcadoresEditorProps {
   onChange: (value: Marcador[]) => void;
 }
 
+export function lerMarcadores(valor: unknown): Marcador[] {
+  if (!Array.isArray(valor)) return [];
+  return valor
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => ({
+      id: typeof item.id === "string" || typeof item.id === "number" ? String(item.id) : undefined,
+      descricao: typeof item.descricao === "string" ? item.descricao : undefined,
+      cor: typeof item.cor === "string" ? item.cor : undefined,
+    }))
+    .filter((item) => Boolean(item.descricao?.trim()));
+}
+
+export function TagsLista({
+  marcadores,
+  vazio = "Nenhuma tag.",
+}: {
+  marcadores: Marcador[];
+  vazio?: string;
+}) {
+  if (marcadores.length === 0) {
+    return <span className="text-sm text-ink-faint">{vazio}</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {marcadores.map((marcador, index) => (
+        <span
+          key={marcador.id ?? `${marcador.descricao}-${index}`}
+          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line bg-surface-subtle px-2.5 py-1 text-xs text-ink"
+          title={marcador.descricao}
+        >
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: marcador.cor || "#808080" }}
+          />
+          <span className="truncate">{marcador.descricao}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function MarcadoresEditor({ value, onChange }: MarcadoresEditorProps) {
   const [texto, setTexto] = useState("");
   const [cor, setCor] = useState(CORES_PADRAO[5]);

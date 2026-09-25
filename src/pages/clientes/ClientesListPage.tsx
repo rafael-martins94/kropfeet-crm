@@ -8,9 +8,9 @@ import { PrimaryButton } from "../../components/PrimaryButton";
 import { SearchInput } from "../../components/SearchInput";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
-import { StatusBadge } from "../../components/StatusBadge";
 import { StatusSelectDropdown } from "../../components/StatusSelectDropdown";
 import { IconEdit, IconEye, IconPlus } from "../../components/Icons";
+import { lerMarcadores, TagsLista } from "../../components/vendas/MarcadoresEditor";
 import { clientesService, type ClienteComEnderecos } from "../../services/clientes";
 import { useAsync } from "../../hooks/useAsync";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -27,7 +27,9 @@ export default function ClientesListPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [pais, setPais] = useState("");
+  const [tag, setTag] = useState("");
   const searchDebounced = useDebounce(search, 300);
+  const tagDebounced = useDebounce(tag, 300);
 
   const { data, loading, error } = useAsync(
     () =>
@@ -36,8 +38,9 @@ export default function ClientesListPage() {
         pageSize: 20,
         search: searchDebounced,
         pais,
+        marcador: tagDebounced,
       }),
-    [page, searchDebounced, pais],
+    [page, searchDebounced, pais, tagDebounced],
   );
 
   const columns: Column<ClienteComEnderecos>[] = [
@@ -71,6 +74,17 @@ export default function ClientesListPage() {
       ),
     },
     {
+      key: "tags",
+      header: "Tags",
+      render: (c) => <TagsLista marcadores={lerMarcadores(c.marcadores)} vazio="—" />,
+    },
+    {
+      key: "pais",
+      header: "País",
+      width: "120px",
+      render: (c) => <span className="text-sm text-ink-soft">{c.pais ?? "—"}</span>,
+    },
+    {
       key: "documento",
       header: "Documento",
       width: "170px",
@@ -87,19 +101,6 @@ export default function ClientesListPage() {
           </div>
         );
       },
-    },
-    {
-      key: "tipo",
-      header: "Tipo",
-      width: "130px",
-      render: (c) =>
-        c.tipo_pessoa ? <StatusBadge value={c.tipo_pessoa} /> : <span className="text-ink-faint">—</span>,
-    },
-    {
-      key: "pais",
-      header: "País",
-      width: "120px",
-      render: (c) => <span className="text-sm text-ink-soft">{c.pais ?? "—"}</span>,
     },
     {
       key: "acoes",
@@ -154,6 +155,15 @@ export default function ClientesListPage() {
                   }}
                   className="w-full sm:w-48"
                 />
+                <input
+                  value={tag}
+                  onChange={(e) => {
+                    setTag(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Tag…"
+                  className="input-base w-full sm:w-36"
+                />
               </div>
               <div className="text-xs text-ink-soft">
                 {data ? `${data.total.toLocaleString("pt-BR")} clientes` : ""}
@@ -169,8 +179,12 @@ export default function ClientesListPage() {
                 rows={data?.data ?? []}
                 rowKey={(c) => c.id}
                 loading={loading}
-                emptyTitle="Nenhum cliente cadastrado"
-                emptyDescription="Cadastre seu primeiro cliente para começar."
+                emptyTitle={tagDebounced ? "Nenhum cliente com essa tag" : "Nenhum cliente cadastrado"}
+                emptyDescription={
+                  tagDebounced
+                    ? `Não há clientes com a tag “${tagDebounced}”.`
+                    : "Cadastre seu primeiro cliente para começar."
+                }
                 emptyAction={
                   <PrimaryButton onClick={() => navigate("/clientes/novo")}>
                     Cadastrar cliente
