@@ -440,6 +440,8 @@ export const itensEstoqueService = {
       idCategoria?: FiltroCategoriaItem | FiltroCategoriaItem[];
       /** UUID do local, `FILTRO_LOCAL_SEM`, vazio ou lista (sem filtro). */
       idLocalEstoque?: FiltroLocalItem | FiltroLocalItem[];
+      /** Restringe aos pares deste modelo. */
+      idModeloProduto?: string;
       /** BR/EU, aplicado a partir do país cadastrado no local de estoque relacionado. */
       regiaoEstoque?: RegiaoEstoqueFiltro;
       ordenacao?: { coluna: ColunaOrdemItemEstoque; ascendente: boolean };
@@ -460,6 +462,7 @@ export const itensEstoqueService = {
 
     const filtroCatLista = normalizarFiltroLista(params?.idCategoria);
     const filtroLocalLista = normalizarFiltroLista(params?.idLocalEstoque);
+    const idModeloProduto = params?.idModeloProduto?.trim() || "";
     const filtroStatusLista = normalizarFiltroLista(params?.status);
     const filtroRegiao = params?.regiaoEstoque ?? "";
     const filtroNumeracao = params?.numeracao?.trim();
@@ -500,6 +503,10 @@ export const itensEstoqueService = {
       let query = supabase
         .from("itens_estoque")
         .select(relacoes, { count: "exact" });
+
+      if (idModeloProduto) {
+        query = query.eq("id_modelo_produto", idModeloProduto);
+      }
 
       if (filtroStatusLista.length === 1) {
         query = query.eq("status_item", filtroStatusLista[0]);
