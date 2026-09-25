@@ -34,6 +34,20 @@ export function snapshotDoItem(item: VitrineItemDetalhado): VitrineItemSnapshot 
   return item.snapshot ?? null;
 }
 
+/** Texto que o PDF imprime. Não é o nome do tênis no estoque. */
+export function nomeNoPdf(item: VitrineItemDetalhado): string {
+  const snapshot = snapshotDoItem(item);
+  return (
+    item.nome_exibicao?.trim() ||
+    snapshot?.nome_exibicao?.trim() ||
+    snapshot?.nome_modelo ||
+    item.item?.modelo?.nome_modelo ||
+    item.item?.nome_produto ||
+    snapshot?.nome_produto ||
+    "—"
+  );
+}
+
 export function nomeItemVitrine(item: VitrineItemDetalhado): string {
   const snapshot = snapshotDoItem(item);
   return (

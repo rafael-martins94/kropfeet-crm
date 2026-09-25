@@ -4,6 +4,7 @@ import { PrimaryButton, SecondaryButton } from "../PrimaryButton";
 import { SearchInput } from "../SearchInput";
 import { FotoThumbnailHover } from "../FotoThumbnailHover";
 import { useAuth } from "../../contexts/AuthContext";
+import { locaisEstoqueService } from "../../services/locais-estoque";
 import { vitrinesService } from "../../services/vitrines";
 import { mensagemErro } from "../../utils/errors";
 import { formatarNumeracoes } from "./VitrineShared";
@@ -14,14 +15,21 @@ type SubstituirCaixaModalProps = {
   open: boolean;
   idVitrineItem: string;
   numeroCaixa: number | null;
+  /** Caixa ainda ocupada: o par atual sai para um local e a troca vira uma versão. */
+  caixaOcupada?: boolean;
   onClose: () => void;
   onSubstituido: () => void;
 };
+
+function localNaoEhVitrine(local: { codigo: string; nome: string }) {
+  return local.codigo.trim().toLowerCase() !== "vitrine" && local.nome.trim().toLowerCase() !== "vitrine";
+}
 
 export function SubstituirCaixaModal({
   open,
   idVitrineItem,
   numeroCaixa,
+  caixaOcupada = false,
   onClose,
   onSubstituido,
 }: SubstituirCaixaModalProps) {
@@ -30,6 +38,8 @@ export function SubstituirCaixaModal({
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [localDestino, setLocalDestino] = useState("");
+  const [locais, setLocais] = useState<Array<{ id: string; nome: string }>>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -37,8 +47,30 @@ export function SubstituirCaixaModal({
     if (!open) return;
     setBusca("");
     setSelecionado(null);
+    setLocalDestino("");
     setErro(null);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !caixaOcupada) return;
+    let cancelado = false;
+    locaisEstoqueService
+      .listarTodos()
+      .then((lista) => {
+        if (cancelado) return;
+        setLocais(
+          lista
+            .filter((local) => local.ativo && localNaoEhVitrine(local))
+            .map((local) => ({ id: local.id, nome: local.nome })),
+        );
+      })
+      .catch((error) => {
+        if (!cancelado) setErro(mensagemErro(error));
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [open, caixaOcupada]);
 
   useEffect(() => {
     if (!open) return;
@@ -63,10 +95,16 @@ export function SubstituirCaixaModal({
 
   const confirmar = async () => {
     if (!selecionado) return;
+    if (caixaOcupada && !localDestino) return;
     setSalvando(true);
     setErro(null);
     try {
-      await vitrinesService.substituirCaixa(idVitrineItem, selecionado, user?.id);
+      await vitrinesService.substituirCaixa(
+        idVitrineItem,
+        selecionado,
+        user?.id,
+        caixaOcupada ? localDestino : undefined,
+      );
       onSubstituido();
       onClose();
     } catch (error) {
@@ -81,20 +119,53 @@ export function SubstituirCaixaModal({
       open={open}
       onClose={onClose}
       size="lg"
-      title={numeroCaixa ? `Substituir Caixa ${numeroCaixa}` : "Substituir caixa"}
-      description="Escolha um par em estoque na Europa para preencher a caixa vazia."
+      title={
+        numeroCaixa
+          ? caixaOcupada
+            ? `Trocar par da Caixa ${numeroCaixa}`
+            : `Substituir Caixa ${numeroCaixa}`
+          : caixaOcupada
+            ? "Trocar par"
+            : "Substituir caixa"
+      }
+      description={
+        caixaOcupada
+          ? "O par atual sai da vitrine para o local escolhido e entra outro no lugar. A vitrine atual ganha uma nova versão."
+          : "Escolha um par em estoque na Europa para preencher a caixa vazia."
+      }
       footer={
         <div className="flex justify-end gap-2">
           <SecondaryButton onClick={onClose} disabled={salvando}>
             Cancelar
           </SecondaryButton>
-          <PrimaryButton onClick={confirmar} loading={salvando} disabled={!selecionado}>
-            Confirmar substituição
+          <PrimaryButton
+            onClick={confirmar}
+            loading={salvando}
+            disabled={!selecionado || (caixaOcupada && !localDestino)}
+          >
+            {caixaOcupada ? "Confirmar troca" : "Confirmar substituição"}
           </PrimaryButton>
         </div>
       }
     >
       <div className="space-y-3">
+        {caixaOcupada ? (
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-ink">Destino do par que sai</span>
+            <select
+              className="input-base w-full"
+              value={localDestino}
+              onChange={(event) => setLocalDestino(event.target.value)}
+            >
+              <option value="">Selecione o local</option>
+              {locais.map((local) => (
+                <option key={local.id} value={local.id}>
+                  {local.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <SearchInput
           value={busca}
           onChange={(event) => setBusca(event.target.value)}

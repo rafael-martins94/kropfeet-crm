@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { DataTable, type Column } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
-import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
+import { DangerButton, PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { IconEye, IconPlus } from "../../components/Icons";
@@ -17,6 +17,7 @@ export default function VitrinesHubPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [criando, setCriando] = useState(false);
+  const [apagando, setApagando] = useState(false);
   const atual = useAsync(() => vitrinesService.obterAtualComItens(), []);
   const rascunho = useAsync(() => vitrinesService.obterRascunho(), []);
   const historico = useAsync(
@@ -34,6 +35,20 @@ export default function VitrinesHubPage() {
       alert(mensagemErro(error));
     } finally {
       setCriando(false);
+    }
+  };
+
+  const apagarRascunho = async () => {
+    if (!rascunho.data) return;
+    if (!window.confirm(`Apagar o rascunho "${rascunho.data.titulo}"? Essa ação não pode ser desfeita.`)) return;
+    setApagando(true);
+    try {
+      await vitrinesService.excluirRascunho(rascunho.data.id);
+      rascunho.reload();
+    } catch (error) {
+      alert(mensagemErro(error));
+    } finally {
+      setApagando(false);
     }
   };
 
@@ -161,6 +176,9 @@ export default function VitrinesHubPage() {
               <PrimaryButton className="w-full" onClick={() => navigate(`/vitrines/${rascunho.data!.id}/editar`)}>
                 Continuar rascunho
               </PrimaryButton>
+              <DangerButton className="w-full" loading={apagando} onClick={() => void apagarRascunho()}>
+                Apagar rascunho
+              </DangerButton>
             </div>
           ) : (
             <div className="space-y-3">

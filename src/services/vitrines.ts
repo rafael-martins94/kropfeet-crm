@@ -218,6 +218,17 @@ export const vitrinesService = {
     return data;
   },
 
+  excluirRascunho: async (id: string): Promise<void> => {
+    const { data, error } = await supabase
+      .from("vitrines")
+      .delete()
+      .eq("id", id)
+      .eq("status", "rascunho")
+      .select("id");
+    if (error) throw error;
+    if (!data?.length) throw new Error("Só é possível apagar um rascunho.");
+  },
+
   obter: async (id: string): Promise<Vitrine | null> => {
     const { data, error } = await supabase.from("vitrines").select("*").eq("id", id).maybeSingle();
     if (error) throw error;
@@ -651,15 +662,25 @@ export const vitrinesService = {
     }));
   },
 
+  atualizarNomePdf: async (idVitrineItem: string, nome: string): Promise<void> => {
+    const { error } = await supabase.rpc("vitrine_atualizar_nome_exibicao", {
+      p_id_vitrine_item: idVitrineItem,
+      p_nome: nome,
+    });
+    if (error) throw error;
+  },
+
   substituirCaixa: async (
     idVitrineItem: string,
     idItemNovo: string,
     idUsuario?: string,
+    idLocalDestino?: string,
   ): Promise<void> => {
     const { error } = await supabase.rpc("substituir_caixa_vitrine", {
       p_id_vitrine_item: idVitrineItem,
       p_id_item_novo: idItemNovo,
       ...(idUsuario ? { p_id_usuario: idUsuario } : {}),
+      ...(idLocalDestino ? { p_id_local_destino: idLocalDestino } : {}),
     });
     if (error) throw error;
   },

@@ -7,7 +7,7 @@ import type {
 import { formatarData, formatarMoeda } from "../../utils/format";
 import { resolverSrcImagemPdf } from "../../utils/pdfImagens";
 import { deduplicarCorrespondenciasPorNumeracao } from "../../utils/vitrineCorrespondencias";
-import { formatarNumeracoes, fotoItemVitrinePdf, snapshotDoItem } from "./VitrineShared";
+import { formatarNumeracoes, fotoItemVitrinePdf, nomeNoPdf, snapshotDoItem } from "./VitrineShared";
 
 const BRAND = "#0B3F5C";
 const BRAND_LIGHT = "#E8F2F7";
@@ -255,18 +255,6 @@ const styles = StyleSheet.create({
   },
 });
 
-function nomeExibicaoPdf(item: VitrineItemDetalhado): string {
-  const snapshot = snapshotDoItem(item);
-  return (
-    item.nome_exibicao?.trim() ||
-    snapshot?.nome_exibicao?.trim() ||
-    snapshot?.nome_modelo ||
-    item.item?.modelo?.nome_modelo ||
-    item.item?.nome_produto ||
-    "—"
-  );
-}
-
 function skuPdf(item: VitrineItemDetalhado): string {
   const snapshot = snapshotDoItem(item);
   return snapshot?.sku ?? item.item?.sku ?? "—";
@@ -395,7 +383,7 @@ function VitrinePdfItem({
             </View>
             <Text style={styles.precoPrincipal}>{precoPdf(item, snapshot)}</Text>
           </View>
-          <Text style={styles.nomeExibicao}>{nomeExibicaoPdf(item)}</Text>
+          <Text style={styles.nomeExibicao}>{nomeNoPdf(item)}</Text>
           <NumeracaoChips item={{ item: item.item, snapshot }} />
           {item.estado_caixa === "vendida" ? (
             <Text style={styles.unicoBadge}>Caixa vazia — substituir na vitrine atual</Text>
@@ -410,10 +398,12 @@ function VitrinePdfItem({
   );
 }
 
-function PageFooter({ titulo }: { titulo: string }) {
+function PageFooter({ titulo, versao }: { titulo: string; versao: number }) {
   return (
     <View style={styles.footer} fixed>
-      <Text style={styles.footerText}>KropFeet · {titulo}</Text>
+      <Text style={styles.footerText}>
+        KropFeet · {titulo} · Versão {versao}
+      </Text>
       <Text
         style={styles.footerText}
         render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`}
@@ -433,14 +423,17 @@ export function VitrinePdfDocument({
 }) {
   const itens = [...vitrine.itens].sort((a, b) => (a.numero_caixa ?? 999) - (b.numero_caixa ?? 999));
   const dataPublicacao = formatarData(vitrine.publicado_em ?? vitrine.criado_em);
+  const versao = vitrine.versao_atual ?? 1;
 
   return (
-    <Document title={vitrine.titulo}>
+    <Document title={`${vitrine.titulo} — Versão ${versao}`}>
       <Page size="A4" style={styles.page}>
         <View style={styles.pageHeader} fixed>
           <View style={styles.pageHeaderLeft}>
             <Text style={styles.pageTitle}>{vitrine.titulo}</Text>
-            <Text style={styles.pageMeta}>Publicada em {dataPublicacao}</Text>
+            <Text style={styles.pageMeta}>
+              Publicada em {dataPublicacao} · Versão {versao}
+            </Text>
           </View>
           <View style={styles.pageHeaderRight}>
             <Text style={styles.pageStat}>{itens.length} caixas</Text>
@@ -451,7 +444,7 @@ export function VitrinePdfDocument({
           <VitrinePdfItem key={item.id} item={item} thumbs={thumbs} imageDataUrls={imageDataUrls} />
         ))}
 
-        <PageFooter titulo={vitrine.titulo} />
+        <PageFooter titulo={vitrine.titulo} versao={versao} />
       </Page>
     </Document>
   );

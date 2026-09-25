@@ -27,6 +27,7 @@ import { SearchInput } from "../../components/SearchInput";
 import { SearchableSelectDropdown } from "../../components/SearchableSelectDropdown";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
+import { MAPA_CAIXAS } from "../../components/vitrines/mapaCaixas";
 import { VitrinePdfDocument } from "../../components/vitrines/VitrinePdfDocument";
 import {
   CaixaResumoCard,
@@ -70,31 +71,6 @@ const ETAPAS: Array<{ id: EtapaVitrine; label: string }> = [
   { id: "correspondencias", label: "Correspondências" },
   { id: "destino_anterior", label: "Vitrine Anterior" },
   { id: "revisao", label: "Revisão" },
-];
-
-const MAPA_CAIXAS: Array<{ numero: number; left: number; top: number }> = [
-  { numero: 12, left: 5, top: 22 },
-  { numero: 13, left: 14, top: 11 },
-  { numero: 14, left: 23, top: 25 },
-  { numero: 15, left: 32, top: 5 },
-  { numero: 16, left: 41, top: 22 },
-  { numero: 17, left: 50, top: 10 },
-  { numero: 18, left: 59, top: 28 },
-  { numero: 19, left: 68, top: 12 },
-  { numero: 20, left: 77, top: 26 },
-  { numero: 21, left: 86, top: 20 },
-  { numero: 22, left: 95, top: 6 },
-  { numero: 1, left: 5, top: 70 },
-  { numero: 2, left: 14, top: 52 },
-  { numero: 3, left: 23, top: 68 },
-  { numero: 4, left: 32, top: 58 },
-  { numero: 5, left: 41, top: 72 },
-  { numero: 6, left: 50, top: 59 },
-  { numero: 7, left: 59, top: 80 },
-  { numero: 8, left: 68, top: 58 },
-  { numero: 9, left: 77, top: 71 },
-  { numero: 10, left: 86, top: 59 },
-  { numero: 11, left: 95, top: 50 },
 ];
 
 export default function VitrineWizardPage() {

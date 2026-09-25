@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
 import { SectionCard } from "../../components/SectionCard";
-import { PrimaryButton } from "../../components/PrimaryButton";
+import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
+import { NomePdfVitrineField } from "../../components/vitrines/NomePdfVitrineField";
 import { LinkPdfVitrine, CaixaResumoCard, VitrineMeta } from "../../components/vitrines/VitrineShared";
 import { SubstituirCaixaModal } from "../../components/vitrines/SubstituirCaixaModal";
 import { VitrineTituloEditavel } from "../../components/vitrines/VitrineTituloEditavel";
@@ -18,6 +19,7 @@ const MOTIVO_LABEL: Record<string, string> = {
   venda: "Venda",
   substituicao: "Substituição",
   cancelamento: "Cancelamento",
+  edicao_nome: "Nome no PDF",
 };
 
 export default function VitrineAtualPage() {
@@ -66,7 +68,7 @@ export default function VitrineAtualPage() {
             "Vitrine atual"
           )
         }
-        description="Itens ordenados da Caixa 1 até a Caixa 22."
+        description="Trocar par ou editar o nome no PDF gera uma versão desta vitrine. O nome do tênis no estoque não muda."
       >
         {vitrine.loading ? (
           <p className="text-sm text-ink-soft">Carregando…</p>
@@ -101,6 +103,13 @@ export default function VitrineAtualPage() {
                     id={`caixa-${item.numero_caixa}`}
                   >
                     <CaixaResumoCard item={item} numeroCaixa={item.numero_caixa} />
+                    <NomePdfVitrineField
+                      item={item}
+                      onSalvo={() => {
+                        vitrine.reload();
+                        versoes.reload();
+                      }}
+                    />
                     <div className="mt-3 border-t border-line pt-3 text-xs text-ink-muted">
                       {vendida ? (
                         <div className="space-y-2">
@@ -122,12 +131,19 @@ export default function VitrineAtualPage() {
                             Substituir par
                           </PrimaryButton>
                         </div>
-                      ) : item.snapshot?.item_unico ? (
-                        <span className="font-semibold text-amber-800">Único</span>
                       ) : (
-                        <span>
-                          {item.snapshot?.correspondencias?.length ?? 0} correspondência(s) disponíveis
-                        </span>
+                        <div className="space-y-2">
+                          {item.snapshot?.item_unico ? (
+                            <span className="font-semibold text-amber-800">Único</span>
+                          ) : (
+                            <span>
+                              {item.snapshot?.correspondencias?.length ?? 0} correspondência(s) disponíveis
+                            </span>
+                          )}
+                          <SecondaryButton className="w-full" onClick={() => setSubstituirId(item.id)}>
+                            Trocar par
+                          </SecondaryButton>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -143,7 +159,7 @@ export default function VitrineAtualPage() {
         <SectionCard
           className="mt-5"
           title="Histórico de versões"
-          description="Cada venda, substituição ou cancelamento gera uma nova versão da mesma vitrine."
+          description="Cada venda, troca, cancelamento ou alteração do nome no PDF gera uma nova versão da mesma vitrine."
         >
           {versoes.loading ? (
             <p className="text-sm text-ink-soft">Carregando…</p>
@@ -172,6 +188,7 @@ export default function VitrineAtualPage() {
         open={Boolean(substituirId)}
         idVitrineItem={substituirId ?? ""}
         numeroCaixa={itemSubstituir?.numero_caixa ?? null}
+        caixaOcupada={itemSubstituir?.estado_caixa === "ocupada"}
         onClose={() => setSubstituirId(null)}
         onSubstituido={() => {
           vitrine.reload();
