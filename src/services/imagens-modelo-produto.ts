@@ -99,32 +99,34 @@ export const imagensModeloProdutoService = {
     }
   },
 
+  reordenar: async (ordens: { id: string; ordem: number }[]): Promise<void> => {
+    await Promise.all(
+      ordens.map(async ({ id, ordem }) => {
+        const { error } = await supabase
+          .from("imagens_modelo_produto")
+          .update({ ordem_exibicao: ordem })
+          .eq("id", id);
+        if (error) throw error;
+      }),
+    );
+  },
+
   sincronizarPendentes: async (
     idModelo: string,
-    arquivos: File[],
-    indicePrincipal: number,
+    itens: { file: File; ordem: number; principal: boolean }[],
   ): Promise<void> => {
-    let ordem = 0;
+    let idPrincipal: string | null = null;
 
-    for (let i = 0; i < arquivos.length; i += 1) {
-      const file = arquivos[i];
-      if (!file) continue;
-      await imagensModeloProdutoService.uploadArquivo(idModelo, file, {
-        ordem,
-        imagemPrincipal: i === indicePrincipal,
+    for (const item of itens) {
+      const criada = await imagensModeloProdutoService.uploadArquivo(idModelo, item.file, {
+        ordem: item.ordem,
+        imagemPrincipal: false,
       });
-      ordem += 1;
+      if (item.principal) idPrincipal = criada.id;
     }
 
-    if (arquivos.length > 0 && indicePrincipal >= 0) {
-      const { data: imgs } = await supabase
-        .from("imagens_modelo_produto")
-        .select("id")
-        .eq("id_modelo_produto", idModelo)
-        .order("ordem_exibicao", { ascending: true });
-
-      const alvo = imgs?.[indicePrincipal]?.id ?? imgs?.[0]?.id;
-      if (alvo) await imagensModeloProdutoService.definirPrincipal(idModelo, alvo);
+    if (idPrincipal) {
+      await imagensModeloProdutoService.definirPrincipal(idModelo, idPrincipal);
     }
   },
 };

@@ -100,8 +100,9 @@ export const modelosProdutoService = {
       .from("imagens_modelo_produto")
       .select("*")
       .eq("id_modelo_produto", idModelo)
+      .order("ordem_exibicao", { ascending: true })
       .order("imagem_principal", { ascending: false })
-      .order("ordem_exibicao", { ascending: true });
+      .order("criado_em", { ascending: true });
     if (error) throw error;
     return data ?? [];
   },
@@ -125,16 +126,8 @@ export const modelosProdutoService = {
     return map;
   },
 
-  /** URLs principais apenas dos modelos informados (catálogo público). */
+  /** URL da capa (foto principal) apenas dos modelos informados. */
   listarUrlsPorModelos: async (idsModelo: string[]): Promise<Record<string, string>> => {
-    const galeria = await modelosProdutoService.listarGaleriaUrlsPorModelos(idsModelo);
-    return Object.fromEntries(
-      Object.entries(galeria).map(([id, urls]) => [id, urls[0] ?? ""]).filter(([, url]) => url),
-    );
-  },
-
-  /** Todas as URLs de exibição por modelo, em ordem (principal primeiro). */
-  listarGaleriaUrlsPorModelos: async (idsModelo: string[]): Promise<Record<string, string[]>> => {
     const ids = [...new Set(idsModelo)].filter(Boolean);
     if (ids.length === 0) return {};
 
@@ -144,6 +137,30 @@ export const modelosProdutoService = {
       .in("id_modelo_produto", ids)
       .order("imagem_principal", { ascending: false })
       .order("ordem_exibicao", { ascending: true });
+
+    if (error) throw error;
+
+    const map: Record<string, string> = {};
+    for (const img of data ?? []) {
+      if (map[img.id_modelo_produto]) continue;
+      const url = urlImagemModelo(img);
+      if (url) map[img.id_modelo_produto] = url;
+    }
+    return map;
+  },
+
+  /** Todas as URLs de exibição por modelo, na ordem escolhida. */
+  listarGaleriaUrlsPorModelos: async (idsModelo: string[]): Promise<Record<string, string[]>> => {
+    const ids = [...new Set(idsModelo)].filter(Boolean);
+    if (ids.length === 0) return {};
+
+    const { data, error } = await supabase
+      .from("imagens_modelo_produto")
+      .select("id_modelo_produto, url_origem, caminho_arquivo, imagem_principal, ordem_exibicao")
+      .in("id_modelo_produto", ids)
+      .order("ordem_exibicao", { ascending: true })
+      .order("imagem_principal", { ascending: false })
+      .order("criado_em", { ascending: true });
 
     if (error) throw error;
 

@@ -44,10 +44,16 @@ async function sincronizarImagens(
   pendentes: ImagemPendente[],
   indicePrincipal: number,
 ) {
-  const arquivos = pendentes.map((p) => p.file);
-  if (arquivos.length === 0) return;
+  if (pendentes.length === 0) return;
 
-  await imagensModeloProdutoService.sincronizarPendentes(idModelo, arquivos, indicePrincipal);
+  await imagensModeloProdutoService.sincronizarPendentes(
+    idModelo,
+    pendentes.map((p, i) => ({
+      file: p.file,
+      ordem: p.ordemExibicao ?? i,
+      principal: indicePrincipal >= 0 && i === indicePrincipal,
+    })),
+  );
   limparImagensPendentes(pendentes);
 }
 
@@ -67,7 +73,7 @@ export default function ModeloFormPage() {
     descricao: "",
   });
   const [imagensPendentes, setImagensPendentes] = useState<ImagemPendente[]>([]);
-  const [indicePrincipalPendente, setIndicePrincipalPendente] = useState(0);
+  const [indicePrincipalPendente, setIndicePrincipalPendente] = useState(edicao ? -1 : 0);
   const [loadingInicial, setLoadingInicial] = useState(edicao);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -154,7 +160,9 @@ export default function ModeloFormPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="space-y-6">
       <PageHeader
         title={edicao ? "Editar modelo" : "Novo modelo de produto"}
         breadcrumbs={[
@@ -170,7 +178,7 @@ export default function ModeloFormPage() {
           <div className="text-sm text-ink-soft">Carregando…</div>
         </SectionCard>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="modelo-form" onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-5">
             <div className="space-y-6 lg:col-span-3">
               <SectionCard title="Identificação">
@@ -262,16 +270,21 @@ export default function ModeloFormPage() {
             </div>
           ) : null}
 
-          <div className="flex items-center justify-end gap-2 border-t border-line pt-4">
-            <SecondaryButton type="button" onClick={() => navigate(returnToLista)}>
-              Cancelar
-            </SecondaryButton>
-            <PrimaryButton type="submit" loading={salvando}>
-              {edicao ? "Salvar alterações" : "Criar modelo"}
-            </PrimaryButton>
-          </div>
         </form>
       )}
+      </div>
+      </div>
+
+      {!loadingInicial ? (
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-surface-muted pt-4">
+          <SecondaryButton type="button" onClick={() => navigate(returnToLista)}>
+            Cancelar
+          </SecondaryButton>
+          <PrimaryButton type="submit" form="modelo-form" loading={salvando}>
+            {edicao ? "Salvar alterações" : "Criar modelo"}
+          </PrimaryButton>
+        </div>
+      ) : null}
 
       <NomeRapidoModal
         open={modalMarca}

@@ -111,8 +111,11 @@ export function ModeloRapidoModal({
       if (imagensPendentes.length > 0) {
         await imagensModeloProdutoService.sincronizarPendentes(
           criado.id,
-          imagensPendentes.map((p) => p.file),
-          indicePrincipal,
+          imagensPendentes.map((p, i) => ({
+            file: p.file,
+            ordem: p.ordemExibicao ?? i,
+            principal: indicePrincipal >= 0 && i === indicePrincipal,
+          })),
         );
       }
 
