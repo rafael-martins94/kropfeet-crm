@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DataTable, type Column } from "../../components/DataTable";
+import { DateRangePicker, paraIsoData } from "../../components/DateRangePicker";
 import { EntityLink } from "../../components/EntityLink";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
@@ -10,11 +11,32 @@ import { movimentacoesService, type MovimentacaoDetalhada } from "../../services
 import { useAsync } from "../../hooks/useAsync";
 import { formatarDataHora } from "../../utils/format";
 
+function isoLocal(data: Date): string {
+  return paraIsoData(data.getFullYear(), data.getMonth(), data.getDate());
+}
+
+/** Janela inclusiva dos últimos 30 dias, no calendário local. */
+function periodoUltimos30Dias(): { de: string; ate: string } {
+  const fim = new Date();
+  const inicio = new Date();
+  inicio.setDate(inicio.getDate() - 29);
+  return { de: isoLocal(inicio), ate: isoLocal(fim) };
+}
+
 export default function MovimentacoesListPage() {
+  const padrao = periodoUltimos30Dias();
   const [page, setPage] = useState(1);
+  const [dataDe, setDataDe] = useState(padrao.de);
+  const [dataAte, setDataAte] = useState(padrao.ate);
   const { data, loading, error } = useAsync(
-    () => movimentacoesService.listarComRelacoes({ page, pageSize: 25 }),
-    [page],
+    () =>
+      movimentacoesService.listarComRelacoes({
+        page,
+        pageSize: 25,
+        dataDe,
+        dataAte,
+      }),
+    [page, dataDe, dataAte],
   );
 
   const columns: Column<MovimentacaoDetalhada>[] = [
@@ -76,7 +98,7 @@ export default function MovimentacoesListPage() {
             appearance="plain"
             className="font-numeric tabular-nums text-xs"
           >
-            #{m.venda.id.slice(0, 8)}
+            {m.venda.numero ? `#${m.venda.numero}` : "Pedido"}
           </EntityLink>
         ) : (
           <span className="text-ink-faint">—</span>
@@ -97,6 +119,26 @@ export default function MovimentacoesListPage() {
         bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <ScrollableListShell
+          toolbar={
+            <div className="flex items-center gap-2 border-b border-line px-5 py-3">
+              <DateRangePicker
+                value={{ de: dataDe, ate: dataAte }}
+                onChange={({ de, ate }) => {
+                  if (!de && !ate) {
+                    const novamente = periodoUltimos30Dias();
+                    setDataDe(novamente.de);
+                    setDataAte(novamente.ate);
+                  } else {
+                    setDataDe(de ?? dataDe);
+                    setDataAte(ate ?? de ?? dataAte);
+                  }
+                  setPage(1);
+                }}
+                placeholder="Período"
+                className="w-72 max-w-full shrink-0"
+              />
+            </div>
+          }
           body={
             error ? (
               <div className="p-5 text-sm text-red-700">Erro: {error.message}</div>
@@ -106,8 +148,8 @@ export default function MovimentacoesListPage() {
                 rows={data?.data ?? []}
                 rowKey={(m) => m.id}
                 loading={loading}
-                emptyTitle="Nenhuma movimentação"
-                emptyDescription="As movimentações aparecerão aqui conforme o estoque for sendo operado."
+                emptyTitle="Nenhuma movimentação no período"
+                emptyDescription="Não há movimentos entre as datas selecionadas. Ajuste o início e o término no calendário."
               />
             )
           }
