@@ -42,6 +42,51 @@ export type Database = {
         }
         Relationships: []
       }
+      carrinhos_galeria: {
+        Row: {
+          busca: string
+          criado_em: string
+          id: string
+          id_cliente: string
+          id_venda: string | null
+          itens: Json
+          observacao: string | null
+        }
+        Insert: {
+          busca?: string
+          criado_em?: string
+          id?: string
+          id_cliente: string
+          id_venda?: string | null
+          itens?: Json
+          observacao?: string | null
+        }
+        Update: {
+          busca?: string
+          criado_em?: string
+          id?: string
+          id_cliente?: string
+          id_venda?: string | null
+          itens?: Json
+          observacao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrinhos_galeria_id_cliente_fkey"
+            columns: ["id_cliente"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrinhos_galeria_id_venda_fkey"
+            columns: ["id_venda"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categorias: {
         Row: { criado_em: string; id: string; nome: string }
         Insert: { criado_em?: string; id?: string; nome: string }
@@ -61,6 +106,8 @@ export type Database = {
           id_tiny: string | null
           inscricao_estadual: string | null
           instagram: string | null
+          marcadores: Json | null
+          marcadores_texto: string | null
           nome: string
           observacoes: string | null
           pais: string | null
@@ -80,6 +127,7 @@ export type Database = {
           id_tiny?: string | null
           inscricao_estadual?: string | null
           instagram?: string | null
+          marcadores?: Json | null
           nome: string
           observacoes?: string | null
           pais?: string | null
@@ -99,6 +147,7 @@ export type Database = {
           id_tiny?: string | null
           inscricao_estadual?: string | null
           instagram?: string | null
+          marcadores?: Json | null
           nome?: string
           observacoes?: string | null
           pais?: string | null
@@ -1260,6 +1309,23 @@ export type Database = {
           caminho_arquivo: string | null
         }[]
       }
+      catalogo_kropcafe_listar_vendedores: {
+        Args: Record<string, never>
+        Returns: { id: string; nome: string }[]
+      }
+      catalogo_kropcafe_salvar_selecao: {
+        Args: {
+          p_nome: string
+          p_telefone: string
+          p_email?: string | null
+          p_pais?: string | null
+          p_observacao?: string | null
+          p_itens?: Json
+          p_gerar_ordem?: boolean
+          p_vendedor?: string | null
+        }
+        Returns: Json
+      }
       conferir_item_estoque: {
         Args: {
           p_id_conferencia: string
@@ -1334,12 +1400,17 @@ export type Database = {
           p_id_vitrine_item: string
           p_id_item_novo: string
           p_id_usuario?: string
+          p_id_local_destino?: string
         }
         Returns: Json
       }
       validar_itens_vitrine: {
         Args: { p_ids: string[] }
         Returns: { id_item: string; motivo: string | null; valido: boolean }[]
+      }
+      vitrine_atualizar_nome_exibicao: {
+        Args: { p_id_vitrine_item: string; p_nome: string; p_id_usuario?: string }
+        Returns: Json
       }
       vitrine_contar_alertas_atual: {
         Args: Record<string, never>
@@ -1373,6 +1444,7 @@ export type Database = {
         | "venda"
         | "substituicao"
         | "cancelamento"
+        | "edicao_nome"
       origem_cadastro_enum: "manual" | "tiny" | "importacao_planilha" | "api"
       sistema_numeracao_enum: "br" | "eu" | "us" | "outro"
       situacao_fornecedor_enum: "ativo" | "inativo"
