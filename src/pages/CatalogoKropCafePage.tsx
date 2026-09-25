@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   catalogoKropCafeService,
   type ItemCatalogoKropCafePublico,
 } from "../services/catalogo-kropcafe";
+import { SalvarSelecaoModal } from "../components/catalogo/SalvarSelecaoModal";
 import { cn } from "../utils/cn";
 import { mensagemErro } from "../utils/errors";
-import { formatarPrecoVendaDoItem } from "../utils/moedaItemEstoque";
+import { formatarMoeda } from "../utils/format";
 import {
   SHOE_SIZE_EQUIVALENCE_TABLE,
   type DisplaySizeSystem,
@@ -262,6 +263,60 @@ const REGIOES: Record<RegiaoCatalogo, RegiaoConfig> = {
 
 const ORDEM_REGIOES: RegiaoCatalogo[] = ["brasil", "europa", "usa"];
 
+const CORES_REGIAO: Record<
+  RegiaoCatalogo,
+  { cartao: string; brilho: string; pill: string }
+> = {
+  brasil: {
+    cartao:
+      "border-[#1f8a52]/40 bg-[#1f8a52]/12 hover:border-[#3dba78] hover:bg-[#1f8a52]/20 hover:shadow-[0_18px_40px_rgba(31,138,82,0.22)]",
+    brilho: "bg-[#3dba78]/25 group-hover:bg-[#3dba78]/40",
+    pill: "bg-[#146c43] text-white",
+  },
+  europa: {
+    cartao:
+      "border-[#d7b56d]/45 bg-[#d7b56d]/12 hover:border-[#e2c688] hover:bg-[#d7b56d]/18 hover:shadow-[0_18px_40px_rgba(215,181,109,0.22)]",
+    brilho: "bg-[#d7b56d]/25 group-hover:bg-[#d7b56d]/40",
+    pill: "bg-[#d7b56d] text-stone-950",
+  },
+  usa: {
+    cartao:
+      "border-[#3d6adf]/45 bg-[#3d6adf]/14 hover:border-[#8eb4ff] hover:bg-[#3d6adf]/22 hover:shadow-[0_18px_40px_rgba(61,106,223,0.24)]",
+    brilho: "bg-[#8eb4ff]/25 group-hover:bg-[#8eb4ff]/40",
+    pill: "bg-[#2f5ec4] text-white",
+  },
+};
+
+const CORES_SEGMENTO: Record<SegmentoCatalogo, { cartao: string; pill: string }> = {
+  adult: {
+    cartao:
+      "border-[#d7b56d]/45 bg-[#d7b56d]/12 hover:border-[#e2c688] hover:bg-[#d7b56d]/18 hover:shadow-[0_18px_40px_rgba(215,181,109,0.22)]",
+    pill: "bg-[#d7b56d] text-stone-950",
+  },
+  adult_w: {
+    cartao:
+      "border-[#d46a8c]/45 bg-[#d46a8c]/12 hover:border-[#f0a0b8] hover:bg-[#d46a8c]/20 hover:shadow-[0_18px_40px_rgba(212,106,140,0.22)]",
+    pill: "bg-[#b84368] text-white",
+  },
+  youth: {
+    cartao:
+      "border-[#1a9b90]/45 bg-[#1a9b90]/12 hover:border-[#5ee0d4] hover:bg-[#1a9b90]/20 hover:shadow-[0_18px_40px_rgba(26,155,144,0.22)]",
+    pill: "bg-[#0f7a72] text-white",
+  },
+  kids: {
+    cartao:
+      "border-[#e07a5f]/50 bg-[#e07a5f]/12 hover:border-[#f3b09e] hover:bg-[#e07a5f]/20 hover:shadow-[0_18px_40px_rgba(224,122,95,0.22)]",
+    pill: "bg-[#e07a5f] text-stone-950",
+  },
+};
+
+const btnVoltar =
+  "min-h-11 rounded-full border border-[#7eb6e0]/50 bg-[#7eb6e0]/12 px-4 py-2 text-sm font-bold text-[#d6ebff] transition hover:border-[#7eb6e0] hover:bg-[#7eb6e0]/22 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7eb6e0]";
+const btnDesfazer =
+  "min-h-11 rounded-full border border-[#e07a5f]/55 bg-[#e07a5f]/12 px-4 py-2 text-sm font-bold text-[#f6c7b6] transition hover:border-[#f3b09e] hover:bg-[#e07a5f]/22 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e07a5f]";
+const btnOuro =
+  "min-h-11 rounded-full bg-[#d7b56d] px-4 py-2 text-sm font-black text-stone-950 transition hover:bg-[#e2c688] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e2c688]";
+
 const IDIOMAS: Array<{ id: IdiomaCatalogo; label: string }> = [
   { id: "pt", label: "PT" },
   { id: "en", label: "EN" },
@@ -281,7 +336,6 @@ const TEXTOS: Record<
     regioesAjuda: string;
     segmentosTitulo: string;
     tamanhosTitulo: string;
-    resultadoTitulo: string;
     aguardando: string;
     carregando: string;
     semFoto: string;
@@ -291,13 +345,46 @@ const TEXTOS: Record<
     escolher: string;
     selecionados: string;
     limparSelecao: string;
+    limparSelecaoTitulo: string;
+    limparSelecaoAviso: string;
+    limparSelecaoConfirmar: string;
+    manterSelecao: string;
     verCarrinho: string;
     carrinhoTitulo: string;
-    continuarEscolhendo: string;
     carrinhoVazio: string;
+    salvarSelecao: string;
+    cadastroTitulo: string;
+    nome: string;
+    telefone: string;
+    email: string;
+    pais: string;
+    observacao: string;
+    buscarPais: string;
+    semPais: string;
+    salvarCliente: string;
+    salvarGerarOrdem: string;
+    vendedor: string;
+    vendedorAjuda: string;
+    vendedorObrigatorio: string;
+    escolherVendedor: string;
+    cancelar: string;
+    nomeObrigatorio: string;
+    telefoneObrigatorio: string;
+    emailInvalido: string;
+    paisInvalido: string;
+    selecaoSalvaTitulo: string;
+    selecaoSalvaAviso: string;
+    ordemCriadaTitulo: string;
+    ordemCriadaAviso: string;
+    verOrdem: string;
+    novoAtendimento: string;
     remover: string;
     voltar: string;
     recomecar: string;
+    recomecarTitulo: string;
+    recomecarAviso: string;
+    recomecarConfirmar: string;
+    continuarDaqui: string;
     erroCatalogo: string;
     nenhumItem: string;
     itens: string;
@@ -316,7 +403,6 @@ const TEXTOS: Record<
     regioesAjuda: "Primeiro selecione Brasil, Europa ou USA.",
     segmentosTitulo: "Escolha o segmento",
     tamanhosTitulo: "Escolha a numeração",
-    resultadoTitulo: "Pares disponíveis",
     aguardando: "Selecione uma numeração para ver os pares disponíveis na loja da Europa.",
     carregando: "Carregando...",
     semFoto: "Sem foto",
@@ -326,13 +412,46 @@ const TEXTOS: Record<
     escolher: "Escolher",
     selecionados: "Selecionados pelo cliente",
     limparSelecao: "Limpar seleção",
+    limparSelecaoTitulo: "Limpar a seleção?",
+    limparSelecaoAviso: "Os pares escolhidos pelo cliente serão removidos. Essa ação não pode ser desfeita.",
+    limparSelecaoConfirmar: "Sim, limpar",
+    manterSelecao: "Manter seleção",
     verCarrinho: "Ver selecionados",
     carrinhoTitulo: "Itens selecionados",
-    continuarEscolhendo: "Continuar escolhendo",
     carrinhoVazio: "Nenhum item selecionado ainda.",
+    salvarSelecao: "Salvar seleção",
+    cadastroTitulo: "Dados Cliente",
+    nome: "Nome",
+    telefone: "Telefone",
+    email: "E-mail",
+    pais: "País",
+    observacao: "Observação",
+    buscarPais: "Buscar país",
+    semPais: "Sem país",
+    salvarCliente: "Salvar",
+    salvarGerarOrdem: "Salvar e gerar ordem de venda",
+    vendedor: "Vendedor",
+    vendedorAjuda: "A mesma lista da ordem de venda.",
+    vendedorObrigatorio: "Selecione o vendedor.",
+    escolherVendedor: "Selecione o vendedor",
+    cancelar: "Cancelar",
+    nomeObrigatorio: "Informe o nome do cliente.",
+    telefoneObrigatorio: "Informe o telefone do cliente.",
+    emailInvalido: "E-mail inválido.",
+    paisInvalido: "Escolha um país da lista.",
+    selecaoSalvaTitulo: "Seleção salva",
+    selecaoSalvaAviso: "O cliente foi cadastrado com a tag Galeria e os pares escolhidos.",
+    ordemCriadaTitulo: "Ordem de venda criada",
+    ordemCriadaAviso: "O cliente foi cadastrado e os pares entraram na ordem.",
+    verOrdem: "Ver ordem de venda",
+    novoAtendimento: "Novo atendimento",
     remover: "Remover",
     voltar: "Voltar",
     recomecar: "Recomeçar",
+    recomecarTitulo: "Recomeçar o atendimento?",
+    recomecarAviso: "Região, numeração e os pares escolhidos serão descartados. O catálogo volta ao início.",
+    recomecarConfirmar: "Sim, recomeçar",
+    continuarDaqui: "Continuar daqui",
     erroCatalogo: "Não foi possível carregar o catálogo",
     nenhumItem: "Nenhum item em estoque na Europa para esta numeração.",
     itens: "item(ns)",
@@ -364,7 +483,6 @@ const TEXTOS: Record<
     regioesAjuda: "First select Brazil, Europe or USA.",
     segmentosTitulo: "Choose the segment",
     tamanhosTitulo: "Choose the size",
-    resultadoTitulo: "Available pairs",
     aguardando: "Choose a size to see the pairs available in the Europe store.",
     carregando: "Loading...",
     semFoto: "No photo",
@@ -374,13 +492,46 @@ const TEXTOS: Record<
     escolher: "Choose",
     selecionados: "Customer selections",
     limparSelecao: "Clear selection",
+    limparSelecaoTitulo: "Clear the selection?",
+    limparSelecaoAviso: "The pairs the customer chose will be removed. This cannot be undone.",
+    limparSelecaoConfirmar: "Yes, clear",
+    manterSelecao: "Keep selection",
     verCarrinho: "View selections",
     carrinhoTitulo: "Selected items",
-    continuarEscolhendo: "Continue browsing",
     carrinhoVazio: "No items selected yet.",
+    salvarSelecao: "Save selection",
+    cadastroTitulo: "Client details",
+    nome: "Name",
+    telefone: "Phone",
+    email: "Email",
+    pais: "Country",
+    observacao: "Note",
+    buscarPais: "Search country",
+    semPais: "No country",
+    salvarCliente: "Save",
+    salvarGerarOrdem: "Save and create sales order",
+    vendedor: "Seller",
+    vendedorAjuda: "The same list used on the sales order.",
+    vendedorObrigatorio: "Select the seller.",
+    escolherVendedor: "Select the seller",
+    cancelar: "Cancel",
+    nomeObrigatorio: "Enter the client's name.",
+    telefoneObrigatorio: "Enter the client's phone.",
+    emailInvalido: "Invalid email.",
+    paisInvalido: "Choose a country from the list.",
+    selecaoSalvaTitulo: "Selection saved",
+    selecaoSalvaAviso: "The client was saved with the Gallery tag and the chosen pairs.",
+    ordemCriadaTitulo: "Sales order created",
+    ordemCriadaAviso: "The client was saved and the pairs were added to the order.",
+    verOrdem: "View sales order",
+    novoAtendimento: "New visit",
     remover: "Remove",
     voltar: "Back",
     recomecar: "Start over",
+    recomecarTitulo: "Start over?",
+    recomecarAviso: "Region, size and the chosen pairs will be discarded. The catalog returns to the start.",
+    recomecarConfirmar: "Yes, start over",
+    continuarDaqui: "Stay here",
     erroCatalogo: "Could not load the catalog",
     nenhumItem: "No item in stock in Europe for this size.",
     itens: "item(s)",
@@ -412,7 +563,6 @@ const TEXTOS: Record<
     regioesAjuda: "Primero selecciona Brasil, Europa o USA.",
     segmentosTitulo: "Elige el segmento",
     tamanhosTitulo: "Elige la talla",
-    resultadoTitulo: "Pares disponibles",
     aguardando: "Selecciona una talla para ver los pares disponibles en la tienda de Europa.",
     carregando: "Cargando...",
     semFoto: "Sin foto",
@@ -422,13 +572,46 @@ const TEXTOS: Record<
     escolher: "Elegir",
     selecionados: "Seleccionados por el cliente",
     limparSelecao: "Limpiar selección",
+    limparSelecaoTitulo: "¿Limpiar la selección?",
+    limparSelecaoAviso: "Los pares elegidos por el cliente se quitarán. Esta acción no se puede deshacer.",
+    limparSelecaoConfirmar: "Sí, limpiar",
+    manterSelecao: "Mantener selección",
     verCarrinho: "Ver seleccionados",
     carrinhoTitulo: "Artículos seleccionados",
-    continuarEscolhendo: "Seguir eligiendo",
     carrinhoVazio: "Aún no hay artículos seleccionados.",
+    salvarSelecao: "Guardar selección",
+    cadastroTitulo: "Datos del cliente",
+    nome: "Nombre",
+    telefone: "Teléfono",
+    email: "Correo",
+    pais: "País",
+    observacao: "Observación",
+    buscarPais: "Buscar país",
+    semPais: "Sin país",
+    salvarCliente: "Guardar",
+    salvarGerarOrdem: "Guardar y generar orden de venta",
+    vendedor: "Vendedor",
+    vendedorAjuda: "La misma lista de la orden de venta.",
+    vendedorObrigatorio: "Selecciona el vendedor.",
+    escolherVendedor: "Selecciona el vendedor",
+    cancelar: "Cancelar",
+    nomeObrigatorio: "Indica el nombre del cliente.",
+    telefoneObrigatorio: "Indica el teléfono del cliente.",
+    emailInvalido: "Correo no válido.",
+    paisInvalido: "Elige un país de la lista.",
+    selecaoSalvaTitulo: "Selección guardada",
+    selecaoSalvaAviso: "El cliente quedó registrado con la etiqueta Galería y los pares elegidos.",
+    ordemCriadaTitulo: "Orden de venta creada",
+    ordemCriadaAviso: "El cliente quedó registrado y los pares entraron en la orden.",
+    verOrdem: "Ver orden de venta",
+    novoAtendimento: "Nueva atención",
     remover: "Quitar",
     voltar: "Volver",
     recomecar: "Empezar de nuevo",
+    recomecarTitulo: "¿Empezar de nuevo?",
+    recomecarAviso: "Se descartarán la región, la talla y los pares elegidos. El catálogo vuelve al inicio.",
+    recomecarConfirmar: "Sí, empezar de nuevo",
+    continuarDaqui: "Seguir aquí",
     erroCatalogo: "No fue posible cargar el catálogo",
     nenhumItem: "No hay artículos en stock en Europa para esta talla.",
     itens: "artículo(s)",
@@ -460,7 +643,6 @@ const TEXTOS: Record<
     regioesAjuda: "Sélectionnez d'abord Brésil, Europe ou USA.",
     segmentosTitulo: "Choisissez le segment",
     tamanhosTitulo: "Choisissez la pointure",
-    resultadoTitulo: "Paires disponibles",
     aguardando: "Choisissez une pointure pour voir les paires disponibles dans la boutique Europe.",
     carregando: "Chargement...",
     semFoto: "Sans photo",
@@ -470,13 +652,46 @@ const TEXTOS: Record<
     escolher: "Choisir",
     selecionados: "Sélections du client",
     limparSelecao: "Effacer la sélection",
+    limparSelecaoTitulo: "Effacer la sélection ?",
+    limparSelecaoAviso: "Les paires choisies par le client seront retirées. Cette action est irréversible.",
+    limparSelecaoConfirmar: "Oui, effacer",
+    manterSelecao: "Garder la sélection",
     verCarrinho: "Voir la sélection",
     carrinhoTitulo: "Articles sélectionnés",
-    continuarEscolhendo: "Continuer à choisir",
     carrinhoVazio: "Aucun article sélectionné pour le moment.",
+    salvarSelecao: "Enregistrer la sélection",
+    cadastroTitulo: "Données client",
+    nome: "Nom",
+    telefone: "Téléphone",
+    email: "E-mail",
+    pais: "Pays",
+    observacao: "Observation",
+    buscarPais: "Rechercher un pays",
+    semPais: "Sans pays",
+    salvarCliente: "Enregistrer",
+    salvarGerarOrdem: "Enregistrer et créer la commande",
+    vendedor: "Vendeur",
+    vendedorAjuda: "La même liste que la commande.",
+    vendedorObrigatorio: "Sélectionnez le vendeur.",
+    escolherVendedor: "Sélectionnez le vendeur",
+    cancelar: "Annuler",
+    nomeObrigatorio: "Indiquez le nom du client.",
+    telefoneObrigatorio: "Indiquez le téléphone du client.",
+    emailInvalido: "E-mail invalide.",
+    paisInvalido: "Choisissez un pays dans la liste.",
+    selecaoSalvaTitulo: "Sélection enregistrée",
+    selecaoSalvaAviso: "Le client a été enregistré avec l'étiquette Galerie et les paires choisies.",
+    ordemCriadaTitulo: "Commande créée",
+    ordemCriadaAviso: "Le client a été enregistré et les paires ont été ajoutées à la commande.",
+    verOrdem: "Voir la commande",
+    novoAtendimento: "Nouvel accueil",
     remover: "Retirer",
     voltar: "Retour",
     recomecar: "Recommencer",
+    recomecarTitulo: "Recommencer ?",
+    recomecarAviso: "La région, la pointure et les paires choisies seront écartées. Le catalogue revient au début.",
+    recomecarConfirmar: "Oui, recommencer",
+    continuarDaqui: "Rester ici",
     erroCatalogo: "Impossible de charger le catalogue",
     nenhumItem: "Aucun article en stock en Europe pour cette pointure.",
     itens: "article(s)",
@@ -657,6 +872,11 @@ function ProdutoGaleria({
   );
 }
 
+function precoCatalogoEuro(item: { preco_venda: number | null }): string | null {
+  if (item.preco_venda == null) return null;
+  return formatarMoeda(item.preco_venda, "EUR");
+}
+
 function ProdutoCard({
   item,
   fotos,
@@ -665,6 +885,7 @@ function ProdutoCard({
   labels,
   prioridadeImagem,
   numeracaoLabel,
+  acao = "escolher",
 }: {
   item: ItemCatalogoKropCafePublico;
   fotos: string[];
@@ -672,6 +893,7 @@ function ProdutoCard({
   onToggle: () => void;
   prioridadeImagem?: boolean;
   numeracaoLabel?: string | null;
+  acao?: "escolher" | "remover";
   labels: {
     semFoto: string;
     precoConsulta: string;
@@ -679,13 +901,15 @@ function ProdutoCard({
     selecionado: string;
   };
 }) {
-  const preco = formatarPrecoVendaDoItem(item) ?? labels.precoConsulta;
+  const preco = precoCatalogoEuro(item) ?? labels.precoConsulta;
 
   return (
     <article
       className={cn(
         "flex h-full flex-col overflow-hidden rounded-2xl border bg-white shadow-[0_12px_40px_rgba(0,0,0,0.14)] transition",
-        selecionado ? "border-[#d7b56d] ring-2 ring-[#d7b56d]/35" : "border-stone-200",
+        selecionado && acao === "escolher"
+          ? "border-[#146c43] ring-2 ring-[#146c43]/30"
+          : "border-stone-200",
       )}
     >
       <ProdutoGaleria
@@ -711,10 +935,12 @@ function ProdutoCard({
           type="button"
           onClick={onToggle}
           className={cn(
-            "w-full rounded-lg px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-xs sm:tracking-[0.14em]",
-            selecionado
-              ? "bg-[#d7b56d] text-stone-950"
-              : "bg-stone-950 text-white hover:bg-stone-800",
+            "w-full rounded-lg px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-xs sm:tracking-[0.14em]",
+            acao === "remover"
+              ? "bg-[#e07a5f] text-stone-950 hover:bg-[#f09a84] focus-visible:outline-[#e07a5f]"
+              : selecionado
+                ? "bg-[#146c43] text-white focus-visible:outline-[#146c43]"
+                : "bg-[#d7b56d] text-stone-950 hover:bg-[#e2c688] focus-visible:outline-[#d7b56d]",
           )}
         >
           {selecionado ? labels.selecionado : labels.gostei}
@@ -732,6 +958,9 @@ export default function CatalogoKropCafePage() {
   const [catalogo, setCatalogo] = useState<CatalogoState>({ itens: [], fotos: {} });
   const [sacola, setSacola] = useState<Record<string, ItemSelecionadoCatalogo>>({});
   const [verCarrinho, setVerCarrinho] = useState(false);
+  const [confirmacao, setConfirmacao] = useState<"limpar" | "recomecar" | null>(null);
+  const [salvarAberto, setSalvarAberto] = useState(false);
+  const manterSelecaoRef = useRef<HTMLButtonElement>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -831,7 +1060,18 @@ export default function CatalogoKropCafePage() {
   const limparSacola = () => {
     setSacola({});
     setVerCarrinho(false);
+    setConfirmacao(null);
   };
+
+  useEffect(() => {
+    if (!confirmacao) return;
+    manterSelecaoRef.current?.focus();
+    const aoTeclar = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setConfirmacao(null);
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, [confirmacao]);
 
   const recomecar = () => {
     setRegiao(null);
@@ -841,6 +1081,7 @@ export default function CatalogoKropCafePage() {
     setSacola({});
     setVerCarrinho(false);
     setErro(null);
+    setConfirmacao(null);
   };
 
   const voltar = () => {
@@ -862,15 +1103,14 @@ export default function CatalogoKropCafePage() {
     }
   };
 
+  const mostrandoPares = Boolean(tamanho) && !verCarrinho;
   const tituloEtapa = verCarrinho
     ? t.carrinhoTitulo
     : !regiao
       ? t.regioesTitulo
       : !segmento
         ? t.segmentosTitulo
-        : !tamanho
-          ? t.tamanhosTitulo
-          : t.resultadoTitulo;
+        : t.tamanhosTitulo;
 
   return (
     <main className="h-screen overflow-hidden bg-[#050505] text-white">
@@ -892,7 +1132,7 @@ export default function CatalogoKropCafePage() {
                     etapaAtual === etapa
                       ? "border-[#d7b56d] bg-[#d7b56d] text-stone-950"
                       : etapaAtual > etapa
-                        ? "border-[#d7b56d]/50 bg-[#d7b56d]/20 text-[#d7b56d]"
+                        ? "border-[#146c43] bg-[#146c43] text-white"
                         : "border-white/10 bg-white/[0.04] text-white/35",
                   )}
                 >
@@ -938,60 +1178,70 @@ export default function CatalogoKropCafePage() {
         </header>
 
         <section className="flex min-h-0 flex-1 flex-col rounded-[1.5rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(215,181,109,0.14),rgba(255,255,255,0.055)_34%,rgba(255,255,255,0.035))] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur sm:rounded-[2rem] sm:p-4">
-          <div className="mb-3 grid shrink-0 gap-2 sm:mb-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-3">
-            <div className="hidden sm:block" />
-            <div className="text-center">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d7b56d] sm:text-xs sm:tracking-[0.24em]">{t.passo} {etapaAtual}</p>
-              <h2 className="mt-0.5 text-xl font-black tracking-tight sm:mt-1 sm:text-2xl md:text-3xl lg:text-4xl">
+          <div className={cn("shrink-0", mostrandoPares || verCarrinho ? "mb-2" : "mb-3 sm:mb-4")}>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+              <div className="flex items-center gap-2">
+                {(regiao || segmento || tamanho || verCarrinho) ? (
+                  <>
+                    {regiao || verCarrinho ? (
+                      <button
+                        type="button"
+                        onClick={voltar}
+                        className={btnVoltar}
+                      >
+                        {t.voltar}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setConfirmacao("recomecar")}
+                      className={btnDesfazer}
+                    >
+                      {t.recomecar}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d7b56d] sm:text-xs sm:tracking-[0.24em]">
+                {t.passo} {etapaAtual}
+              </p>
+              <span />
+            </div>
+            {mostrandoPares || verCarrinho ? null : (
+              <h2 className="mt-2 text-center text-xl font-black tracking-tight sm:mt-3 sm:text-2xl md:text-3xl lg:text-4xl">
                 {tituloEtapa}
               </h2>
-            </div>
-            <div className="flex justify-center gap-2 sm:justify-end">
-              {regiao || verCarrinho ? (
-                <button
-                  type="button"
-                  onClick={voltar}
-                  className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:border-white/40 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
-                >
-                  {t.voltar}
-                </button>
-              ) : null}
-              {(regiao || segmento || tamanho || verCarrinho) && (
-                <button
-                  type="button"
-                  onClick={recomecar}
-                  className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:border-white/40 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
-                >
-                  {t.recomecar}
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {verCarrinho ? (
             <div className="relative flex min-h-0 flex-1 flex-col">
-              <div className="mb-2 flex shrink-0 items-center justify-between gap-2 rounded-xl bg-white/[0.06] px-3 py-2 sm:mb-3 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
-                <p className="text-sm font-black sm:text-lg">
-                  {qtdSelecionados} {t.itens}
-                </p>
-                <div className="flex shrink-0 gap-2">
+              <div className="mb-2 grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-xl bg-white/[0.06] px-3 py-2 sm:mb-3 sm:rounded-2xl sm:px-4 sm:py-3">
+                <div>
                   {qtdSelecionados > 0 ? (
                     <button
                       type="button"
-                      onClick={limparSacola}
-                      className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:border-white/40 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
+                      onClick={() => setConfirmacao("limpar")}
+                      className={btnDesfazer}
                     >
                       {t.limparSelecao}
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() => setVerCarrinho(false)}
-                    className="rounded-full bg-[#d7b56d] px-3 py-1.5 text-xs font-black text-stone-950 transition hover:bg-[#e2c688] sm:px-4 sm:py-2 sm:text-sm"
-                  >
-                    {t.continuarEscolhendo}
-                  </button>
+                </div>
+                <p className="text-center text-sm font-black sm:text-lg">
+                  {qtdSelecionados} {t.itens}
+                </p>
+                <div className="justify-self-end">
+                  {qtdSelecionados > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setSalvarAberto(true)}
+                      className={btnOuro}
+                    >
+                      {t.salvarSelecao}
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -1009,6 +1259,7 @@ export default function CatalogoKropCafePage() {
                         fotos={fotos}
                         selecionado
                         numeracaoLabel={numeracaoLabel}
+                        acao="remover"
                         onToggle={() => alternarSelecionado(item, fotos, numeracaoLabel)}
                         prioridadeImagem={index < 4}
                         labels={{
@@ -1033,12 +1284,15 @@ export default function CatalogoKropCafePage() {
                     key={id}
                     type="button"
                     onClick={() => selecionarRegiao(id)}
-                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.055] p-3 text-left transition hover:-translate-y-1 hover:border-[#d7b56d] hover:bg-white/[0.09] hover:shadow-[0_24px_80px_rgba(215,181,109,0.12)] sm:rounded-3xl sm:p-4"
+                    className={cn(
+                      "group relative overflow-hidden rounded-2xl border p-3 text-left transition hover:-translate-y-1 sm:rounded-3xl sm:p-4",
+                      CORES_REGIAO[id].cartao,
+                    )}
                   >
-                    <span className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#d7b56d]/10 transition group-hover:bg-[#d7b56d]/20" />
+                    <span className={cn("absolute -right-8 -top-8 h-24 w-24 rounded-full transition", CORES_REGIAO[id].brilho)} />
                     <span className="relative block text-2xl font-black tracking-tight sm:text-3xl">{config.label}</span>
-                    <span className="relative mt-1.5 block text-xs font-medium text-white/60 sm:mt-2 sm:text-sm">{t.regionDescriptions[id]}</span>
-                    <span className="relative mt-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-white/75 group-hover:bg-[#d7b56d] group-hover:text-stone-950 sm:mt-4 sm:px-3 sm:py-1.5 sm:text-xs">
+                    <span className="relative mt-1.5 block text-xs font-medium text-white/75 sm:mt-2 sm:text-sm">{t.regionDescriptions[id]}</span>
+                    <span className={cn("relative mt-3 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold sm:mt-4 sm:px-3 sm:py-1.5 sm:text-xs", CORES_REGIAO[id].pill)}>
                       {t.escolher}
                     </span>
                   </button>
@@ -1054,11 +1308,14 @@ export default function CatalogoKropCafePage() {
                   key={item.id}
                   type="button"
                   onClick={() => setSegmento(item.id)}
-                  className="group rounded-2xl border border-white/10 bg-white/[0.055] p-3 text-left transition hover:-translate-y-1 hover:border-[#d7b56d] hover:bg-white/[0.09] hover:shadow-[0_24px_80px_rgba(215,181,109,0.12)] sm:rounded-3xl sm:p-4"
+                  className={cn(
+                    "group rounded-2xl border p-3 text-left transition hover:-translate-y-1 sm:rounded-3xl sm:p-4",
+                    CORES_SEGMENTO[item.id].cartao,
+                  )}
                 >
                   <span className="block text-2xl font-black tracking-tight sm:text-3xl">{t.segmentLabels[item.id]}</span>
-                  <span className="mt-1.5 block text-xs font-medium text-white/60 sm:mt-2 sm:text-sm">{t.segmentDescriptions[item.id]}</span>
-                  <span className="mt-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-white/75 group-hover:bg-[#d7b56d] group-hover:text-stone-950 sm:mt-4 sm:px-3 sm:py-1.5 sm:text-xs">
+                  <span className="mt-1.5 block text-xs font-medium text-white/75 sm:mt-2 sm:text-sm">{t.segmentDescriptions[item.id]}</span>
+                  <span className={cn("mt-3 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold sm:mt-4 sm:px-3 sm:py-1.5 sm:text-xs", CORES_SEGMENTO[item.id].pill)}>
                     {t.escolher}
                   </span>
                 </button>
@@ -1090,16 +1347,17 @@ export default function CatalogoKropCafePage() {
             </AreaRolavel>
           ) : (
             <div className="relative flex min-h-0 flex-1 flex-col">
-              <div className="mb-2 flex shrink-0 items-center justify-between gap-2 rounded-xl bg-white/[0.06] px-3 py-2 sm:mb-3 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black sm:text-lg">
-                    {tamanho && regiao ? formatarTamanho(regiao, tamanho) : t.aguardando}
-                  </p>
-                </div>
-                {tamanho && (
-                  <p className="shrink-0 rounded-full bg-[#d7b56d] px-2 py-1 text-[10px] font-black text-stone-950 sm:px-3 sm:py-1.5 sm:text-xs">
+              <div className="mb-2 grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-xl bg-white/[0.06] px-3 py-2 sm:mb-3 sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3">
+                <span />
+                <p className="text-center text-sm font-black sm:text-lg">
+                  {tamanho && regiao ? formatarTamanho(regiao, tamanho) : t.aguardando}
+                </p>
+                {tamanho ? (
+                  <p className="justify-self-end rounded-full bg-[#d7b56d] px-2 py-1 text-[10px] font-black text-stone-950 sm:px-3 sm:py-1.5 sm:text-xs">
                     {loading ? t.carregando : `${catalogo.itens.length} ${t.itens}`}
                   </p>
+                ) : (
+                  <span />
                 )}
               </div>
 
@@ -1175,8 +1433,8 @@ export default function CatalogoKropCafePage() {
                     <div className="flex shrink-0 gap-2">
                       <button
                         type="button"
-                        onClick={limparSacola}
-                        className="rounded-full border border-white/15 px-3 py-1.5 text-xs font-bold text-white/75 transition hover:border-white/40 hover:text-white sm:px-4 sm:py-2 sm:text-sm"
+                        onClick={() => setConfirmacao("limpar")}
+                        className={btnDesfazer}
                       >
                         {t.limparSelecao}
                       </button>
@@ -1196,6 +1454,67 @@ export default function CatalogoKropCafePage() {
           </div>
         </section>
       </section>
+
+      <SalvarSelecaoModal
+        open={salvarAberto}
+        idioma={idioma}
+        itens={itensSelecionados.map(({ item, numeracaoLabel }) => ({
+          id: item.id,
+          sku: item.sku,
+          numeracao: numeracaoLabel,
+          preco: precoCatalogoEuro(item),
+        }))}
+        textos={t}
+        onClose={() => setSalvarAberto(false)}
+        onConcluido={() => {
+          setSalvarAberto(false);
+          recomecar();
+        }}
+      />
+
+      {confirmacao ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/70 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center"
+          onClick={() => setConfirmacao(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmacao-catalogo-titulo"
+            className="w-full max-w-md rounded-[1.75rem] border border-white/10 bg-stone-950 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-8"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="confirmacao-catalogo-titulo" className="text-2xl font-black tracking-tight sm:text-3xl">
+              {confirmacao === "recomecar" ? t.recomecarTitulo : t.limparSelecaoTitulo}
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-white/75">
+              {qtdSelecionados > 0 ? (
+                <span className="font-black text-white">
+                  {qtdSelecionados} {t.itens}.{" "}
+                </span>
+              ) : null}
+              {confirmacao === "recomecar" ? t.recomecarAviso : t.limparSelecaoAviso}
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                ref={manterSelecaoRef}
+                type="button"
+                onClick={() => setConfirmacao(null)}
+                className="min-h-14 rounded-full bg-[#d7b56d] px-5 text-base font-black text-stone-950 transition hover:bg-[#e2c688] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d7b56d]"
+              >
+                {confirmacao === "recomecar" ? t.continuarDaqui : t.manterSelecao}
+              </button>
+              <button
+                type="button"
+                onClick={confirmacao === "recomecar" ? recomecar : limparSacola}
+                className="min-h-14 rounded-full border border-red-400/50 px-5 text-base font-bold text-red-200 transition hover:border-red-300 hover:bg-red-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-300"
+              >
+                {confirmacao === "recomecar" ? t.recomecarConfirmar : t.limparSelecaoConfirmar}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

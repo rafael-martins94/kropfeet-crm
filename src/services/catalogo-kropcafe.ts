@@ -68,4 +68,47 @@ export const catalogoKropCafeService = {
     }
     return map;
   },
+
+  listarVendedores: async (): Promise<Array<{ id: string; nome: string }>> => {
+    const { data, error } = await supabase.rpc("catalogo_kropcafe_listar_vendedores");
+    if (error) throw error;
+    return (data ?? []) as Array<{ id: string; nome: string }>;
+  },
+
+  salvarSelecao: async (params: {
+    nome: string;
+    telefone: string;
+    email: string | null;
+    pais: string | null;
+    observacao: string | null;
+    gerarOrdem: boolean;
+    vendedor: string | null;
+    itens: Array<{ id: string; sku: string; numeracao: string; preco: string | null }>;
+  }): Promise<{ id_cliente: string; id_venda: string | null; numero: string | null }> => {
+    const { data, error } = await supabase.rpc("catalogo_kropcafe_salvar_selecao", {
+      p_nome: params.nome,
+      p_telefone: params.telefone,
+      p_email: params.email,
+      p_pais: params.pais,
+      p_observacao: params.observacao,
+      p_itens: params.itens,
+      p_gerar_ordem: params.gerarOrdem,
+      p_vendedor: params.vendedor,
+    });
+
+    if (error) throw error;
+    const resultado = data as {
+      id_cliente?: string;
+      id_venda?: string | null;
+      numero?: string | null;
+    } | null;
+    if (!resultado?.id_cliente) {
+      throw new Error("Não foi possível salvar a seleção.");
+    }
+    return {
+      id_cliente: resultado.id_cliente,
+      id_venda: resultado.id_venda ?? null,
+      numero: resultado.numero ?? null,
+    };
+  },
 };

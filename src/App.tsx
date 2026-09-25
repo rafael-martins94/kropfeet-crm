@@ -54,6 +54,8 @@ import VendasHubPage from "./pages/vendas/VendasHubPage";
 import VendasListPage from "./pages/vendas/VendasListPage";
 import VendaFormPage from "./pages/vendas/VendaFormPage";
 import VendaDetailPage from "./pages/vendas/VendaDetailPage";
+import CarrinhosGaleriaListPage from "./pages/carrinhos-galeria/CarrinhosGaleriaListPage";
+import VendedoresListPage from "./pages/vendedores/VendedoresListPage";
 
 import CambiosListPage from "./pages/cambios-moeda/CambiosListPage";
 import MovimentacoesListPage from "./pages/movimentacoes/MovimentacoesListPage";
@@ -133,6 +135,9 @@ export default function App() {
             <Route path="/vendas/outros" element={<VendasListPage />} />
             <Route path="/vendas/:id" element={<VendaDetailPage />} />
             <Route path="/vendas/:id/editar" element={<VendaFormPage />} />
+
+            <Route path="/carrinhos-galeria" element={<CarrinhosGaleriaListPage />} />
+            <Route path="/vendedores" element={<VendedoresListPage />} />
 
             <Route path="/cambios-moeda" element={<CambiosListPage />} />
             <Route path="/movimentacoes" element={<MovimentacoesListPage />} />
