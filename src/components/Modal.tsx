@@ -59,7 +59,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-card-hover",
+          "relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-card-hover",
           sizeClass[size],
           className,
         )}
@@ -93,7 +93,7 @@ export function Modal({
             <IconX width={16} height={16} />
           </button>
         )}
-        <div className="px-5 py-4">{children}</div>
+        <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
         {footer ? (
           <footer className="flex items-center justify-end gap-2 border-t border-line bg-surface-muted px-5 py-3">
             {footer}

@@ -85,12 +85,70 @@ function compararIso(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
+const MESES_CURTOS = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+] as const;
+
+function limitesDoMes(ano: number, mes0: number): { de: string; ate: string } {
+  return {
+    de: paraIsoData(ano, mes0, 1),
+    ate: paraIsoData(ano, mes0, diasNoMes(ano, mes0)),
+  };
+}
+
+/** Intervalo que cobre exatamente um mês civil. */
+function ehMesInteiro(
+  de: string | null,
+  ate: string | null,
+): { y: number; m: number } | null {
+  if (!de || !ate) return null;
+  const inicio = parseIsoParts(de);
+  const fim = parseIsoParts(ate);
+  if (!inicio || !fim) return null;
+  if (inicio.y !== fim.y || inicio.m !== fim.m) return null;
+  if (inicio.d !== 1 || fim.d !== diasNoMes(inicio.y, inicio.m)) return null;
+  return { y: inicio.y, m: inicio.m };
+}
+
+function mascararData(bruto: string): string {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(bruto.trim());
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const digitos = bruto.replace(/\D/g, "").slice(0, 8);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
+  return `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
+}
+
+function inputParaIso(texto: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto.trim());
+  if (!match) return null;
+  const dia = Number(match[1]);
+  const mes = Number(match[2]);
+  const ano = Number(match[3]);
+  if (mes < 1 || mes > 12) return null;
+  if (dia < 1 || dia > diasNoMes(ano, mes - 1)) return null;
+  return paraIsoData(ano, mes - 1, dia);
+}
+
 function noIntervalo(dia: string, de: string | null, ate: string | null): boolean {
   if (!de || !ate) return false;
   return compararIso(dia, de) >= 0 && compararIso(dia, ate) <= 0;
 }
 
 function rotuloTrigger(value: DateRangeValue, placeholder: string): string {
+  const mes = ehMesInteiro(value.de, value.ate);
+  if (mes) return `${MESES[mes.m]} ${mes.y}`;
   if (value.de && value.ate) {
     if (value.de === value.ate) return formatarIsoCurto(value.de);
     return `${formatarIsoCurto(value.de)} – ${formatarIsoCurto(value.ate)}`;
@@ -222,8 +280,11 @@ export function DateRangePicker({
   disabled,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
+  const [modo, setModo] = useState<"intervalo" | "mes">("intervalo");
   const [draftDe, setDraftDe] = useState<string | null>(value.de);
   const [draftAte, setDraftAte] = useState<string | null>(value.ate);
+  const [textoDe, setTextoDe] = useState(() => formatarIsoCurto(value.de));
+  const [textoAte, setTextoAte] = useState(() => formatarIsoCurto(value.ate));
   const [hover, setHover] = useState<string | null>(null);
   const [mesBase, setMesBase] = useState(() => {
     const parts = parseIsoParts(value.de ?? hojeIso());
@@ -240,6 +301,9 @@ export function DateRangePicker({
     if (!open) return;
     setDraftDe(value.de);
     setDraftAte(value.ate);
+    setTextoDe(formatarIsoCurto(value.de));
+    setTextoAte(formatarIsoCurto(value.ate));
+    setModo(ehMesInteiro(value.de, value.ate) ? "mes" : "intervalo");
     const parts = parseIsoParts(value.de ?? hojeIso());
     if (parts) setMesBase({ y: parts.y, m: parts.m });
     setHover(null);
@@ -267,34 +331,98 @@ export function DateRangePicker({
 
   const mesSeguinte = addMonths(mesBase.y, mesBase.m, 1);
 
-  const panelWidth = Math.min(560, typeof window !== "undefined" ? window.innerWidth - 16 : 560);
+  const panelWidth = Math.min(
+    modo === "mes" ? 360 : 560,
+    typeof window !== "undefined" ? window.innerWidth - 16 : 560,
+  );
   const panelLeft = Math.max(
     8,
     Math.min(pos.left, (typeof window !== "undefined" ? window.innerWidth : 800) - panelWidth - 8),
   );
 
+  const definirInicio = (iso: string | null) => {
+    setDraftDe(iso);
+    setTextoDe(formatarIsoCurto(iso));
+    if (iso) {
+      const parts = parseIsoParts(iso);
+      if (parts) setMesBase({ y: parts.y, m: parts.m });
+    }
+  };
+
+  const definirFim = (iso: string | null) => {
+    setDraftAte(iso);
+    setTextoAte(formatarIsoCurto(iso));
+  };
+
+  const aoEditarInicio = (bruto: string) => {
+    const texto = mascararData(bruto);
+    setTextoDe(texto);
+    const iso = inputParaIso(texto);
+    if (iso) definirInicio(iso);
+    else if (texto.trim() === "") definirInicio(null);
+  };
+
+  const aoEditarFim = (bruto: string) => {
+    const texto = mascararData(bruto);
+    setTextoAte(texto);
+    const iso = inputParaIso(texto);
+    if (iso) definirFim(iso);
+    else if (texto.trim() === "") definirFim(null);
+  };
+
   const pick = (iso: string) => {
     if (!draftDe || draftAte) {
-      setDraftDe(iso);
-      setDraftAte(null);
+      definirInicio(iso);
+      definirFim(null);
       return;
     }
     if (compararIso(iso, draftDe) < 0) {
-      setDraftDe(iso);
-      setDraftAte(null);
+      definirInicio(iso);
+      definirFim(null);
       return;
     }
-    setDraftAte(iso);
+    definirFim(iso);
     onChange({ de: draftDe, ate: iso });
+    setOpen(false);
+  };
+
+  const aplicarIntervalo = () => {
+    let de = textoDe.trim() ? inputParaIso(textoDe) : null;
+    let ate = textoAte.trim() ? inputParaIso(textoAte) : null;
+    if (textoDe.trim() && !de) return;
+    if (textoAte.trim() && !ate) return;
+    if (!de && !ate) return;
+    if (de && !ate) ate = de;
+    if (ate && !de) de = ate;
+    if (!de || !ate) return;
+    if (compararIso(de, ate) > 0) {
+      const troca = de;
+      de = ate;
+      ate = troca;
+    }
+    onChange({ de, ate });
+    setOpen(false);
+  };
+
+  const escolherMes = (mes0: number) => {
+    onChange(limitesDoMes(mesBase.y, mes0));
     setOpen(false);
   };
 
   const limpar = () => {
     setDraftDe(null);
     setDraftAte(null);
+    setTextoDe("");
+    setTextoAte("");
     onChange({ de: null, ate: null });
     setOpen(false);
   };
+
+  const inicioInvalido = textoDe.trim() !== "" && !inputParaIso(textoDe);
+  const fimInvalido = textoAte.trim() !== "" && !inputParaIso(textoAte);
+  const podeAplicar =
+    !inicioInvalido && !fimInvalido && Boolean(textoDe.trim() || textoAte.trim());
+  const mesAplicado = ehMesInteiro(value.de, value.ate);
 
   const temValor = Boolean(value.de || value.ate);
 
@@ -346,67 +474,166 @@ export function DateRangePicker({
                 width: panelWidth,
                 zIndex: 10000,
               }}
-              className="rounded-xl border border-line bg-surface p-4 shadow-lg"
+              className="max-h-[min(80vh,640px)] overflow-y-auto rounded-xl border border-line bg-surface p-4 shadow-lg"
             >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="text-xs text-ink-soft">
-                  {selecionandoFim
-                    ? "Escolha a data final"
-                    : "Escolha a data inicial e depois a final"}
-                </p>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div
+                  className="inline-flex rounded-lg border border-line bg-surface-subtle p-0.5"
+                  role="tablist"
+                  aria-label="Tipo de período"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={modo === "intervalo"}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                      modo === "intervalo"
+                        ? "bg-surface text-ink shadow-sm"
+                        : "text-ink-soft hover:text-ink",
+                    )}
+                    onClick={() => setModo("intervalo")}
+                  >
+                    Intervalo
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={modo === "mes"}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                      modo === "mes"
+                        ? "bg-surface text-ink shadow-sm"
+                        : "text-ink-soft hover:text-ink",
+                    )}
+                    onClick={() => setModo("mes")}
+                  >
+                    Mês inteiro
+                  </button>
+                </div>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     className="btn-ghost h-8 w-8 p-0"
-                    onClick={() => setMesBase((s) => addMonths(s.y, s.m, -1))}
-                    aria-label="Mês anterior"
+                    onClick={() =>
+                      setMesBase((s) =>
+                        modo === "mes" ? { y: s.y - 1, m: s.m } : addMonths(s.y, s.m, -1),
+                      )
+                    }
+                    aria-label={modo === "mes" ? "Ano anterior" : "Mês anterior"}
                   >
                     <IconChevronLeft width={16} height={16} />
                   </button>
                   <button
                     type="button"
                     className="btn-ghost h-8 w-8 p-0"
-                    onClick={() => setMesBase((s) => addMonths(s.y, s.m, 1))}
-                    aria-label="Próximo mês"
+                    onClick={() =>
+                      setMesBase((s) =>
+                        modo === "mes" ? { y: s.y + 1, m: s.m } : addMonths(s.y, s.m, 1),
+                      )
+                    }
+                    aria-label={modo === "mes" ? "Próximo ano" : "Próximo mês"}
                   >
                     <IconChevronRight width={16} height={16} />
                   </button>
                 </div>
               </div>
 
-              <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:justify-center sm:gap-8">
-                <MesCalendario
-                  ano={mesBase.y}
-                  mes0={mesBase.m}
-                  de={draftDe}
-                  ate={draftAte}
-                  hover={hover}
-                  selecionandoFim={selecionandoFim}
-                  onPick={pick}
-                  onHover={setHover}
-                />
-                <div className="hidden sm:block">
-                  <MesCalendario
-                    ano={mesSeguinte.y}
-                    mes0={mesSeguinte.m}
-                    de={draftDe}
-                    ate={draftAte}
-                    hover={hover}
-                    selecionandoFim={selecionandoFim}
-                    onPick={pick}
-                    onHover={setHover}
-                  />
-                </div>
-              </div>
+              {modo === "intervalo" ? (
+                <>
+                  <div className="mb-4 grid grid-cols-2 gap-3">
+                    <label className="block min-w-0">
+                      <span className="label-base">Início</span>
+                      <input
+                        value={textoDe}
+                        onChange={(e) => aoEditarInicio(e.target.value)}
+                        placeholder="dd/mm/aaaa"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        aria-invalid={inicioInvalido}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && podeAplicar) aplicarIntervalo();
+                        }}
+                        className={cn(
+                          "input-base font-numeric tabular-nums",
+                          inicioInvalido && "border-red-400 focus:border-red-500 focus:ring-red-500/20",
+                        )}
+                      />
+                    </label>
+                    <label className="block min-w-0">
+                      <span className="label-base">Término</span>
+                      <input
+                        value={textoAte}
+                        onChange={(e) => aoEditarFim(e.target.value)}
+                        placeholder="dd/mm/aaaa"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        aria-invalid={fimInvalido}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && podeAplicar) aplicarIntervalo();
+                        }}
+                        className={cn(
+                          "input-base font-numeric tabular-nums",
+                          fimInvalido && "border-red-400 focus:border-red-500 focus:ring-red-500/20",
+                        )}
+                      />
+                    </label>
+                  </div>
 
-              <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
-                <p className="font-numeric text-xs tabular-nums text-ink-soft">
-                  {draftDe
-                    ? draftAte
-                      ? `${formatarIsoCurto(draftDe)} – ${formatarIsoCurto(draftAte)}`
-                      : `${formatarIsoCurto(draftDe)} – …`
-                    : "Nenhuma data"}
-                </p>
+                  <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:justify-center sm:gap-8">
+                    <MesCalendario
+                      ano={mesBase.y}
+                      mes0={mesBase.m}
+                      de={draftDe}
+                      ate={draftAte}
+                      hover={hover}
+                      selecionandoFim={selecionandoFim}
+                      onPick={pick}
+                      onHover={setHover}
+                    />
+                    <div className="hidden sm:block">
+                      <MesCalendario
+                        ano={mesSeguinte.y}
+                        mes0={mesSeguinte.m}
+                        de={draftDe}
+                        ate={draftAte}
+                        hover={hover}
+                        selecionandoFim={selecionandoFim}
+                        onPick={pick}
+                        onHover={setHover}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <p className="mb-3 text-center text-sm font-semibold text-ink">{mesBase.y}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {MESES_CURTOS.map((nome, mes0) => {
+                      const ativo =
+                        mesAplicado?.y === mesBase.y && mesAplicado.m === mes0;
+                      return (
+                        <button
+                          key={nome}
+                          type="button"
+                          aria-pressed={ativo}
+                          onClick={() => escolherMes(mes0)}
+                          className={cn(
+                            "rounded-lg border px-2 py-2.5 text-sm font-medium transition",
+                            ativo
+                              ? "border-brand-600 bg-brand-600 text-white"
+                              : "border-line bg-surface text-ink hover:border-brand-500 hover:bg-brand-50",
+                          )}
+                        >
+                          {nome}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3">
                 <button
                   type="button"
                   className="text-sm font-medium text-ink-soft hover:text-brand-700 disabled:opacity-40"
@@ -415,6 +642,18 @@ export function DateRangePicker({
                 >
                   Limpar
                 </button>
+                {modo === "intervalo" ? (
+                  <button
+                    type="button"
+                    className="btn-primary px-3 py-2"
+                    disabled={!podeAplicar}
+                    onClick={aplicarIntervalo}
+                  >
+                    Aplicar
+                  </button>
+                ) : (
+                  <p className="text-xs text-ink-soft">Escolha o mês</p>
+                )}
               </div>
             </div>,
             document.body,

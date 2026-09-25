@@ -1,8 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { NomeRapidoModal } from "../../components/NomeRapidoModal";
-import { EnderecoClienteCampos } from "../../components/clientes/EnderecoClienteCampos";
-import { enderecoVazio } from "../../components/clientes/EnderecosClienteEditor";
 import { FieldWrapper, FormDate, FormInput, FormTextarea } from "../../components/FormField";
 import { IconPlus, IconUser } from "../../components/Icons";
 import { PageHeader } from "../../components/PageHeader";
@@ -12,6 +10,7 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { StatusSelectDropdown } from "../../components/StatusSelectDropdown";
 import { SearchableSelectDropdown } from "../../components/SearchableSelectDropdown";
 import { MarcadoresEditor, type Marcador } from "../../components/vendas/MarcadoresEditor";
+import { ClienteRapidoModal } from "../../components/vendas/ClienteRapidoModal";
 import {
   ItensVendaEditor,
   totalItensVenda,
@@ -39,7 +38,6 @@ import { vendedoresService } from "../../services/vendedores";
 import { formasEnvioService } from "../../services/formas-envio";
 import {
   enderecosClienteService,
-  type EnderecoClienteForm,
 } from "../../services/enderecos-cliente";
 import { useAsync } from "../../hooks/useAsync";
 import { useToast } from "../../contexts/ToastContext";
@@ -55,7 +53,6 @@ import type {
 import { formatarMoeda, traduzirEnum } from "../../utils/format";
 import { cn } from "../../utils/cn";
 import {
-  enderecoTemDados,
   formatarEnderecoLinha,
   formatarEnderecoOpcao,
   formatarLocalidade,
@@ -97,23 +94,12 @@ type FormState = {
   marcadores: Marcador[];
 };
 
-type ClienteNovoForm = {
-  nome: string;
-  email: string;
-  telefone: string;
-  pais: string;
-};
-
 function hojeIsoDate(): string {
   const d = new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-function paisPorRegiao(regiao: TipoRegiao): string {
-  return regiao === "europa" ? "Europa" : "Brasil";
 }
 
 function estadoInicial(regiao: TipoRegiao): FormState {
@@ -144,22 +130,6 @@ function estadoInicial(regiao: TipoRegiao): FormState {
   };
 }
 
-function clienteNovoVazio(regiao: TipoRegiao): ClienteNovoForm {
-  return {
-    nome: "",
-    email: "",
-    telefone: "",
-    pais: paisPorRegiao(regiao),
-  };
-}
-
-function enderecoNovoVazio(regiao: TipoRegiao): EnderecoClienteForm {
-  return {
-    ...enderecoVazio(true),
-    pais: paisPorRegiao(regiao),
-  };
-}
-
 function num(s: string, padrao = 0): number {
   if (!s || s.trim() === "") return padrao;
   const v = Number(s.replace(",", "."));
@@ -174,10 +144,6 @@ function dataOuNulo(s: string): string | null {
   return s.trim() === "" ? null : s;
 }
 
-function enderecoMinimoOk(e: EnderecoClienteForm): boolean {
-  return Boolean(e.cidade.trim());
-}
-
 export default function VendaFormPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -187,13 +153,7 @@ export default function VendaFormPage() {
   const regiaoQuery = parseRegiaoVendaRota(searchParams.get("regiao")) ?? "brasil";
 
   const [form, setForm] = useState<FormState>(() => estadoInicial(regiaoQuery));
-  const [modoNovoCliente, setModoNovoCliente] = useState(false);
-  const [clienteNovo, setClienteNovo] = useState<ClienteNovoForm>(() =>
-    clienteNovoVazio(regiaoQuery),
-  );
-  const [enderecoNovo, setEnderecoNovo] = useState<EnderecoClienteForm>(() =>
-    enderecoNovoVazio(regiaoQuery),
-  );
+  const [modalCliente, setModalCliente] = useState(false);
   const [itens, setItens] = useState<ItemVendaFormLinha[]>([]);
   const [parcelas, setParcelas] = useState<ParcelaVendaFormLinha[]>([]);
   const [numeroExibicao, setNumeroExibicao] = useState<string | null>(null);
@@ -234,16 +194,12 @@ export default function VendaFormPage() {
   useEffect(() => {
     if (!id) {
       setForm(estadoInicial(regiaoQuery));
-      setModoNovoCliente(false);
-      setClienteNovo(clienteNovoVazio(regiaoQuery));
-      setEnderecoNovo(enderecoNovoVazio(regiaoQuery));
       setItens([]);
       setParcelas([]);
       setLoadingInicial(false);
       return;
     }
     setLoadingInicial(true);
-    setModoNovoCliente(false);
     Promise.all([
       vendasService.obter(id),
       vendasService.obterItens(id),
@@ -279,7 +235,6 @@ export default function VendaFormPage() {
           obs_interna: v.obs_interna ?? "",
           marcadores: Array.isArray(v.marcadores) ? (v.marcadores as Marcador[]) : [],
         });
-        setEnderecoNovo(enderecoNovoVazio(v.regiao_venda));
         setItens(
           listaItens.map((iv) => ({
             key: iv.id,
@@ -322,19 +277,6 @@ export default function VendaFormPage() {
       return { ...s, id_endereco_cliente: principal.id };
     });
   }, [form.id_cliente, enderecosCliente.data]);
-
-  useEffect(() => {
-    if (!form.id_cliente || modoNovoCliente) return;
-    if (enderecosCliente.loading) return;
-    if ((enderecosCliente.data ?? []).length > 0) return;
-    setEnderecoNovo(enderecoNovoVazio(form.regiao_venda));
-  }, [
-    form.id_cliente,
-    form.regiao_venda,
-    modoNovoCliente,
-    enderecosCliente.loading,
-    enderecosCliente.data,
-  ]);
 
   const enderecoSelecionado = listaEnderecos.find((e) => e.id === form.id_endereco_cliente);
   const opcoesEndereco = [
@@ -397,20 +339,8 @@ export default function VendaFormPage() {
     }));
   };
 
-  const updClienteNovo = <K extends keyof ClienteNovoForm>(k: K, v: ClienteNovoForm[K]) =>
-    setClienteNovo((s) => ({ ...s, [k]: v }));
-
   const abrirNovoCliente = () => {
-    setModoNovoCliente(true);
-    setForm((s) => ({ ...s, id_cliente: "", id_endereco_cliente: "", nome_cliente: "" }));
-    setClienteNovo(clienteNovoVazio(form.regiao_venda));
-    setEnderecoNovo(enderecoNovoVazio(form.regiao_venda));
-  };
-
-  const cancelarNovoCliente = () => {
-    setModoNovoCliente(false);
-    setClienteNovo(clienteNovoVazio(form.regiao_venda));
-    setEnderecoNovo(enderecoNovoVazio(form.regiao_venda));
+    setModalCliente(true);
   };
 
   const montarPayloadBase = (
@@ -453,39 +383,8 @@ export default function VendaFormPage() {
     try {
       let idCliente = form.id_cliente || null;
       let idEndereco = form.id_endereco_cliente || null;
-      let nomeCliente: string | null = null;
-
-      if (modoNovoCliente) {
-        const nome = clienteNovo.nome.trim();
-        if (!nome) {
-          throw new Error("Informe o nome do cliente.");
-        }
-
-        const criado = await clientesService.criar({
-          nome,
-          email: txtOuNulo(clienteNovo.email),
-          telefone: txtOuNulo(clienteNovo.telefone),
-          pais: txtOuNulo(clienteNovo.pais) ?? paisPorRegiao(form.regiao_venda),
-        });
-        idCliente = criado.id;
-        nomeCliente = criado.nome;
-
-        // Endereço opcional.
-        if (enderecoTemDados(enderecoNovo) && enderecoMinimoOk(enderecoNovo)) {
-          const enderecoCriado = await enderecosClienteService.criar(criado.id, {
-            ...enderecoNovo,
-            principal: true,
-            rotulo: enderecoNovo.rotulo.trim() || "Principal",
-            pais: enderecoNovo.pais.trim() || criado.pais || paisPorRegiao(form.regiao_venda),
-          });
-          idEndereco = enderecoCriado.id;
-        } else {
-          idEndereco = null;
-        }
-      } else {
-        const selecionado = (clientes.data ?? []).find((c) => c.id === form.id_cliente);
-        nomeCliente = selecionado?.nome ?? txtOuNulo(form.nome_cliente);
-      }
+      const selecionado = (clientes.data ?? []).find((c) => c.id === form.id_cliente);
+      const nomeCliente = selecionado?.nome ?? txtOuNulo(form.nome_cliente);
 
       const payload = montarPayloadBase(idCliente, idEndereco, nomeCliente);
       const subtotal = totalItensVenda(itens);
@@ -551,9 +450,7 @@ export default function VendaFormPage() {
       ? `Editar pedido ${numeroExibicao}`
       : "Editar ordem de venda";
 
-  const nomeClienteResumo = modoNovoCliente
-    ? clienteNovo.nome.trim() || "Novo cliente"
-    : clienteSelecionado?.nome || form.nome_cliente || "Sem cliente";
+  const nomeClienteResumo = clienteSelecionado?.nome || form.nome_cliente || "Sem cliente";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -585,23 +482,11 @@ export default function VendaFormPage() {
               <div className="space-y-6 lg:order-2 lg:col-span-9">
                 <SectionCard
                   title="Cliente e entrega"
-                  description={
-                    modoNovoCliente
-                      ? "Cadastre o cliente neste pedido. Endereço é opcional."
-                      : "Quem compra e, se houver, o endereço de entrega."
-                  }
-                  titleAccessory={
-                    modoNovoCliente ? (
-                      <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700 ring-1 ring-inset ring-brand-100">
-                        Novo
-                      </span>
-                    ) : null
-                  }
+                  description="Quem compra e, se houver, o endereço de entrega."
                 >
                   <div className="space-y-6">
-                    {!modoNovoCliente ? (
-                      <div className="space-y-3">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="space-y-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                           <FieldWrapper
                             id="cliente-venda"
                             label="Cliente"
@@ -660,73 +545,15 @@ export default function VendaFormPage() {
                             </div>
                           </div>
                         ) : null}
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
-                            1 · Dados do cliente
-                          </p>
-                          <button
-                            type="button"
-                            onClick={cancelarNovoCliente}
-                            className="text-sm font-medium text-ink-soft hover:text-brand-700"
-                          >
-                            Usar existente
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <FormInput
-                            label="Nome"
-                            value={clienteNovo.nome}
-                            onChange={(e) => updClienteNovo("nome", e.target.value)}
-                            required
-                            autoFocus
-                            placeholder="Nome completo"
-                            wrapperClassName="sm:col-span-2"
-                          />
-                          <FormInput
-                            label="E-mail"
-                            type="email"
-                            value={clienteNovo.email}
-                            onChange={(e) => updClienteNovo("email", e.target.value)}
-                            placeholder="email@exemplo.com"
-                          />
-                          <FormInput
-                            label="Telefone"
-                            value={clienteNovo.telefone}
-                            onChange={(e) => updClienteNovo("telefone", e.target.value)}
-                            placeholder="+351 ou (11) …"
-                          />
-                          <FormInput
-                            label="País"
-                            value={clienteNovo.pais}
-                            onChange={(e) => updClienteNovo("pais", e.target.value)}
-                            wrapperClassName="sm:col-span-2"
-                          />
-                        </div>
-                      </div>
-                    )}
+                    </div>
 
                     <div
                       className={cn(
                         "border-t border-line/80 pt-6",
-                        !modoNovoCliente && !form.id_cliente && "opacity-70",
+                        !form.id_cliente && "opacity-70",
                       )}
                     >
-                      {modoNovoCliente ? (
-                        <>
-                          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
-                            2 · Endereço de entrega
-                          </p>
-                          <p className="mb-4 text-xs text-ink-soft">Opcional.</p>
-                          <EnderecoClienteCampos
-                            value={enderecoNovo}
-                            onChange={(patch) => setEnderecoNovo((s) => ({ ...s, ...patch }))}
-                            idPrefix="endereco-novo"
-                          />
-                        </>
-                      ) : !form.id_cliente ? (
+                      {!form.id_cliente ? (
                         <div className="rounded-xl border border-dashed border-line bg-surface-subtle/30 px-4 py-8 text-center">
                           <p className="text-sm text-ink-soft">
                             Selecione um cliente ou cadastre um novo para definir a entrega.
@@ -918,7 +745,7 @@ export default function VendaFormPage() {
                       value={form.numero}
                       onChange={(e) => upd("numero", e.target.value)}
                       placeholder="Ex.: 1897"
-                      autoFocus={isNovo && !modoNovoCliente}
+                      autoFocus={isNovo}
                     />
                     <FormDate
                       label="Data do pedido"
@@ -936,16 +763,6 @@ export default function VendaFormPage() {
                           upd("regiao_venda", regiao);
                           if (regiao !== regiaoAnterior && itens.some((i) => i.id_item_estoque)) {
                             atualizarItens([]);
-                          }
-                          if (modoNovoCliente) {
-                            setClienteNovo((s) => ({
-                              ...s,
-                              pais: s.pais.trim() ? s.pais : paisPorRegiao(regiao),
-                            }));
-                            setEnderecoNovo((s) => ({
-                              ...s,
-                              pais: s.pais.trim() ? s.pais : paisPorRegiao(regiao),
-                            }));
                           }
                         }}
                       />
@@ -1042,15 +859,9 @@ export default function VendaFormPage() {
                   </p>
                   <p className="mt-2 font-medium text-ink">{nomeClienteResumo}</p>
                   <p className="mt-0.5 text-ink-soft">
-                    {modoNovoCliente
-                      ? enderecoNovo.cidade.trim()
-                        ? [enderecoNovo.cidade, enderecoNovo.uf || enderecoNovo.pais]
-                            .filter(Boolean)
-                            .join(" · ")
-                        : "Sem endereço"
-                      : enderecoSelecionado
-                        ? formatarLocalidade(enderecoSelecionado) || "Endereço selecionado"
-                        : "Sem endereço"}
+                    {enderecoSelecionado
+                      ? formatarLocalidade(enderecoSelecionado) || "Endereço selecionado"
+                      : "Sem endereço"}
                   </p>
                   <p className="mt-2 font-numeric text-sm tabular-nums text-ink">
                     Total {totalPreview}
@@ -1086,6 +897,21 @@ export default function VendaFormPage() {
         </div>
       ) : null}
 
+      <ClienteRapidoModal
+        open={modalCliente}
+        onClose={() => setModalCliente(false)}
+        regiao={form.regiao_venda}
+        onCriado={(cliente) => {
+          setForm((s) => ({
+            ...s,
+            id_cliente: cliente.id,
+            nome_cliente: cliente.nome,
+            id_endereco_cliente: cliente.idEndereco ?? "",
+          }));
+          clientes.reload();
+          toast.sucesso("Cliente criado e selecionado.");
+        }}
+      />
       <NomeRapidoModal
         open={modalVendedor}
         onClose={() => setModalVendedor(false)}

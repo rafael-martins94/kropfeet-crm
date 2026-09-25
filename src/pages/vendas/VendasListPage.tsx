@@ -376,21 +376,19 @@ export default function VendasListPage() {
                 placeholder="Data do pedido"
                 className="min-w-0 flex-[1.1]"
               />
-              <StatusSelectDropdown
-                value={filtros.status}
-                options={statusOpcoes}
-                onChange={(v) => filtros.setStatus(v as StatusVenda | "")}
-                className="min-w-0 flex-1"
-              />
+              <div className="w-48 shrink-0">
+                <StatusSelectDropdown
+                  value={filtros.status}
+                  options={statusOpcoes}
+                  onChange={(v) => filtros.setStatus(v as StatusVenda | "")}
+                />
+              </div>
               <input
                 value={filtros.marcador}
                 onChange={(e) => filtros.setMarcador(e.target.value)}
                 placeholder="Tag…"
                 className="input-base min-w-0 w-28 shrink grow-0 basis-28"
               />
-              <div className="hidden shrink-0 whitespace-nowrap text-xs text-ink-soft xl:block">
-                {data ? `${data.total.toLocaleString("pt-BR")} ordens` : ""}
-              </div>
             </div>
           }
           body={
