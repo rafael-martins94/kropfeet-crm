@@ -25,6 +25,7 @@ import {
   MEIO_SEM_PAGAMENTO,
   type RegiaoContasReceber,
   type SituacaoFiltroValor,
+  type TotaisContasReceber,
 } from "../../services/contasReceber";
 import {
   CONTAS_SUMUP,
@@ -200,7 +201,7 @@ export default function ContasReceberPage() {
         : Promise.resolve({ data: [] as ContaReceberDetalhada[], total: 0 }),
     [chaveFiltro, page, regiao],
   );
-  const totais = useAsync(
+  const totais = useAsync<TotaisContasReceber>(
     () => (regiao ? contasReceberService.totais(filtro) : Promise.resolve({})),
     [chaveFiltro, regiao],
   );
@@ -276,7 +277,8 @@ export default function ContasReceberPage() {
     }
   };
 
-  const totaisPorMoeda = Object.entries(totais.data ?? {});
+  const totaisVazios: TotaisContasReceber = {};
+  const totaisPorMoeda = Object.entries(totais.data ?? totaisVazios);
 
   const columns: Column<ContaReceberDetalhada>[] = [
     {

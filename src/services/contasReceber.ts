@@ -144,7 +144,7 @@ export const contasReceberService = {
       .eq("id_venda", idVenda)
       .order("data_vencimento", { ascending: true });
     if (error) throw error;
-    return (data ?? []) as ContaReceberDetalhada[];
+    return (data ?? []) as unknown as ContaReceberDetalhada[];
   },
 
   listar: async (

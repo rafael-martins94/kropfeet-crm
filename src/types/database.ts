@@ -702,6 +702,7 @@ export type Database = {
           criado_em: string
           dados_sumup: Json | null
           data_emissao: string | null
+          data_pagamento_sumup: string | null
           data_recebimento: string | null
           data_vencimento: string | null
           divergente: boolean
