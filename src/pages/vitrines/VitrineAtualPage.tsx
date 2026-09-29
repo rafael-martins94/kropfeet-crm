@@ -4,7 +4,12 @@ import { PageHeader } from "../../components/PageHeader";
 import { SectionCard } from "../../components/SectionCard";
 import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
 import { NomePdfVitrineField } from "../../components/vitrines/NomePdfVitrineField";
-import { LinkPdfVitrine, CaixaResumoCard, VitrineMeta } from "../../components/vitrines/VitrineShared";
+import {
+  LinkMapaColetaVitrine,
+  LinkPdfVitrine,
+  CaixaResumoCard,
+  VitrineMeta,
+} from "../../components/vitrines/VitrineShared";
 import { SubstituirCaixaModal } from "../../components/vitrines/SubstituirCaixaModal";
 import { VitrineTituloEditavel } from "../../components/vitrines/VitrineTituloEditavel";
 import { SearchInput } from "../../components/SearchInput";
@@ -52,7 +57,14 @@ export default function VitrineAtualPage() {
         title="Vitrine atual"
         breadcrumbs={[{ label: "Operação" }, { label: "Vitrines", to: "/vitrines" }, { label: "Atual" }]}
         backTo="/vitrines"
-        actions={vitrine.data ? <LinkPdfVitrine id={vitrine.data.id} /> : null}
+        actions={
+          vitrine.data ? (
+            <>
+              <LinkMapaColetaVitrine id={vitrine.data.id} />
+              <LinkPdfVitrine id={vitrine.data.id} />
+            </>
+          ) : null
+        }
       />
 
       <SectionCard

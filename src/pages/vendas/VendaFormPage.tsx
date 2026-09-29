@@ -23,16 +23,19 @@ import {
 } from "../../components/vendas/ParcelasVendaEditor";
 import {
   caminhoListaVendas,
-  formaPagamentoOpcoes,
-  formaPagamentoUsaParcelas,
+  formaDerivadaDasParcelas,
   freteStatusOpcoes,
+  labelFormaPagamento,
   localVendaOpcoes,
+  moedaDoFrete,
+  moedaFreteOpcoes,
   moedaPorRegiao,
-  opcoesComValorAtual,
   parseRegiaoVendaRota,
   regiaoVendaOpcoes,
 } from "./vendaOpcoes";
 import { vendasService } from "../../services/vendas";
+import { contasReceberService } from "../../services/contasReceber";
+import { conciliarRecebiveisSumup } from "../../services/sumup";
 import { clientesService } from "../../services/clientes";
 import { vendedoresService } from "../../services/vendedores";
 import { formasEnvioService } from "../../services/formas-envio";
@@ -41,8 +44,11 @@ import {
 } from "../../services/enderecos-cliente";
 import { useAsync } from "../../hooks/useAsync";
 import { useToast } from "../../contexts/ToastContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { itensEstoqueService } from "../../services/itens-estoque";
 import { mensagemErro } from "../../utils/errors";
 import type {
+  ContaReceber,
   FreteStatus,
   LocalVenda,
   StatusVenda,
@@ -79,11 +85,14 @@ type FormState = {
   /** Denormalizado a partir do cliente; não aparece na UI. */
   nome_cliente: string;
   data_pedido: string;
+  /** Só editável sem parcelas (cortesia); com parcelas é derivada delas. */
   forma_pagamento: string;
+  condicao_pagamento: string;
   codigo_venda_adquirente: string;
   codigo_rastreamento: string;
   url_rastreamento: string;
   valor_frete: string;
+  moeda_frete: "BRL" | "EUR";
   frete_status: FreteStatus;
   data_pagamento_frete: string;
   valor_desconto: string;
@@ -115,10 +124,12 @@ function estadoInicial(regiao: TipoRegiao): FormState {
     nome_cliente: "",
     data_pedido: hojeIsoDate(),
     forma_pagamento: "",
+    condicao_pagamento: "",
     codigo_venda_adquirente: "",
     codigo_rastreamento: "",
     url_rastreamento: "",
     valor_frete: "0",
+    moeda_frete: moedaPorRegiao(regiao) === "EUR" ? "EUR" : "BRL",
     frete_status: "nao_aplicavel",
     data_pagamento_frete: "",
     valor_desconto: "0",
@@ -149,6 +160,7 @@ export default function VendaFormPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
   const isNovo = !id;
   const regiaoQuery = parseRegiaoVendaRota(searchParams.get("regiao")) ?? "brasil";
 
@@ -156,6 +168,7 @@ export default function VendaFormPage() {
   const [modalCliente, setModalCliente] = useState(false);
   const [itens, setItens] = useState<ItemVendaFormLinha[]>([]);
   const [parcelas, setParcelas] = useState<ParcelaVendaFormLinha[]>([]);
+  const [contas, setContas] = useState<ContaReceber[]>([]);
   const [numeroExibicao, setNumeroExibicao] = useState<string | null>(null);
   const [loadingInicial, setLoadingInicial] = useState(!isNovo);
   const [salvando, setSalvando] = useState(false);
@@ -196,6 +209,7 @@ export default function VendaFormPage() {
       setForm(estadoInicial(regiaoQuery));
       setItens([]);
       setParcelas([]);
+      setContas([]);
       setLoadingInicial(false);
       return;
     }
@@ -204,9 +218,28 @@ export default function VendaFormPage() {
       vendasService.obter(id),
       vendasService.obterItens(id),
       vendasService.obterParcelas(id),
+      contasReceberService.listarPorVenda(id),
     ])
-      .then(([v, listaItens, listaParcelas]) => {
+      .then(([v, listaItens, listaParcelas, listaContas]) => {
         if (!v) return;
+        const linhas = listaItens.map((iv) => ({
+          key: iv.id,
+          id_item_estoque: iv.id_item_estoque,
+          codigo: iv.codigo ?? iv.item_estoque?.sku ?? "",
+          descricao: iv.descricao ?? iv.item_estoque?.nome_produto ?? "",
+          valor_unitario: String(iv.valor_unitario ?? 0),
+          definir_preco_estoque: Boolean(iv.id_item_estoque) && !Number(iv.valor_unitario),
+        }));
+        const subtotal = linhas.reduce((acc, item) => acc + num(item.valor_unitario), 0);
+        const totalPedido =
+          linhas.length > 0
+            ? Math.max(
+                0,
+                Number(
+                  (subtotal + Number(v.outras_despesas ?? 0) - Number(v.valor_desconto ?? 0)).toFixed(2),
+                ),
+              )
+            : Number(v.valor_total ?? 0);
         setNumeroExibicao(v.numero);
         setForm({
           numero: v.numero ?? "",
@@ -220,46 +253,89 @@ export default function VendaFormPage() {
           nome_cliente: v.nome_cliente ?? "",
           data_pedido: v.data_pedido ? v.data_pedido.slice(0, 10) : "",
           forma_pagamento: v.forma_pagamento ?? "",
+          condicao_pagamento: v.condicao_pagamento ?? "",
           codigo_venda_adquirente: v.codigo_venda_adquirente ?? "",
           codigo_rastreamento: v.codigo_rastreamento ?? "",
           url_rastreamento: v.url_rastreamento ?? "",
           valor_frete: String(v.valor_frete ?? 0),
+          moeda_frete: moedaDoFrete(v),
           frete_status: v.frete_status ?? "nao_aplicavel",
           data_pagamento_frete: v.data_pagamento_frete
             ? v.data_pagamento_frete.slice(0, 10)
             : "",
           valor_desconto: String(v.valor_desconto ?? 0),
           outras_despesas: String(v.outras_despesas ?? 0),
-          valor_total: String(v.valor_total ?? 0),
+          valor_total: String(totalPedido),
           obs: v.obs ?? "",
           obs_interna: v.obs_interna ?? "",
           marcadores: Array.isArray(v.marcadores) ? (v.marcadores as Marcador[]) : [],
         });
-        setItens(
-          listaItens.map((iv) => ({
-            key: iv.id,
-            id_item_estoque: iv.id_item_estoque,
-            codigo: iv.codigo ?? iv.item_estoque?.sku ?? "",
-            descricao: iv.descricao ?? iv.item_estoque?.nome_produto ?? "",
-            valor_unitario: String(iv.valor_unitario ?? 0),
-          })),
-        );
+        setItens(linhas);
         setParcelas(
           listaParcelas.map((p) =>
             novaParcelaVendaLinha({
               key: p.id,
+              id: p.id,
               data_vencimento: p.data_vencimento ?? "",
+              dias: p.dias != null ? String(p.dias) : "",
               valor: String(p.valor ?? 0),
               forma_pagamento: p.forma_pagamento ?? "",
               meio_pagamento: p.meio_pagamento ?? "",
-              pago: p.pago,
+              codigo_transacao: p.codigo_transacao ?? "",
             }),
           ),
         );
+        setContas(listaContas);
       })
       .catch((e) => toast.erro(mensagemErro(e), "Erro ao carregar"))
       .finally(() => setLoadingInicial(false));
   }, [id, regiaoQuery, toast]);
+
+  /** Grava o valor digitado como preço dos itens de estoque que ainda estão sem preço. */
+  const definirPrecosNoEstoque = async (): Promise<number> => {
+    const pendentes = itens.filter(
+      (i) => i.definir_preco_estoque && i.id_item_estoque && num(i.valor_unitario) > 0,
+    );
+    if (pendentes.length === 0 || !user?.id) return 0;
+    let salvos = 0;
+    for (const item of pendentes) {
+      try {
+        const atual = await itensEstoqueService.obter(item.id_item_estoque!);
+        if (!atual || Number(atual.preco_venda) > 0) continue;
+        await itensEstoqueService.atualizarPrecoVenda({
+          idItem: item.id_item_estoque!,
+          precoNovo: num(item.valor_unitario),
+          moedaNova: moeda,
+          idUsuario: user.id,
+          origem: "ordem_venda",
+        });
+        salvos += 1;
+      } catch (e) {
+        toast.aviso(mensagemErro(e), `Preço não salvo no item ${item.codigo || item.descricao}`);
+      }
+    }
+    return salvos;
+  };
+
+  const estornarConta = async (conta: ContaReceber) => {
+    try {
+      await contasReceberService.estornarBaixa([conta.id]);
+      setContas(await contasReceberService.listarPorVenda(conta.id_venda));
+      toast.sucesso("Recebimento estornado. A parcela pode ser editada.");
+    } catch (e) {
+      toast.erro(mensagemErro(e), "Não foi possível estornar");
+    }
+  };
+
+  const marcarRecebida = async (conta: ContaReceber) => {
+    try {
+      await contasReceberService.baixar([conta.id], null);
+      setContas(await contasReceberService.listarPorVenda(conta.id_venda));
+      toast.sucesso("Parcela marcada como recebida.");
+    } catch (e) {
+      toast.erro(mensagemErro(e), "Não foi possível marcar como recebida");
+    }
+  };
 
   useEffect(() => {
     const lista = enderecosCliente.data;
@@ -294,39 +370,46 @@ export default function VendaFormPage() {
   const upd = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((s) => ({ ...s, [k]: v }));
 
+  const totalSemFrete = (subtotal: number, desconto: number, outras: number) =>
+    Math.max(0, Number((subtotal + outras - desconto).toFixed(2)));
+
   const atualizarItens = (proximos: ItemVendaFormLinha[]) => {
     setItens(proximos);
     const subtotal = totalItensVenda(proximos);
+    setForm((s) => ({
+      ...s,
+      valor_total: String(totalSemFrete(subtotal, num(s.valor_desconto), num(s.outras_despesas))),
+    }));
+  };
+
+  const updValor = (campo: "valor_desconto" | "outras_despesas", valor: string) => {
     setForm((s) => {
-      const total = Math.max(
-        0,
-        subtotal + num(s.valor_frete) + num(s.outras_despesas) - num(s.valor_desconto),
-      );
-      return { ...s, valor_total: String(Number(total.toFixed(2))) };
+      const next = { ...s, [campo]: valor };
+      const subtotal = totalItensVenda(itens);
+      return {
+        ...next,
+        valor_total: String(
+          totalSemFrete(
+            subtotal,
+            num(campo === "valor_desconto" ? valor : next.valor_desconto),
+            num(campo === "outras_despesas" ? valor : next.outras_despesas),
+          ),
+        ),
+      };
     });
   };
 
-  const updValor = (campo: "valor_frete" | "valor_desconto" | "outras_despesas", valor: string) => {
+  const updFreteValor = (valor: string) => {
     setForm((s) => {
-      const next = { ...s, [campo]: valor };
-      if (campo === "valor_frete") {
-        const frete = num(valor);
-        if (frete > 0 && s.frete_status === "nao_aplicavel") {
-          next.frete_status = "pendente";
-        } else if (frete <= 0 && s.frete_status === "pendente") {
-          next.frete_status = "nao_aplicavel";
-          next.data_pagamento_frete = "";
-        }
+      const frete = num(valor);
+      let status = s.frete_status;
+      let data = s.data_pagamento_frete;
+      if (frete > 0 && status === "nao_aplicavel") status = "pendente";
+      if (frete <= 0 && status === "pendente") {
+        status = "nao_aplicavel";
+        data = "";
       }
-      const subtotal = totalItensVenda(itens);
-      const total = Math.max(
-        0,
-        subtotal +
-          num(campo === "valor_frete" ? valor : next.valor_frete) +
-          num(campo === "outras_despesas" ? valor : next.outras_despesas) -
-          num(campo === "valor_desconto" ? valor : next.valor_desconto),
-      );
-      return { ...next, valor_total: String(Number(total.toFixed(2))) };
+      return { ...s, valor_frete: valor, frete_status: status, data_pagamento_frete: data };
     });
   };
 
@@ -334,6 +417,7 @@ export default function VendaFormPage() {
     setForm((s) => ({
       ...s,
       frete_status: status,
+      valor_frete: status === "nao_aplicavel" ? "0" : s.valor_frete,
       data_pagamento_frete:
         status === "pago" ? s.data_pagamento_frete || hojeIsoDate() : "",
     }));
@@ -358,11 +442,16 @@ export default function VendaFormPage() {
     local_venda: (form.local_venda || null) as LocalVenda | null,
     nome_cliente: nomeCliente,
     data_pedido: dataOuNulo(form.data_pedido),
-    forma_pagamento: txtOuNulo(form.forma_pagamento),
+    forma_pagamento:
+      parcelas.length > 0
+        ? formaDerivadaDasParcelas(parcelas)
+        : txtOuNulo(form.forma_pagamento),
+    condicao_pagamento: txtOuNulo(form.condicao_pagamento),
     codigo_venda_adquirente: txtOuNulo(form.codigo_venda_adquirente),
     codigo_rastreamento: txtOuNulo(form.codigo_rastreamento),
     url_rastreamento: txtOuNulo(form.url_rastreamento),
     valor_frete: num(form.valor_frete),
+    moeda_frete: form.moeda_frete,
     frete_status: form.frete_status,
     data_pagamento_frete:
       form.frete_status === "pago" ? dataOuNulo(form.data_pagamento_frete) : null,
@@ -388,14 +477,9 @@ export default function VendaFormPage() {
 
       const payload = montarPayloadBase(idCliente, idEndereco, nomeCliente);
       const subtotal = totalItensVenda(itens);
-      const total = Math.max(
-        0,
-        subtotal + num(form.valor_frete) + num(form.outras_despesas) - num(form.valor_desconto),
-      );
+      const total = totalSemFrete(subtotal, num(form.valor_desconto), num(form.outras_despesas));
       payload.total_produtos = Number(subtotal.toFixed(2));
-      // Sem itens, respeita o total informado no formulário (pedido sem produto / só frete etc.).
-      payload.valor_total =
-        itens.length > 0 ? Number(total.toFixed(2)) : num(form.valor_total) || Number(total.toFixed(2));
+      payload.valor_total = itens.length > 0 ? total : num(form.valor_total) || total;
 
       const itensPayload = itens.map((item) => ({
         id_item_estoque: item.id_item_estoque,
@@ -405,38 +489,67 @@ export default function VendaFormPage() {
         valor_unitario: num(item.valor_unitario),
       }));
 
-      const parcelasPayload = parcelas.map((p, idx) => ({
-        numero: idx + 1,
+      const parcelasPayload = parcelas.map((p) => ({
+        id: p.id,
         data_vencimento: dataOuNulo(p.data_vencimento),
         valor: num(p.valor),
         forma_pagamento: txtOuNulo(p.forma_pagamento),
         meio_pagamento: txtOuNulo(p.meio_pagamento),
-        pago: p.pago,
+        codigo_transacao: txtOuNulo(p.codigo_transacao),
+        dias: p.dias.trim() === "" ? null : Math.trunc(num(p.dias)),
       }));
 
-      if (
-        parcelasPayload.length === 0 &&
-        formaPagamentoUsaParcelas(form.forma_pagamento)
-      ) {
-        toast.aviso(
-          "Sem parcelas cadastradas. Em múltiplas/crédito o ideal é detalhar os vencimentos.",
-          "Parcelas opcionais",
-        );
-      }
+      const totalParcelado = parcelasPayload.reduce((acc, p) => acc + p.valor, 0);
+      const diferenca = Number(((payload.valor_total ?? 0) - totalParcelado).toFixed(2));
+      const avisarDiferenca =
+        parcelasPayload.length > 0 &&
+        form.status_venda !== "cancelado" &&
+        Math.abs(diferenca) >= 0.01;
 
+      let idSalvo: string;
       if (id) {
-        await vendasService.atualizar(id, payload);
         await vendasService.substituirItens(id, itensPayload);
-        await vendasService.substituirParcelas(id, parcelasPayload);
-        toast.sucesso("Ordem de venda atualizada.");
-        navigate(`/vendas/${id}`);
+        await vendasService.atualizar(id, payload);
+        idSalvo = id;
       } else {
         const criada = await vendasService.criar(payload as VendaInsert);
         await vendasService.substituirItens(criada.id, itensPayload);
-        await vendasService.substituirParcelas(criada.id, parcelasPayload);
-        toast.sucesso("Ordem de venda criada.");
-        navigate(`/vendas/${criada.id}`);
+        idSalvo = criada.id;
       }
+      const resultado = await vendasService.salvarParcelas(idSalvo, parcelasPayload);
+      const codigosSumup = [
+        ...new Set(
+          parcelasPayload
+            .map((p) => p.codigo_transacao?.trim().toUpperCase())
+            .filter((c): c is string => Boolean(c)),
+        ),
+      ];
+      await conciliarRecebiveisSumup(codigosSumup).catch(() => undefined);
+      const precosDefinidos = await definirPrecosNoEstoque();
+
+      toast.sucesso(id ? "Ordem de venda atualizada." : "Ordem de venda criada.");
+      if (precosDefinidos > 0) {
+        toast.sucesso(
+          precosDefinidos === 1
+            ? "Preço de venda salvo no item de estoque."
+            : `Preço de venda salvo em ${precosDefinidos} itens de estoque.`,
+        );
+      }
+      if (avisarDiferenca) {
+        toast.aviso(
+          diferenca > 0
+            ? `As parcelas somam ${formatarMoeda(diferenca, moeda)} a menos que o total do pedido.`
+            : `As parcelas somam ${formatarMoeda(-diferenca, moeda)} a mais que o total do pedido.`,
+          "Confira as parcelas",
+        );
+      }
+      if (resultado.divergentes > 0) {
+        toast.aviso(
+          "Uma parcela já recebida foi removida. O recebimento continua em Contas a receber, marcado como divergente.",
+          "Recebimento mantido",
+        );
+      }
+      navigate(`/vendas/${idSalvo}`);
     } catch (err) {
       toast.erro(mensagemErro(err), "Não foi possível salvar");
     } finally {
@@ -454,7 +567,7 @@ export default function VendaFormPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto pb-24">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-16">
         <PageHeader
           title={titulo}
           breadcrumbs={[
@@ -636,50 +749,120 @@ export default function VendaFormPage() {
                 </SectionCard>
 
                 <SectionCard
-                  title="Pagamento e parcelas"
-                  description="Forma do pedido e, se quiser, o detalhe das parcelas (vencimento, meio e pago). Parcelas não são obrigatórias."
+                  title="Frete"
+                  description="Separado do total do pedido e das parcelas do produto."
                 >
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <FieldWrapper id="forma-pagamento" label="Forma de pagamento">
-                        <SearchableSelectDropdown
-                          value={form.forma_pagamento}
-                          options={opcoesComValorAtual(
-                            formaPagamentoOpcoes,
-                            form.forma_pagamento,
-                            "— Não informado —",
-                          )}
-                          searchPlaceholder="Buscar forma…"
-                          emptyLabel="— Não informado —"
-                          onChange={(v) => upd("forma_pagamento", v)}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <FormInput
+                        label="Valor do frete"
+                        value={form.valor_frete}
+                        onChange={(e) => updFreteValor(e.target.value)}
+                        inputMode="decimal"
+                      />
+                      <FieldWrapper id="frete-moeda" label="Moeda do frete">
+                        <StatusSelectDropdown
+                          value={form.moeda_frete}
+                          options={moedaFreteOpcoes}
+                          onChange={(v) => upd("moeda_frete", v === "EUR" ? "EUR" : "BRL")}
                         />
                       </FieldWrapper>
-                      <FormInput
-                        label="Código de venda"
-                        value={form.codigo_venda_adquirente}
-                        onChange={(e) => upd("codigo_venda_adquirente", e.target.value)}
-                        placeholder="Código da adquirente…"
-                      />
+                      <FieldWrapper id="frete-status" label="Situação">
+                        <StatusSelectDropdown
+                          value={form.frete_status}
+                          options={freteStatusOpcoes}
+                          onChange={(v) => updFreteStatus(v as FreteStatus)}
+                        />
+                      </FieldWrapper>
+                      {form.frete_status === "pago" ? (
+                        <FormDate
+                          label="Data do pagamento"
+                          value={form.data_pagamento_frete}
+                          onChange={(e) => upd("data_pagamento_frete", e.target.value)}
+                        />
+                      ) : null}
+                    </div>
+                    <div className="rounded-xl border border-line bg-surface-subtle px-4 py-3">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+                        A pagar pelo frete
+                      </p>
+                      <p className="mt-1 font-numeric text-lg font-semibold tabular-nums text-ink">
+                        {formatarMoeda(
+                          form.frete_status === "pendente" || form.frete_status === "pago"
+                            ? num(form.valor_frete)
+                            : 0,
+                          form.moeda_frete,
+                        )}
+                      </p>
+                      <p className="mt-1 text-xs text-ink-soft">
+                        {form.frete_status === "pendente"
+                          ? "Ainda não foi pago. Este valor não entra no total nem nas parcelas."
+                          : form.frete_status === "pago"
+                            ? "Frete já quitado, fora das parcelas do produto."
+                            : form.frete_status === "cortesia"
+                              ? "Oferecido sem cobrança."
+                              : "Este pedido não tem frete."}
+                      </p>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <SectionCard
+                  title="Pagamento e parcelas"
+                  description="Gere as parcelas pela condição de pagamento. Ao salvar, cada parcela vira um lançamento em Contas a receber."
+                >
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                      {parcelas.length > 0 ? (
+                        <p className="text-ink-soft">
+                          Forma do pedido:{" "}
+                          <strong className="text-ink">
+                            {labelFormaPagamento(formaDerivadaDasParcelas(parcelas))}
+                          </strong>{" "}
+                          <span className="text-xs text-ink-faint">(definida pelas parcelas)</span>
+                        </p>
+                      ) : (
+                        <label className="flex cursor-pointer items-center gap-2 text-ink">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-500/30"
+                            checked={form.forma_pagamento === "cortesia"}
+                            onChange={(e) => upd("forma_pagamento", e.target.checked ? "cortesia" : "")}
+                          />
+                          Cortesia / amostra grátis (sem pagamento)
+                        </label>
+                      )}
+                      {form.codigo_venda_adquirente ? (
+                        <p className="text-xs text-ink-faint">
+                          Código SumUp antigo do pedido:{" "}
+                          <span className="font-numeric">{form.codigo_venda_adquirente}</span>
+                        </p>
+                      ) : null}
                     </div>
 
-                    <div className="border-t border-line pt-4">
+                    {form.forma_pagamento === "cortesia" && parcelas.length === 0 ? null : (
                       <ParcelasVendaEditor
                         value={parcelas}
                         onChange={setParcelas}
                         valorTotalPedido={
                           itens.length > 0
-                            ? Math.max(
-                                0,
-                                totalItensVenda(itens) +
-                                  num(form.valor_frete) +
-                                  num(form.outras_despesas) -
-                                  num(form.valor_desconto),
+                            ? totalSemFrete(
+                                totalItensVenda(itens),
+                                num(form.valor_desconto),
+                                num(form.outras_despesas),
                               )
                             : num(form.valor_total)
                         }
                         moeda={moeda}
+                        regiao={form.regiao_venda}
+                        dataBase={form.data_pedido}
+                        condicao={form.condicao_pagamento}
+                        onCondicaoChange={(v) => upd("condicao_pagamento", v)}
+                        contas={contas}
+                        onEstornarConta={estornarConta}
+                        onMarcarRecebida={marcarRecebida}
                       />
-                    </div>
+                    )}
                   </div>
                 </SectionCard>
 
@@ -760,7 +943,16 @@ export default function VendaFormPage() {
                         onChange={(v) => {
                           const regiao = v as TipoRegiao;
                           const regiaoAnterior = form.regiao_venda;
-                          upd("regiao_venda", regiao);
+                          setForm((s) => ({
+                            ...s,
+                            regiao_venda: regiao,
+                            moeda_frete:
+                              s.moeda_frete === (moedaPorRegiao(regiaoAnterior) === "EUR" ? "EUR" : "BRL")
+                                ? moedaPorRegiao(regiao) === "EUR"
+                                  ? "EUR"
+                                  : "BRL"
+                                : s.moeda_frete,
+                          }));
                           if (regiao !== regiaoAnterior && itens.some((i) => i.id_item_estoque)) {
                             atualizarItens([]);
                           }
@@ -799,26 +991,6 @@ export default function VendaFormPage() {
                 <SectionCard title="Valores" description={`Moeda: ${moeda}`}>
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1">
-                      <FormInput
-                        label="Frete"
-                        value={form.valor_frete}
-                        onChange={(e) => updValor("valor_frete", e.target.value)}
-                        inputMode="decimal"
-                      />
-                      <FieldWrapper id="frete-status" label="Status do frete">
-                        <StatusSelectDropdown
-                          value={form.frete_status}
-                          options={freteStatusOpcoes}
-                          onChange={(v) => updFreteStatus(v as FreteStatus)}
-                        />
-                      </FieldWrapper>
-                      {form.frete_status === "pago" ? (
-                        <FormDate
-                          label="Data pagamento frete"
-                          value={form.data_pagamento_frete}
-                          onChange={(e) => upd("data_pagamento_frete", e.target.value)}
-                        />
-                      ) : null}
                       <FormInput
                         label="Desconto"
                         value={form.valor_desconto}
@@ -875,8 +1047,8 @@ export default function VendaFormPage() {
       </div>
 
       {!loadingInicial ? (
-        <div className="sticky bottom-0 z-10 border-t border-line bg-surface/95 px-0 py-3 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky bottom-0 z-10 border-t border-line bg-surface/95 px-0 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 text-sm text-ink-soft">
               <span className="font-medium text-ink">{nomeClienteResumo}</span>
               <span className="mx-2 text-ink-faint">·</span>
@@ -885,11 +1057,12 @@ export default function VendaFormPage() {
             <div className="flex items-center justify-end gap-2">
               <SecondaryButton
                 type="button"
+                className="py-1.5"
                 onClick={() => navigate(id ? `/vendas/${id}` : listaVolta)}
               >
                 Cancelar
               </SecondaryButton>
-              <PrimaryButton type="submit" form="venda-form" loading={salvando}>
+              <PrimaryButton type="submit" form="venda-form" loading={salvando} className="py-1.5">
                 {isNovo ? "Criar ordem" : "Salvar alterações"}
               </PrimaryButton>
             </div>

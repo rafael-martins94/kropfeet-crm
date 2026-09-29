@@ -59,6 +59,9 @@ export type ItemVenda = Tables["itens_venda"]["Row"];
 export type ParcelaVenda = Tables["parcelas_venda"]["Row"];
 export type ParcelaVendaInsert = Tables["parcelas_venda"]["Insert"];
 export type ParcelaVendaUpdate = Tables["parcelas_venda"]["Update"];
+
+export type ContaReceber = Tables["contas_receber"]["Row"];
+export type ContaReceberUpdate = Tables["contas_receber"]["Update"];
 export type MovimentacaoEstoque = Tables["movimentacoes_estoque"]["Row"];
 
 export type Conferencia = Tables["conferencias"]["Row"];
@@ -89,7 +92,7 @@ export type CambioMoedaUpdate = Tables["cambios_moeda"]["Update"];
 
 export type LogSincronizacaoTiny = Tables["logs_sincronizacao_tiny"]["Row"];
 
-export type PapelUsuario = "admin" | "operador";
+export type PapelUsuario = "admin" | "operador" | "vendedor";
 
 export interface PerfilUsuario {
   id: string;
@@ -116,6 +119,7 @@ export type StatusVenda = Database["public"]["Enums"]["status_venda_enum"];
 export type CanalVenda = Database["public"]["Enums"]["canal_venda_enum"];
 export type TipoPessoa = Database["public"]["Enums"]["tipo_pessoa_enum"];
 export type SituacaoFornecedor = Database["public"]["Enums"]["situacao_fornecedor_enum"];
+export type SituacaoContaReceber = Database["public"]["Enums"]["situacao_conta_receber_enum"];
 export type TipoRegiao = Database["public"]["Enums"]["tipo_regiao_enum"];
 export type OrigemCadastro = Database["public"]["Enums"]["origem_cadastro_enum"];
 export type TipoMovimentacao = Database["public"]["Enums"]["tipo_movimentacao_enum"];

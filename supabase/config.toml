@@ -1,0 +1,4 @@
+project_id = "kropfeet-crm"
+
+[functions.sumup]
+verify_jwt = false

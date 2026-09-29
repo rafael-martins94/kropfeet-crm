@@ -13,6 +13,17 @@ const sb = supabase as unknown as {
   from: (table: string) => any;
 };
 
+function destinoRedefinicaoSenha(papel?: PapelUsuario): string {
+  const caminho = papel === "vendedor" ? "/catalogo-kropcafe/entrar" : "/login";
+  return `${window.location.origin}${caminho}`;
+}
+
+function usuarioJaCadastrado(mensagem: string): boolean {
+  return /already registered|already been registered|already exists|já cadastrado|já está registrad/i.test(
+    mensagem,
+  );
+}
+
 function gerarSenhaAleatoria(): string {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
@@ -102,16 +113,12 @@ export const usuariosService = {
     await usuariosService.atualizar(id, { ativo });
   },
 
-  async excluirPerfil(id: string): Promise<void> {
-    const { error } = await sb.from("perfis_usuario").delete().eq("id", id);
-    if (error) throw error;
-  },
-
   /**
    * Cria um novo usuário via supabase.auth.signUp usando um client isolado
    * (sem persistir sessão), de modo a NÃO afetar a sessão do admin atual.
    * O trigger handle_novo_usuario() em auth.users cria o registro em
-   * perfis_usuario automaticamente com o papel informado em user_metadata.
+   * perfis_usuario. Em seguida o administrador confirma o e-mail e garante
+   * o perfil na lista, também quando o e-mail já existia na autenticação.
    */
   async criar(input: CriarUsuarioInput): Promise<void> {
     const email = input.email.trim().toLowerCase();
@@ -147,12 +154,32 @@ export const usuariosService = {
       },
     });
 
-    if (error) throw error;
+    if (error && !usuarioJaCadastrado(error.message)) throw error;
+
+    const { error: confirmError } = await supabase.rpc(
+      "confirmar_email_usuario",
+      { p_email: email },
+    );
+    if (confirmError) {
+      throw new Error(
+        `Usuário criado, mas o e-mail não foi confirmado: ${confirmError.message}`,
+      );
+    }
+
+    const { error: perfilError } = await supabase.rpc(
+      "garantir_perfil_usuario",
+      { p_email: email, p_nome: nome, p_papel: input.papel },
+    );
+    if (perfilError) {
+      throw new Error(
+        `Usuário criado, mas não entrou na lista: ${perfilError.message}`,
+      );
+    }
 
     if (input.modo === "convite") {
       const { error: resetError } =
         await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/login`,
+          redirectTo: destinoRedefinicaoSenha(input.papel),
         });
       if (resetError) {
         console.warn(
@@ -163,9 +190,9 @@ export const usuariosService = {
     }
   },
 
-  async enviarResetSenha(email: string): Promise<void> {
+  async enviarResetSenha(email: string, papel?: PapelUsuario): Promise<void> {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: destinoRedefinicaoSenha(papel),
     });
     if (error) throw error;
   },

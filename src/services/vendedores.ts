@@ -13,11 +13,12 @@ export const vendedoresService = {
     return data ?? [];
   },
 
-  listar: (params: PaginationParams = {}) =>
+  listar: (params: PaginationParams & { ativo?: boolean } = {}) =>
     listar("vendedores", params, {
       searchColumns: ["nome"],
       defaultOrderBy: "nome",
       defaultAscending: true,
+      filters: { ativo: params.ativo },
     }),
 
   criar: async (nome: string): Promise<Vendedor> => {

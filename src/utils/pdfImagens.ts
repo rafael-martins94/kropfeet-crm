@@ -179,6 +179,46 @@ export async function carregarDataUrlsParaPdf(urls: string[]): Promise<Record<st
   return Object.fromEntries(pares.filter((p): p is readonly [string, string] => p != null));
 }
 
+function reduzirDataUrl(dataUrl: string, ladoMaximo: number): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const escala = Math.min(1, ladoMaximo / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+      if (escala >= 1) {
+        resolve(dataUrl);
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * escala));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * escala));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+      // JPEG não tem transparência: fundo branco evita áreas pretas.
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+/** Para PDFs em que a foto aparece pequena: evita embutir a imagem em tamanho original. */
+export async function carregarMiniaturasParaPdf(
+  urls: string[],
+  ladoMaximo = 200,
+): Promise<Record<string, string>> {
+  const originais = await carregarDataUrlsParaPdf(urls);
+  const pares = await Promise.all(
+    Object.entries(originais).map(async ([url, dataUrl]) => [url, await reduzirDataUrl(dataUrl, ladoMaximo)] as const),
+  );
+  return Object.fromEntries(pares);
+}
+
 export function resolverSrcImagemPdf(
   url: string | null | undefined,
   dataUrls: Record<string, string>,

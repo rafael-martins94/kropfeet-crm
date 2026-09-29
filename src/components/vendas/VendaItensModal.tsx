@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Modal } from "../Modal";
 import { FotoThumbnailHover } from "../FotoThumbnailHover";
 import { SecondaryButton } from "../PrimaryButton";
+import { StatusBadge } from "../StatusBadge";
 import { useAsync } from "../../hooks/useAsync";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import type { VendaDetalhada } from "../../services/vendas";
@@ -99,7 +100,12 @@ export function VendaItensModal({ open, onClose, venda, moeda }: VendaItensModal
                           {nomeDoItem(item)}
                         </Link>
                       ) : (
-                        <span className="font-medium text-ink">{nomeDoItem(item)}</span>
+                        <span className="font-medium text-ink">
+                          {nomeDoItem(item)}
+                          <span className="mt-1 block">
+                            <StatusBadge value="sem_par" label="Sem par no estoque" tom="aviso" />
+                          </span>
+                        </span>
                       )}
                     </td>
                     <td className="text-right font-numeric tabular-nums text-sm">

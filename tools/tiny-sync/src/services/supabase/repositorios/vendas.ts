@@ -1,8 +1,9 @@
-import type { Database } from "../../../tipos/database.js";
-import type {
-  DadosItemVendaParseado,
-  DadosParcelaVendaParseada,
-  DadosVendaParseada,
+import type { Database, Json } from "../../../tipos/database.js";
+import {
+  codigoSumupUnico,
+  type DadosItemVendaParseado,
+  type DadosParcelaVendaParseada,
+  type DadosVendaParseada,
 } from "../../tiny/tinyParserPedidos.js";
 import type { SupabaseAppClient } from "../clienteSupabase.js";
 
@@ -18,6 +19,9 @@ function montarPayloadVenda(
   return {
     numero: dados.numero,
     numero_ecommerce: dados.numeroEcommerce,
+    ...(dados.codigoVendaAdquirente
+      ? { codigo_venda_adquirente: dados.codigoVendaAdquirente }
+      : {}),
     id_cliente: idCliente,
     id_endereco_cliente: idEnderecoCliente,
     nome_cliente: dados.nomeCliente,
@@ -111,83 +115,71 @@ async function resolverItemEstoque(
   return null;
 }
 
-/** Substitui os itens da venda (remove os antigos e insere os do pedido atual). */
+/** Substitui os itens da venda. O par que sai volta para em estoque na mesma operação. */
 export async function substituirItensVenda(
   supabase: SupabaseAppClient,
   idVenda: string,
   itens: DadosItemVendaParseado[],
 ): Promise<void> {
-  const anteriores = await supabase
-    .from("itens_venda")
-    .select("id_item_estoque")
-    .eq("id_venda", idVenda);
-  if (anteriores.error) throw anteriores.error;
-
-  const idsAnteriores = (anteriores.data ?? [])
-    .map((row) => row.id_item_estoque)
-    .filter((id): id is string => Boolean(id));
-
-  const remocao = await supabase.from("itens_venda").delete().eq("id_venda", idVenda);
-  if (remocao.error) throw remocao.error;
-
-  if (itens.length > 0) {
-    const linhas = [];
-    for (const item of itens) {
-      const idItemEstoque = await resolverItemEstoque(supabase, item);
-      linhas.push({
-        id_venda: idVenda,
-        id_item_estoque: idItemEstoque,
-        id_produto_tiny: item.idProdutoTiny,
-        codigo: item.codigo,
-        descricao: item.descricao,
-        quantidade: item.quantidade,
-        valor_unitario: item.valorUnitario,
-        dados_tiny: item.dadosTiny,
-      });
-    }
-
-    const insercao = await supabase.from("itens_venda").insert(linhas);
-    if (insercao.error) throw insercao.error;
-  }
-
-  if (idsAnteriores.length > 0) {
-    const reverter = await supabase.rpc("reverter_itens_removidos_venda", {
-      p_id_venda: idVenda,
-      p_ids_anteriores: idsAnteriores,
+  const linhas = [];
+  for (const item of itens) {
+    const idItemEstoque = await resolverItemEstoque(supabase, item);
+    linhas.push({
+      id_item_estoque: idItemEstoque,
+      id_produto_tiny: item.idProdutoTiny,
+      codigo: item.codigo,
+      descricao: item.descricao,
+      quantidade: item.quantidade,
+      valor_unitario: item.valorUnitario,
+      dados_tiny: item.dadosTiny,
     });
-    if (reverter.error) throw reverter.error;
   }
 
-  const sync = await supabase.rpc("sincronizar_efeitos_venda", {
+  const troca = await supabase.rpc("substituir_itens_venda", {
     p_id_venda: idVenda,
+    p_itens: linhas,
   });
-  if (sync.error) throw sync.error;
+  if (troca.error) throw troca.error;
 }
 
-/** Substitui as parcelas da venda (remove as antigas e reaplica a regra Tiny de pago). */
+/**
+ * Grava as parcelas pela RPC `salvar_parcelas_venda`, casando por número, que também gera as
+ * contas a receber. O Tiny não conhece o código SumUp da parcela: mantém o que já está no CRM
+ * (digitado ou gravado na conciliação) e, sem ele, usa o código único do pedido.
+ */
 export async function substituirParcelasVenda(
   supabase: SupabaseAppClient,
   idVenda: string,
   parcelas: DadosParcelaVendaParseada[],
+  codigoVendaAdquirente: string | null = null,
 ): Promise<void> {
-  const remocao = await supabase.from("parcelas_venda").delete().eq("id_venda", idVenda);
-  if (remocao.error) throw remocao.error;
+  const existentes = await supabase
+    .from("parcelas_venda")
+    .select("numero, codigo_transacao")
+    .eq("id_venda", idVenda);
+  if (existentes.error) throw existentes.error;
+  const codigoPorNumero = new Map(
+    (existentes.data ?? []).map((p) => [p.numero, p.codigo_transacao] as const),
+  );
+  const codigoPedido = codigoSumupUnico(codigoVendaAdquirente);
 
-  if (parcelas.length === 0) return;
+  const linhas = parcelas.map((p) => {
+    const ehSumup = (p.meioPagamento ?? "").toLowerCase().startsWith("sumup");
+    return {
+      data_vencimento: p.dataVencimento,
+      valor: p.valor,
+      forma_pagamento: p.formaPagamento,
+      meio_pagamento: p.meioPagamento,
+      codigo_transacao: codigoPorNumero.get(p.numero) ?? (ehSumup ? codigoPedido : null),
+      dias: p.dias,
+      obs: p.obs,
+      dados_tiny: p.dadosTiny,
+    };
+  });
 
-  const linhas = parcelas.map((p) => ({
-    id_venda: idVenda,
-    numero: p.numero,
-    data_vencimento: p.dataVencimento,
-    valor: p.valor,
-    forma_pagamento: p.formaPagamento,
-    meio_pagamento: p.meioPagamento,
-    dias: p.dias,
-    obs: p.obs,
-    pago: p.pago,
-    dados_tiny: p.dadosTiny,
-  }));
-
-  const insercao = await supabase.from("parcelas_venda").insert(linhas);
-  if (insercao.error) throw insercao.error;
+  const resultado = await supabase.rpc("salvar_parcelas_venda", {
+    p_id_venda: idVenda,
+    p_parcelas: linhas as unknown as Json,
+  });
+  if (resultado.error) throw resultado.error;
 }

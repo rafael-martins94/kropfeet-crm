@@ -2,20 +2,40 @@ import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import { usePopoverAnchorRect } from "../hooks/usePopoverAnchorRect";
 import { cn } from "../utils/cn";
-import { pillClassesForStatusItem } from "./StatusBadge";
+import { classesDoTom, pillClassesForStatusItem, type Tom } from "./StatusBadge";
 
 export interface StatusSelectOption {
   value: string;
   label: string;
+  tom?: Tom;
 }
 
-interface StatusSelectDropdownProps {
+function classesDaOpcao(opcao: StatusSelectOption | undefined): string {
+  if (opcao?.tom) return classesDoTom(opcao.tom);
+  return pillClassesForStatusItem(opcao?.value);
+}
+
+type StatusSelectDropdownBaseProps = {
   options: StatusSelectOption[];
-  value: string;
-  onChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
-}
+  /** Texto do trigger quando nada está marcado (modo múltiplo). */
+  emptyLabel?: string;
+};
+
+type StatusSelectDropdownProps = StatusSelectDropdownBaseProps &
+  (
+    | {
+        multiple?: false;
+        value: string;
+        onChange: (value: string) => void;
+      }
+    | {
+        multiple: true;
+        value: string[];
+        onChange: (value: string[]) => void;
+      }
+  );
 
 function ChevronDown() {
   return (
@@ -32,20 +52,36 @@ function ChevronDown() {
   );
 }
 
-/** Dropdown de status (single-select) com pills; lista em portal para não ser cortada por overflow do pai. */
-export function StatusSelectDropdown({
-  options,
-  value,
-  onChange,
-  className,
-  disabled,
-}: StatusSelectDropdownProps) {
+/** Dropdown de status com pills. No modo múltiplo, a lista fica aberta para marcar várias opções. */
+export function StatusSelectDropdown(props: StatusSelectDropdownProps) {
+  const { options, className, disabled, multiple = false } = props;
+  const value = props.value;
+  const onChange = props.onChange;
+  const emptyLabel = props.emptyLabel ?? "Todas";
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLUListElement>(null);
   const pos = usePopoverAnchorRect(anchorRef, open, 4);
 
-  const selected = options.find((o) => o.value === value) ?? options[0];
+  const opcoesPainel = multiple ? options.filter((o) => o.value !== "") : options;
+  const selecionados = multiple ? (value as string[]) : [];
+  const selected = multiple
+    ? null
+    : (options.find((o) => o.value === value) ?? options[0]);
+
+  const labelTrigger = multiple
+    ? selecionados.length === 0
+      ? emptyLabel
+      : selecionados.length === 1
+        ? (options.find((o) => o.value === selecionados[0])?.label ?? emptyLabel)
+        : `${selecionados.length} selecionados`
+    : (selected?.label ?? "—");
+
+  const opcaoTrigger = multiple
+    ? selecionados.length === 1
+      ? options.find((o) => o.value === selecionados[0])
+      : undefined
+    : selected;
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +109,7 @@ export function StatusSelectDropdown({
       <ul
         ref={panelRef}
         role="listbox"
+        aria-multiselectable={multiple || undefined}
         style={{
           position: "fixed",
           top: pos.top,
@@ -82,8 +119,8 @@ export function StatusSelectDropdown({
         }}
         className="max-h-72 overflow-auto rounded-lg border border-line bg-surface py-1 shadow-lg"
       >
-        {options.map((o) => {
-          const ativo = value === o.value;
+        {opcoesPainel.map((o) => {
+          const ativo = multiple ? selecionados.includes(o.value) : value === o.value;
           return (
             <li key={o.value === "" ? "__all__" : o.value} role="option" aria-selected={ativo}>
               <button
@@ -93,14 +130,34 @@ export function StatusSelectDropdown({
                   ativo && "bg-brand-50/90",
                 )}
                 onClick={() => {
-                  onChange(o.value);
+                  if (multiple) {
+                    const next = ativo
+                      ? selecionados.filter((v) => v !== o.value)
+                      : [...selecionados, o.value];
+                    (onChange as (value: string[]) => void)(next);
+                    return;
+                  }
+                  (onChange as (value: string) => void)(o.value);
                   setOpen(false);
                 }}
               >
+                {multiple ? (
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
+                      ativo
+                        ? "border-brand-600 bg-brand-600 text-white"
+                        : "border-line bg-surface text-transparent",
+                    )}
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                ) : null}
                 <span
                   className={cn(
                     "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
-                    pillClassesForStatusItem(o.value),
+                    classesDaOpcao(o),
                   )}
                 >
                   {o.label}
@@ -130,10 +187,12 @@ export function StatusSelectDropdown({
         <span
           className={cn(
             "flex min-w-0 flex-1 items-center truncate rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
-            pillClassesForStatusItem(selected?.value ?? ""),
+            multiple && selecionados.length !== 1
+              ? "bg-surface-muted text-ink-soft ring-line"
+              : classesDaOpcao(opcaoTrigger ?? undefined),
           )}
         >
-          {selected?.label ?? "—"}
+          {labelTrigger}
         </span>
         <ChevronDown />
       </button>

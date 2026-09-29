@@ -16,9 +16,9 @@ interface AuthContextValue {
   session: Session | null;
   perfil: PerfilUsuario | null;
   loading: boolean;
-  entrar: (email: string, senha: string) => Promise<void>;
+  entrar: (email: string, senha: string) => Promise<PerfilUsuario | null>;
   sair: () => Promise<void>;
-  recuperarSenha: (email: string) => Promise<void>;
+  recuperarSenha: (email: string, destino?: string) => Promise<void>;
   recarregarPerfil: () => Promise<void>;
 }
 
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
 
     const uid = data.session?.user.id;
-    if (!uid) return;
+    if (!uid) return null;
     const p = await buscarPerfil(uid);
     if (p && p.ativo === false) {
       await supabase.auth.signOut();
@@ -105,15 +105,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         "Seu acesso está desativado. Fale com um administrador.",
       );
     }
+    setPerfil(p);
+    return p;
   }, []);
 
   const sair = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
 
-  const recuperarSenha = useCallback(async (email: string) => {
+  const recuperarSenha = useCallback(async (email: string, destino = "/login") => {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: `${window.location.origin}${destino}`,
     });
     if (error) throw error;
   }, []);

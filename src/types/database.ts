@@ -695,9 +695,97 @@ export type Database = {
         }
         Relationships: []
       }
+      contas_receber: {
+        Row: {
+          atualizado_em: string
+          codigo_transacao: string | null
+          criado_em: string
+          dados_sumup: Json | null
+          data_emissao: string | null
+          data_recebimento: string | null
+          data_vencimento: string | null
+          divergente: boolean
+          documento: string | null
+          forma_pagamento: string | null
+          id: string
+          id_cliente: string | null
+          id_parcela_venda: string | null
+          id_transacao_sumup: string | null
+          id_venda: string
+          meio_pagamento: string | null
+          moeda: string
+          motivo_divergencia: string | null
+          obs: string | null
+          origem_baixa: string | null
+          situacao: Database["public"]["Enums"]["situacao_conta_receber_enum"]
+          taxa: number | null
+          valor: number
+          valor_liquido: number | null
+          valor_recebido: number | null
+          id_recebivel_sumup: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          codigo_transacao?: string | null
+          criado_em?: string
+          dados_sumup?: Json | null
+          data_emissao?: string | null
+          data_recebimento?: string | null
+          data_vencimento?: string | null
+          divergente?: boolean
+          documento?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          id_cliente?: string | null
+          id_parcela_venda?: string | null
+          id_transacao_sumup?: string | null
+          id_venda: string
+          meio_pagamento?: string | null
+          moeda?: string
+          motivo_divergencia?: string | null
+          obs?: string | null
+          origem_baixa?: string | null
+          situacao?: Database["public"]["Enums"]["situacao_conta_receber_enum"]
+          taxa?: number | null
+          valor?: number
+          valor_liquido?: number | null
+          valor_recebido?: number | null
+          id_recebivel_sumup?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          codigo_transacao?: string | null
+          criado_em?: string
+          dados_sumup?: Json | null
+          data_emissao?: string | null
+          data_recebimento?: string | null
+          data_vencimento?: string | null
+          divergente?: boolean
+          documento?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          id_cliente?: string | null
+          id_parcela_venda?: string | null
+          id_transacao_sumup?: string | null
+          id_venda?: string
+          meio_pagamento?: string | null
+          moeda?: string
+          motivo_divergencia?: string | null
+          obs?: string | null
+          origem_baixa?: string | null
+          situacao?: Database["public"]["Enums"]["situacao_conta_receber_enum"]
+          taxa?: number | null
+          valor?: number
+          valor_liquido?: number | null
+          valor_recebido?: number | null
+          id_recebivel_sumup?: string | null
+        }
+        Relationships: []
+      }
       parcelas_venda: {
         Row: {
           atualizado_em: string
+          codigo_transacao: string | null
           criado_em: string
           dados_tiny: Json | null
           data_vencimento: string | null
@@ -713,6 +801,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string
+          codigo_transacao?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_vencimento?: string | null
@@ -728,6 +817,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string
+          codigo_transacao?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_vencimento?: string | null
@@ -960,6 +1050,7 @@ export type Database = {
         Row: {
           atualizado_em: string
           codigo_rastreamento: string | null
+          condicao_pagamento: string | null
           criado_em: string
           dados_tiny: Json | null
           data_entrega: string | null
@@ -994,6 +1085,7 @@ export type Database = {
           total_produtos: number
           url_rastreamento: string | null
           valor_desconto: number
+          moeda_frete: string | null
           valor_frete: number
           valor_total: number
         }
@@ -1001,6 +1093,7 @@ export type Database = {
           atualizado_em?: string
           codigo_rastreamento?: string | null
           codigo_venda_adquirente?: string | null
+          condicao_pagamento?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_entrega?: string | null
@@ -1032,6 +1125,7 @@ export type Database = {
           total_produtos?: number
           url_rastreamento?: string | null
           valor_desconto?: number
+          moeda_frete?: string | null
           valor_frete?: number
           valor_total?: number
         }
@@ -1039,6 +1133,7 @@ export type Database = {
           atualizado_em?: string
           codigo_rastreamento?: string | null
           codigo_venda_adquirente?: string | null
+          condicao_pagamento?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_entrega?: string | null
@@ -1070,6 +1165,7 @@ export type Database = {
           total_produtos?: number
           url_rastreamento?: string | null
           valor_desconto?: number
+          moeda_frete?: string | null
           valor_frete?: number
           valor_total?: number
         }
@@ -1248,6 +1344,7 @@ export type Database = {
           etapa: Database["public"]["Enums"]["etapa_vitrine_enum"]
           id: string
           id_usuario: string
+          mapa_coleta: Json | null
           publicado_em: string | null
           status: Database["public"]["Enums"]["status_vitrine_enum"]
           titulo: string
@@ -1261,6 +1358,7 @@ export type Database = {
           etapa?: Database["public"]["Enums"]["etapa_vitrine_enum"]
           id?: string
           id_usuario: string
+          mapa_coleta?: Json | null
           publicado_em?: string | null
           status?: Database["public"]["Enums"]["status_vitrine_enum"]
           titulo: string
@@ -1274,6 +1372,7 @@ export type Database = {
           etapa?: Database["public"]["Enums"]["etapa_vitrine_enum"]
           id?: string
           id_usuario?: string
+          mapa_coleta?: Json | null
           publicado_em?: string | null
           status?: Database["public"]["Enums"]["status_vitrine_enum"]
           titulo?: string
@@ -1308,6 +1407,14 @@ export type Database = {
           url_origem: string | null
           caminho_arquivo: string | null
         }[]
+      }
+      catalogo_kropcafe_listar_carrinhos: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      catalogo_kropcafe_listar_estoque: {
+        Args: Record<string, never>
+        Returns: Json
       }
       catalogo_kropcafe_listar_vendedores: {
         Args: Record<string, never>
@@ -1365,6 +1472,14 @@ export type Database = {
         Returns: Json
       }
       is_admin: { Args: Record<string, never>; Returns: boolean }
+      confirmar_email_usuario: {
+        Args: { p_email: string }
+        Returns: undefined
+      }
+      garantir_perfil_usuario: {
+        Args: { p_email: string; p_nome: string; p_papel: string }
+        Returns: undefined
+      }
       definir_contexto_historico_item: {
         Args: {
           p_origem?: string | null
@@ -1390,6 +1505,50 @@ export type Database = {
       reverter_itens_removidos_venda: {
         Args: { p_id_venda: string; p_ids_anteriores: string[] }
         Returns: number
+      }
+      substituir_itens_venda: {
+        Args: { p_id_venda: string; p_itens?: Json }
+        Returns: Json
+      }
+      salvar_parcelas_venda: {
+        Args: { p_id_venda: string; p_parcelas?: Json }
+        Returns: Json
+      }
+      sincronizar_contas_receber_venda: {
+        Args: { p_id_venda: string }
+        Returns: Json
+      }
+      baixar_contas_receber: {
+        Args: { p_ids: string[]; p_data_recebimento?: string | null }
+        Returns: number
+      }
+      estornar_baixa_contas_receber: {
+        Args: { p_ids: string[] }
+        Returns: number
+      }
+      conciliar_recebiveis_sumup: {
+        Args: { p_codigos?: string[] | null }
+        Returns: Json
+      }
+      sugestoes_vinculo_sumup: {
+        Args: { p_conta: string; p_de: string; p_ate: string }
+        Returns: {
+          id_transacao: string
+          codigo: string
+          valor: number
+          moeda: string
+          data: string
+          parcelas_sumup: number | null
+          id_venda: string
+          numero: string | null
+          cliente: string | null
+          data_pedido: string | null
+          parcelas_pedido: number
+        }[]
+      }
+      vincular_transacao_sumup: {
+        Args: { p_id_transacao: string; p_id_venda: string }
+        Returns: Json
       }
       sincronizar_efeitos_venda: {
         Args: { p_id_venda: string }
@@ -1437,7 +1596,7 @@ export type Database = {
         | "correspondencias"
         | "destino_anterior"
         | "revisao"
-      frete_status_enum: "nao_aplicavel" | "pendente" | "pago"
+      frete_status_enum: "nao_aplicavel" | "pendente" | "pago" | "cortesia"
       local_venda_enum: "galeria" | "online"
       motivo_versao_vitrine_enum:
         | "publicacao"
@@ -1447,6 +1606,7 @@ export type Database = {
         | "edicao_nome"
       origem_cadastro_enum: "manual" | "tiny" | "importacao_planilha" | "api"
       sistema_numeracao_enum: "br" | "eu" | "us" | "outro"
+      situacao_conta_receber_enum: "aberto" | "recebido" | "cancelado"
       situacao_fornecedor_enum: "ativo" | "inativo"
       status_conferencia_enum: "aberta" | "fechada"
       status_item_enum:

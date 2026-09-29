@@ -1,7 +1,7 @@
 import { cn } from "../utils/cn";
 import { traduzirEnum } from "../utils/format";
 
-type Tom =
+export type Tom =
   | "neutro"
   | "sucesso"
   | "aviso"
@@ -41,6 +41,8 @@ const mapaPadrao: Record<string, Tom> = {
   inativo: "zinco",
   em_processo_de_compra: "laranja",
   pendente: "aviso",
+  nao_aplicavel: "zinco",
+  cortesia: "teal",
   paga: "sucesso",
   cancelada: "erro",
   devolvida: "neutro",
@@ -52,6 +54,8 @@ const mapaPadrao: Record<string, Tom> = {
   cancelado: "erro",
   aberta: "sucesso",
   fechada: "zinco",
+  aberto: "aviso",
+  recebido: "sucesso",
   ativo: "sucesso",
   sucesso: "sucesso",
   erro: "erro",
@@ -76,6 +80,10 @@ const mapaPadrao: Record<string, Tom> = {
   importacao_planilha: "brand",
   api: "info",
 };
+
+export function classesDoTom(tom: Tom): string {
+  return mapaTom[tom];
+}
 
 /** Mesmas classes do `StatusBadge` para um valor de status de item (filtros, dropdowns). */
 export function pillClassesForStatusItem(valor: string | undefined): string {

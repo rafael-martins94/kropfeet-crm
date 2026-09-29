@@ -1,16 +1,19 @@
-import { useState, type FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { FormInput, FormCheckbox } from "../components/FormField";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { PageLoader } from "../components/LoadingState";
 import { useAuth } from "../contexts/AuthContext";
+import { ROTA_CATALOGO, ROTA_LOGIN_CATALOGO } from "../routes/ProtectedRoute";
 
 export default function LoginPage() {
-  const { entrar, recuperarSenha } = useAuth();
+  const { user, perfil, loading: authLoading, entrar, sair, recuperarSenha } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const destino = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
     ?? "/dashboard";
+  const envioEmAndamento = useRef(false);
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -19,13 +22,24 @@ export default function LoginPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (authLoading || envioEmAndamento.current || !user || !perfil) return;
+    navigate(perfil.papel === "vendedor" ? ROTA_CATALOGO : destino, { replace: true });
+  }, [authLoading, user, perfil, destino, navigate]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErro(null);
     setMensagem(null);
     setLoading(true);
+    envioEmAndamento.current = true;
     try {
-      await entrar(email, senha);
+      const perfilEntrada = await entrar(email, senha);
+      if (perfilEntrada?.papel === "vendedor") {
+        await sair();
+        setErro("Vendedores entram pelo acesso do catálogo.");
+        return;
+      }
       navigate(destino, { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Não foi possível entrar.";
@@ -35,6 +49,7 @@ export default function LoginPage() {
           : msg,
       );
     } finally {
+      envioEmAndamento.current = false;
       setLoading(false);
     }
   };
@@ -53,6 +68,10 @@ export default function LoginPage() {
       setErro(err instanceof Error ? err.message : "Falha ao solicitar recuperação.");
     }
   };
+
+  if (authLoading || (user && perfil && !erro)) {
+    return <PageLoader label="Verificando sessão…" />;
+  }
 
   return (
     <AuthLayout>
@@ -108,6 +127,14 @@ export default function LoginPage() {
           {erro ? (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
               {erro}
+              {erro.includes("catálogo") ? (
+                <>
+                  {" "}
+                  <Link to={ROTA_LOGIN_CATALOGO} className="font-semibold underline">
+                    Abrir o catálogo
+                  </Link>
+                </>
+              ) : null}
             </div>
           ) : null}
           {mensagem ? (

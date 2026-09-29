@@ -112,7 +112,7 @@ export default function VitrineWizardPage() {
     try {
       await vitrinesService.atualizarEtapa(vitrine.data.id, "revisao");
       await vitrinesService.publicar(vitrine.data.id, user.id);
-      navigate("/vitrines/atual");
+      navigate(`/vitrines/${vitrine.data.id}/mapa`);
     } catch (error) {
       alert(mensagemErro(error));
     } finally {

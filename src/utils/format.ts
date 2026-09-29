@@ -3,7 +3,11 @@ export function formatarData(
   opcoes: Intl.DateTimeFormatOptions = { dateStyle: "short" },
 ): string {
   if (!valor) return "—";
-  const data = new Date(valor);
+  // `YYYY-MM-DD` puro seria lido como meia-noite UTC e cairia no dia anterior no Brasil.
+  const soData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+  const data = soData
+    ? new Date(Number(soData[1]), Number(soData[2]) - 1, Number(soData[3]))
+    : new Date(valor);
   if (Number.isNaN(data.getTime())) return "—";
   return new Intl.DateTimeFormat("pt-BR", opcoes).format(data);
 }
@@ -19,6 +23,14 @@ export function formatarMoeda(
 ): string {
   if (valor === null || valor === undefined) return "—";
   const normalizada = (moeda ?? "BRL").trim().toUpperCase() || "BRL";
+  if (normalizada === "BRL") {
+    const numero = new Intl.NumberFormat("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(valor);
+    // O $ sozinho pode ir para o fim do número em célula alinhada à direita.
+    return `\u200eR$\u00a0${numero}`;
+  }
   try {
     return new Intl.NumberFormat(locale, {
       style: "currency",

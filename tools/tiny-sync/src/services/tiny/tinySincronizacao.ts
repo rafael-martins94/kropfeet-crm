@@ -59,6 +59,13 @@ function estatisticasVazias(): EstatisticasSync {
   return { recebidos: 0, criados: 0, atualizados: 0, ignorados: 0, erros: 0, errosDetalhe: [] };
 }
 
+/** Mantém a numeração do Tiny e usa o nome do modelo já gravado no sistema. */
+function nomeItemPeloModeloDoSistema(nomeModelo: string, nomeCompletoTiny: string): string {
+  const hash = nomeCompletoTiny.indexOf("#");
+  if (hash < 0) return nomeCompletoTiny;
+  return `${nomeModelo.trim()} ${nomeCompletoTiny.slice(hash).trim()}`;
+}
+
 async function persistirProdutoTiny(produto: TinyProdutoDetalhe): Promise<"criado" | "atualizado"> {
   const supabase = obterClienteSupabase();
   const parsed = parseProdutoTiny(produto);
@@ -78,6 +85,21 @@ async function persistirProdutoTiny(produto: TinyProdutoDetalhe): Promise<"criad
     idMarca,
     idCategoria,
   });
+
+  const modeloGravado = await supabase
+    .from("modelos_produto")
+    .select("nome_modelo")
+    .eq("id", idModelo)
+    .single();
+  if (modeloGravado.error) throw modeloGravado.error;
+
+  const nomeModeloSistema = modeloGravado.data.nome_modelo.trim();
+  if (nomeModeloSistema && nomeModeloSistema !== parsed.modelo.nomeModelo) {
+    parsed.item.nomeCompleto = nomeItemPeloModeloDoSistema(
+      nomeModeloSistema,
+      parsed.item.nomeCompleto,
+    );
+  }
 
   if (parsed.imagens.length > 0) {
     const statsImagens = await sincronizarImagensDoModelo(
@@ -735,7 +757,12 @@ async function persistirPedidoTiny(
     idEnderecoCliente,
   );
   await substituirItensVenda(supabase, idVenda, parsed.itens);
-  await substituirParcelasVenda(supabase, idVenda, parsed.parcelas);
+  await substituirParcelasVenda(
+    supabase,
+    idVenda,
+    parsed.parcelas,
+    parsed.codigoVendaAdquirente,
+  );
 
   return resultado;
 }

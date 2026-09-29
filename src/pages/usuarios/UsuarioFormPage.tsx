@@ -12,6 +12,7 @@ import type { PapelUsuario, PerfilUsuario } from "../../types/entities";
 const OPCOES_PAPEL = [
   { value: "operador", label: "Operador (acesso padrão)" },
   { value: "admin", label: "Administrador (gerencia usuários)" },
+  { value: "vendedor", label: "Vendedor (somente o catálogo)" },
 ];
 
 export default function UsuarioFormPage() {
@@ -144,7 +145,7 @@ export default function UsuarioFormPage() {
               hint={
                 modoEdicao
                   ? "O e-mail de autenticação não pode ser alterado por aqui."
-                  : "Será usado para login e envio dos e-mails do sistema."
+                  : "Será usado para login. O e-mail já fica confirmado, sem precisar abrir um link."
               }
             />
             <FormSelect
@@ -161,7 +162,7 @@ export default function UsuarioFormPage() {
           <SectionCard title="Status">
             <FormCheckbox
               label="Usuário ativo"
-              description="Usuários inativos não conseguem mais acessar o CRM."
+              description="A pessoa deixa de entrar. O histórico dela no sistema permanece."
               checked={ativo}
               disabled={ehProprio}
               onChange={(e) => setAtivo(e.target.checked)}

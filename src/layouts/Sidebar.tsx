@@ -10,6 +10,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconDashboard,
+  IconFileText,
   IconFolder,
   IconImage,
   IconLogout,
@@ -74,6 +75,29 @@ const menu: MenuGroup[] = [
       { to: "/clientes", label: "Clientes", icon: <IconUser /> },
       { to: "/vendedores", label: "Vendedores", icon: <IconUsers /> },
       { to: "/carrinhos-galeria", label: "Carrinhos galeria", icon: <IconCart /> },
+    ],
+  },
+  {
+    label: "Financeiro",
+    items: [
+      {
+        to: "/financeiro/contas-receber",
+        label: "Contas a receber",
+        icon: <IconFileText />,
+        children: [
+          { to: "/financeiro/contas-receber/brasil", label: "Brasil" },
+          { to: "/financeiro/contas-receber/europa", label: "Europa" },
+        ],
+      },
+      {
+        to: "/financeiro/sumup",
+        label: "SumUp",
+        icon: <IconActivity />,
+        children: [
+          { to: "/financeiro/sumup/portugal", label: "Portugal" },
+          { to: "/financeiro/sumup/brasil", label: "Brasil" },
+        ],
+      },
     ],
   },
   {

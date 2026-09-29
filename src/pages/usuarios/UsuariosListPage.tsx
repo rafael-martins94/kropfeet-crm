@@ -8,12 +8,7 @@ import { SearchInput } from "../../components/SearchInput";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import {
-  IconEdit,
-  IconPlus,
-  IconRefresh,
-  IconTrash,
-} from "../../components/Icons";
+import { IconEdit, IconPlus, IconRefresh } from "../../components/Icons";
 import { usuariosService } from "../../services/usuarios";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAsync } from "../../hooks/useAsync";
@@ -44,7 +39,7 @@ export default function UsuariosListPage() {
     const novoStado = !u.ativo;
     const msg = novoStado
       ? `Reativar ${u.nome}?`
-      : `Desativar ${u.nome}? O usuário perderá acesso na próxima sessão.`;
+      : `Desativar ${u.nome}? A pessoa perde o acesso. O histórico dela no sistema permanece.`;
     if (!window.confirm(msg)) return;
 
     setAcaoPendente(u.id);
@@ -63,33 +58,10 @@ export default function UsuariosListPage() {
 
     setAcaoPendente(u.id);
     try {
-      await usuariosService.enviarResetSenha(u.email);
+      await usuariosService.enviarResetSenha(u.email, u.papel);
       alert(`E-mail de redefinição enviado para ${u.email}.`);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Falha ao enviar e-mail.");
-    } finally {
-      setAcaoPendente(null);
-    }
-  };
-
-  const handleExcluir = async (u: PerfilUsuario) => {
-    if (u.id === usuarioAtual?.id) {
-      alert("Você não pode excluir o próprio perfil.");
-      return;
-    }
-    const confirmacao = window.prompt(
-      `Excluir permanentemente o perfil de "${u.nome}"?\n\n` +
-        `Isso remove apenas o perfil do CRM. O registro de autenticação em auth.users continua existindo e deve ser removido manualmente pelo painel do Supabase, se necessário.\n\n` +
-        `Para confirmar, digite EXCLUIR:`,
-    );
-    if (confirmacao !== "EXCLUIR") return;
-
-    setAcaoPendente(u.id);
-    try {
-      await usuariosService.excluirPerfil(u.id);
-      reload();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Falha ao excluir perfil.");
     } finally {
       setAcaoPendente(null);
     }
@@ -118,7 +90,9 @@ export default function UsuariosListPage() {
             "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ring-1 ring-inset",
             u.papel === "admin"
               ? "bg-brand-50 text-brand-700 ring-brand-100"
-              : "bg-surface-subtle text-ink-muted ring-line",
+              : u.papel === "vendedor"
+                ? "bg-amber-50 text-amber-800 ring-amber-100"
+                : "bg-surface-subtle text-ink-muted ring-line",
           )}
         >
           {u.papel}
@@ -175,14 +149,6 @@ export default function UsuariosListPage() {
               onClick={() => handleToggleAtivo(u)}
             >
               {u.ativo ? "Desativar" : "Ativar"}
-            </button>
-            <button
-              className="btn-ghost h-8 w-8 p-0 hover:!text-red-600"
-              title="Excluir"
-              disabled={pendente || ehProprio}
-              onClick={() => handleExcluir(u)}
-            >
-              <IconTrash width={16} height={16} />
             </button>
           </div>
         );

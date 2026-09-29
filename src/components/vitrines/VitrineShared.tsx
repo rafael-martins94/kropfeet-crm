@@ -245,6 +245,17 @@ export function VitrineMeta({ vitrine }: { vitrine: VitrineComItens | null }) {
   );
 }
 
+export function LinkMapaColetaVitrine({ id }: { id: string }) {
+  return (
+    <Link
+      to={`/vitrines/${id}/mapa`}
+      className="inline-flex items-center rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink-muted transition hover:border-brand-400 hover:text-brand-700"
+    >
+      Mapa de coleta
+    </Link>
+  );
+}
+
 export function LinkPdfVitrine({ id }: { id: string }) {
   return (
     <Link

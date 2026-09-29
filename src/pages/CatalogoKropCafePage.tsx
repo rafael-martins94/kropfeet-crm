@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import {
   catalogoKropCafeService,
+  type CarrinhoCatalogoSalvo,
+  type ClienteCatalogoRecuperado,
   type ItemCatalogoKropCafePublico,
 } from "../services/catalogo-kropcafe";
 import { SalvarSelecaoModal } from "../components/catalogo/SalvarSelecaoModal";
@@ -331,6 +335,13 @@ const TEXTOS: Record<
     titulo: string;
     subtitulo: string;
     idioma: string;
+    sair: string;
+    menu: string;
+    fechar: string;
+    carrinhosSalvos: string;
+    estoque: string;
+    nenhumCarrinhoSalvo: string;
+    carrinhoIndisponivel: string;
     passo: string;
     regioesTitulo: string;
     regioesAjuda: string;
@@ -363,6 +374,18 @@ const TEXTOS: Record<
     semPais: string;
     salvarCliente: string;
     salvarGerarOrdem: string;
+    gerarPagamento: string;
+    sumupBrasil: string;
+    sumupEuropa: string;
+    usarValorItens: string;
+    informarValor: string;
+    valorOutraMoeda: string;
+    valorInvalido: string;
+    linkGeradoTitulo: string;
+    linkGeradoAviso: string;
+    copiarLink: string;
+    linkCopiado: string;
+    totalItens: string;
     vendedor: string;
     vendedorAjuda: string;
     vendedorObrigatorio: string;
@@ -398,6 +421,13 @@ const TEXTOS: Record<
     titulo: "Escolha sua numeração e navegue pelos pares disponíveis.",
     subtitulo: "Mostramos apenas itens em estoque na Europa, com foto, SKU e valor para facilitar o atendimento.",
     idioma: "Idioma",
+    sair: "Sair",
+    menu: "Menu",
+    fechar: "Fechar",
+    carrinhosSalvos: "Carrinhos salvos",
+    estoque: "Estoque",
+    nenhumCarrinhoSalvo: "Nenhum carrinho salvo.",
+    carrinhoIndisponivel: "Esses pares não estão mais disponíveis.",
     passo: "Passo",
     regioesTitulo: "Escolha a região da sua numeração",
     regioesAjuda: "Primeiro selecione Brasil, Europa ou USA.",
@@ -430,6 +460,18 @@ const TEXTOS: Record<
     semPais: "Sem país",
     salvarCliente: "Salvar",
     salvarGerarOrdem: "Salvar e gerar ordem de venda",
+    gerarPagamento: "Gerar pagamento",
+    sumupBrasil: "SumUp Brasil",
+    sumupEuropa: "SumUp Europa",
+    usarValorItens: "Usa o valor dos itens",
+    informarValor: "Informar o valor",
+    valorOutraMoeda: "Este link é de outra moeda. Informe o valor.",
+    valorInvalido: "Informe um valor maior que zero.",
+    linkGeradoTitulo: "Link de pagamento",
+    linkGeradoAviso: "Peça para o cliente ler o QR code.",
+    copiarLink: "Copiar link",
+    linkCopiado: "Link copiado",
+    totalItens: "Total dos itens",
     vendedor: "Vendedor",
     vendedorAjuda: "A mesma lista da ordem de venda.",
     vendedorObrigatorio: "Selecione o vendedor.",
@@ -478,6 +520,13 @@ const TEXTOS: Record<
     titulo: "Choose your size and browse available pairs.",
     subtitulo: "We only show items in stock in Europe, with photo, SKU and price for easier service.",
     idioma: "Language",
+    sair: "Log out",
+    menu: "Menu",
+    fechar: "Close",
+    carrinhosSalvos: "Saved carts",
+    estoque: "Stock",
+    nenhumCarrinhoSalvo: "No saved carts.",
+    carrinhoIndisponivel: "These pairs are no longer available.",
     passo: "Step",
     regioesTitulo: "Choose your size region",
     regioesAjuda: "First select Brazil, Europe or USA.",
@@ -510,6 +559,18 @@ const TEXTOS: Record<
     semPais: "No country",
     salvarCliente: "Save",
     salvarGerarOrdem: "Save and create sales order",
+    gerarPagamento: "Create payment",
+    sumupBrasil: "SumUp Brazil",
+    sumupEuropa: "SumUp Europe",
+    usarValorItens: "Uses the item prices",
+    informarValor: "Enter the amount",
+    valorOutraMoeda: "This link uses another currency. Enter the amount.",
+    valorInvalido: "Enter an amount greater than zero.",
+    linkGeradoTitulo: "Payment link",
+    linkGeradoAviso: "Ask the customer to scan the QR code.",
+    copiarLink: "Copy link",
+    linkCopiado: "Link copied",
+    totalItens: "Items total",
     vendedor: "Seller",
     vendedorAjuda: "The same list used on the sales order.",
     vendedorObrigatorio: "Select the seller.",
@@ -558,6 +619,13 @@ const TEXTOS: Record<
     titulo: "Elige tu talla y mira los pares disponibles.",
     subtitulo: "Mostramos solo artículos en stock en Europa, con foto, SKU y precio para facilitar la atención.",
     idioma: "Idioma",
+    sair: "Salir",
+    menu: "Menú",
+    fechar: "Cerrar",
+    carrinhosSalvos: "Carritos guardados",
+    estoque: "Stock",
+    nenhumCarrinhoSalvo: "Ningún carrito guardado.",
+    carrinhoIndisponivel: "Esos pares ya no están disponibles.",
     passo: "Paso",
     regioesTitulo: "Elige la región de tu talla",
     regioesAjuda: "Primero selecciona Brasil, Europa o USA.",
@@ -590,6 +658,18 @@ const TEXTOS: Record<
     semPais: "Sin país",
     salvarCliente: "Guardar",
     salvarGerarOrdem: "Guardar y generar orden de venta",
+    gerarPagamento: "Generar pago",
+    sumupBrasil: "SumUp Brasil",
+    sumupEuropa: "SumUp Europa",
+    usarValorItens: "Usa el valor de los artículos",
+    informarValor: "Indicar el valor",
+    valorOutraMoeda: "Este enlace es de otra moneda. Indica el valor.",
+    valorInvalido: "Indica un valor mayor que cero.",
+    linkGeradoTitulo: "Enlace de pago",
+    linkGeradoAviso: "Pide al cliente que lea el código QR.",
+    copiarLink: "Copiar enlace",
+    linkCopiado: "Enlace copiado",
+    totalItens: "Total de los artículos",
     vendedor: "Vendedor",
     vendedorAjuda: "La misma lista de la orden de venta.",
     vendedorObrigatorio: "Selecciona el vendedor.",
@@ -638,6 +718,13 @@ const TEXTOS: Record<
     titulo: "Choisissez votre pointure et parcourez les paires disponibles.",
     subtitulo: "Nous affichons uniquement les articles en stock en Europe, avec photo, SKU et prix.",
     idioma: "Langue",
+    sair: "Quitter",
+    menu: "Menu",
+    fechar: "Fermer",
+    carrinhosSalvos: "Paniers enregistrés",
+    estoque: "Stock",
+    nenhumCarrinhoSalvo: "Aucun panier enregistré.",
+    carrinhoIndisponivel: "Ces paires ne sont plus disponibles.",
     passo: "Étape",
     regioesTitulo: "Choisissez la région de pointure",
     regioesAjuda: "Sélectionnez d'abord Brésil, Europe ou USA.",
@@ -670,6 +757,18 @@ const TEXTOS: Record<
     semPais: "Sans pays",
     salvarCliente: "Enregistrer",
     salvarGerarOrdem: "Enregistrer et créer la commande",
+    gerarPagamento: "Générer le paiement",
+    sumupBrasil: "SumUp Brésil",
+    sumupEuropa: "SumUp Europe",
+    usarValorItens: "Utilise le prix des articles",
+    informarValor: "Indiquer le montant",
+    valorOutraMoeda: "Ce lien est dans une autre devise. Indiquez le montant.",
+    valorInvalido: "Indiquez un montant supérieur à zéro.",
+    linkGeradoTitulo: "Lien de paiement",
+    linkGeradoAviso: "Demandez au client de scanner le QR code.",
+    copiarLink: "Copier le lien",
+    linkCopiado: "Lien copié",
+    totalItens: "Total des articles",
     vendedor: "Vendeur",
     vendedorAjuda: "La même liste que la commande.",
     vendedorObrigatorio: "Sélectionnez le vendeur.",
@@ -951,7 +1050,21 @@ function ProdutoCard({
 }
 
 export default function CatalogoKropCafePage() {
+  const navigate = useNavigate();
+  const { sair, perfil, user } = useAuth();
+  const nomeVendedor =
+    perfil?.nome?.trim() ||
+    (typeof user?.user_metadata?.["nome"] === "string" ? user.user_metadata["nome"].trim() : "") ||
+    user?.email?.split("@")[0] ||
+    "";
   const [idioma, setIdioma] = useState<IdiomaCatalogo>("pt");
+  const [saindo, setSaindo] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [painelMenu, setPainelMenu] = useState<"acoes" | "idioma" | "carrinhos">("acoes");
+  const [carrinhosSalvos, setCarrinhosSalvos] = useState<CarrinhoCatalogoSalvo[]>([]);
+  const [carregandoCarrinhos, setCarregandoCarrinhos] = useState(false);
+  const [erroCarrinhos, setErroCarrinhos] = useState<string | null>(null);
+  const [recuperandoCarrinho, setRecuperandoCarrinho] = useState(false);
   const [regiao, setRegiao] = useState<RegiaoCatalogo | null>(null);
   const [segmento, setSegmento] = useState<SegmentoCatalogo | null>(null);
   const [tamanho, setTamanho] = useState<string | null>(null);
@@ -960,6 +1073,7 @@ export default function CatalogoKropCafePage() {
   const [verCarrinho, setVerCarrinho] = useState(false);
   const [confirmacao, setConfirmacao] = useState<"limpar" | "recomecar" | null>(null);
   const [salvarAberto, setSalvarAberto] = useState(false);
+  const [clienteRecuperado, setClienteRecuperado] = useState<ClienteCatalogoRecuperado | null>(null);
   const manterSelecaoRef = useRef<HTMLButtonElement>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -991,10 +1105,79 @@ export default function CatalogoKropCafePage() {
   };
 
   useEffect(() => {
+    if (!menuAberto) return;
+    const tecla = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !recuperandoCarrinho) setMenuAberto(false);
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [menuAberto, recuperandoCarrinho]);
+
+  const abrirMenu = () => {
+    setPainelMenu("acoes");
+    setMenuAberto(true);
+  };
+
+  const abrirCarrinhosNoMenu = () => {
+    setPainelMenu("carrinhos");
+    setCarregandoCarrinhos(true);
+    setErroCarrinhos(null);
+    catalogoKropCafeService
+      .listarCarrinhosSalvos()
+      .then(setCarrinhosSalvos)
+      .catch((err) => setErroCarrinhos(mensagemErro(err)))
+      .finally(() => setCarregandoCarrinhos(false));
+  };
+
+  const recuperarCarrinho = async (carrinho: CarrinhoCatalogoSalvo) => {
+    if (recuperandoCarrinho) return;
+    setRecuperandoCarrinho(true);
+    setErroCarrinhos(null);
+    try {
+      const fotos = await catalogoKropCafeService.listarGaleriaUrlsPorModelos(
+        carrinho.itens.map((item) => item.id_modelo_produto),
+      );
+      const proxima: Record<string, ItemSelecionadoCatalogo> = {};
+      for (const item of carrinho.itens) {
+        proxima[item.id] = {
+          item: {
+            id: item.id,
+            sku: item.sku,
+            id_modelo_produto: item.id_modelo_produto,
+            preco_venda: item.preco_venda,
+            moeda_venda: item.moeda_venda,
+          },
+          fotos: fotos[item.id_modelo_produto] ?? [],
+          numeracaoLabel: item.numeracao,
+        };
+      }
+      if (Object.keys(proxima).length === 0) {
+        setErroCarrinhos(t.carrinhoIndisponivel);
+        return;
+      }
+      setClienteRecuperado({
+        nome: carrinho.nome,
+        telefone: carrinho.telefone,
+        email: carrinho.email,
+        pais: carrinho.pais,
+        observacao: carrinho.observacao,
+      });
+      setSacola(proxima);
+      setVerCarrinho(true);
+      setMenuAberto(false);
+    } catch (err) {
+      setErroCarrinhos(mensagemErro(err));
+    } finally {
+      setRecuperandoCarrinho(false);
+    }
+  };
+
+  useEffect(() => {
     setSegmento(null);
     setTamanho(null);
     setCatalogo({ itens: [], fotos: {} });
     setSacola({});
+    setClienteRecuperado(null);
     setVerCarrinho(false);
     setErro(null);
   }, [regiao]);
@@ -1079,6 +1262,7 @@ export default function CatalogoKropCafePage() {
     setTamanho(null);
     setCatalogo({ itens: [], fotos: {} });
     setSacola({});
+    setClienteRecuperado(null);
     setVerCarrinho(false);
     setErro(null);
     setConfirmacao(null);
@@ -1115,7 +1299,7 @@ export default function CatalogoKropCafePage() {
   return (
     <main className="h-screen overflow-hidden bg-[#050505] text-white">
       <section className="mx-auto flex h-screen w-full max-w-7xl flex-col px-3 py-2 sm:px-6 sm:py-3 lg:px-8">
-        <header className="flex shrink-0 items-center justify-between gap-2 pb-2 sm:gap-3 sm:pb-3">
+        <header className="relative z-20 flex shrink-0 items-center justify-between gap-2 pb-2 sm:gap-3 sm:pb-3">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <img
               src="/kropcafe-logo-white-glow.png?v=2"
@@ -1154,25 +1338,34 @@ export default function CatalogoKropCafePage() {
                 </span>
               </button>
             ) : null}
-            <div className="rounded-full border border-white/10 bg-white/[0.06] p-1">
-              <span className="sr-only">{t.idioma}</span>
-              <div className="flex flex-wrap justify-end gap-1">
-                {IDIOMAS.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setIdioma(item.id)}
-                    className={cn(
-                      "rounded-full px-2 py-1.5 text-[10px] font-bold transition sm:px-3 sm:py-2 sm:text-xs",
-                      idioma === item.id
-                        ? "bg-[#d7b56d] text-stone-950"
-                        : "text-white/70 hover:bg-white/10 hover:text-white",
-                    )}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+            <button
+              type="button"
+              aria-expanded={menuAberto}
+              aria-haspopup="dialog"
+              onClick={abrirMenu}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-bold text-white/70 transition hover:bg-white/10 hover:text-white sm:px-4 sm:py-2 sm:text-xs"
+            >
+              {t.menu}
+            </button>
+            <div className="flex max-w-[14rem] items-center rounded-full border border-white/10 bg-white/[0.04] sm:max-w-xs">
+              {nomeVendedor ? (
+                <span className="min-w-0 truncate px-3 text-[10px] font-medium text-white/45 sm:text-xs">
+                  {nomeVendedor}
+                </span>
+              ) : null}
+              <button
+                type="button"
+                disabled={saindo}
+                onClick={() => {
+                  setSaindo(true);
+                  void sair()
+                    .then(() => navigate("/catalogo-kropcafe/entrar", { replace: true }))
+                    .finally(() => setSaindo(false));
+                }}
+                className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-bold text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-50 sm:px-4 sm:py-2 sm:text-xs"
+              >
+                {t.sair}
+              </button>
             </div>
           </div>
         </header>
@@ -1229,9 +1422,14 @@ export default function CatalogoKropCafePage() {
                     </button>
                   ) : null}
                 </div>
-                <p className="text-center text-sm font-black sm:text-lg">
-                  {qtdSelecionados} {t.itens}
-                </p>
+                <div className="min-w-0 text-center">
+                  <p className="text-sm font-black sm:text-lg">
+                    {qtdSelecionados} {t.itens}
+                  </p>
+                  {clienteRecuperado?.nome ? (
+                    <p className="truncate text-xs text-white/55">{clienteRecuperado.nome}</p>
+                  ) : null}
+                </div>
                 <div className="justify-self-end">
                   {qtdSelecionados > 0 ? (
                     <button
@@ -1455,14 +1653,148 @@ export default function CatalogoKropCafePage() {
         </section>
       </section>
 
+      {menuAberto ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-stone-950/70 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center"
+          onClick={() => {
+            if (!recuperandoCarrinho) setMenuAberto(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="menu-catalogo-titulo"
+            className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-white/10 bg-stone-950 text-white shadow-[0_16px_48px_rgba(0,0,0,0.4)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-5">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#d7b56d]">
+                  {nomeVendedor || t.vendedor}
+                </p>
+                <h2 id="menu-catalogo-titulo" className="mt-1 text-xl font-black tracking-tight">
+                  {painelMenu === "idioma"
+                    ? t.idioma
+                    : painelMenu === "carrinhos"
+                      ? t.carrinhosSalvos
+                      : t.menu}
+                </h2>
+              </div>
+              <button
+                type="button"
+                disabled={recuperandoCarrinho}
+                onClick={() => setMenuAberto(false)}
+                className="shrink-0 rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-bold text-white/70 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+              >
+                {t.fechar}
+              </button>
+            </div>
+            {painelMenu !== "acoes" ? (
+              <div className="px-5 pb-2">
+                <button
+                  type="button"
+                  onClick={() => setPainelMenu("acoes")}
+                  className="text-xs font-bold text-white/55 transition hover:text-white"
+                >
+                  {t.voltar}
+                </button>
+              </div>
+            ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+              {painelMenu === "acoes" ? (
+                <div className="flex flex-col gap-2">
+                  {([
+                    ["idioma", t.idioma, () => setPainelMenu("idioma")],
+                    ["carrinhos", t.carrinhosSalvos, abrirCarrinhosNoMenu],
+                    ["estoque", t.estoque, () => {
+                      setMenuAberto(false);
+                      navigate("/catalogo-kropcafe/estoque");
+                    }],
+                  ] as const).map(([id, rotulo, acao]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={acao}
+                      className="rounded-2xl border border-white/10 px-4 py-4 text-left text-base font-black transition hover:border-[#d7b56d]/50 hover:bg-white/[0.04]"
+                    >
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {painelMenu === "idioma" ? (
+                <div className="flex flex-wrap gap-2 px-1 py-2">
+                  {IDIOMAS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-pressed={idioma === item.id}
+                      onClick={() => setIdioma(item.id)}
+                      className={cn(
+                        "rounded-full px-4 py-2 text-sm font-bold transition",
+                        idioma === item.id
+                          ? "bg-[#d7b56d] text-stone-950"
+                          : "text-white/70 hover:bg-white/10 hover:text-white",
+                      )}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {painelMenu === "carrinhos" ? (
+                carregandoCarrinhos ? (
+                  <p className="px-2 py-6 text-sm text-white/50">{t.carregando}</p>
+                ) : erroCarrinhos ? (
+                  <p className="px-2 py-6 text-sm text-[#f6c7b6]">{erroCarrinhos}</p>
+                ) : carrinhosSalvos.length === 0 ? (
+                  <p className="px-2 py-6 text-sm text-white/50">{t.nenhumCarrinhoSalvo}</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {carrinhosSalvos.map((carrinho) => (
+                      <li key={carrinho.id}>
+                        <button
+                          type="button"
+                          disabled={recuperandoCarrinho}
+                          onClick={() => void recuperarCarrinho(carrinho)}
+                          className="flex w-full flex-col rounded-xl px-3 py-3 text-left transition hover:bg-white/10 disabled:opacity-50"
+                        >
+                          <span className="truncate text-base font-bold">{carrinho.nome || "—"}</span>
+                          <span className="mt-0.5 truncate text-xs text-white/45">
+                            {[
+                              carrinho.telefone,
+                              `${carrinho.itens.length} ${t.itens}`,
+                              carrinho.criado_em
+                                ? new Intl.DateTimeFormat(idioma, {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }).format(new Date(carrinho.criado_em))
+                                : "",
+                            ].filter(Boolean).join(" · ")}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <SalvarSelecaoModal
         open={salvarAberto}
         idioma={idioma}
+        cliente={clienteRecuperado}
         itens={itensSelecionados.map(({ item, numeracaoLabel }) => ({
           id: item.id,
           sku: item.sku,
           numeracao: numeracaoLabel,
-          preco: precoCatalogoEuro(item),
+          preco: item.preco_venda,
+          moeda: item.moeda_venda,
         }))}
         textos={t}
         onClose={() => setSalvarAberto(false)}

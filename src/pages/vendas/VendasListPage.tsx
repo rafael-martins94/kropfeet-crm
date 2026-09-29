@@ -188,13 +188,15 @@ export default function VendasListPage() {
       ),
       width: "110px",
       render: (v) => (
-        <EntityLink
-          to={`/vendas/${v.id}`}
-          appearance="plain"
-          className="font-numeric tabular-nums text-sm font-medium"
-        >
-          {v.numero ?? "—"}
-        </EntityLink>
+        <span onClick={(e) => e.stopPropagation()}>
+          <EntityLink
+            to={`/vendas/${v.id}`}
+            appearance="plain"
+            className="font-numeric tabular-nums text-sm font-medium"
+          >
+            {v.numero ?? "—"}
+          </EntityLink>
+        </span>
       ),
     },
     {
@@ -312,7 +314,10 @@ export default function VendasListPage() {
           <button
             type="button"
             className="btn-ghost h-8 w-8 p-0"
-            onClick={() => navigate(`/vendas/${v.id}`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/vendas/${v.id}`);
+            }}
             aria-label="Ver ordem"
           >
             <IconEye width={16} height={16} />
@@ -320,7 +325,10 @@ export default function VendasListPage() {
           <button
             type="button"
             className="btn-ghost h-8 w-8 p-0"
-            onClick={() => navigate(`/vendas/${v.id}/editar`)}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/vendas/${v.id}/editar`);
+            }}
             aria-label="Editar ordem"
           >
             <IconEdit width={16} height={16} />
@@ -400,6 +408,7 @@ export default function VendasListPage() {
                 rows={data?.data ?? []}
                 rowKey={(v) => v.id}
                 loading={loading}
+                onRowClick={(v) => navigate(`/vendas/${v.id}`)}
                 tableClassName="table-fixed"
                 emptyTitle="Nenhuma ordem de venda"
                 emptyDescription={

@@ -1,5 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { SumupVendaModal } from "../../components/sumup/SumupVendaModal";
+import {
+  extrairCodigosSumup,
+  obterVendaSumupPorCodigo,
+  type ContaSumup,
+  type VendaSumup,
+} from "../../services/sumup";
 import { PageHeader } from "../../components/PageHeader";
 import { SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
@@ -9,6 +16,13 @@ import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
 import { IconCalendar, IconCart, IconEdit, IconTag, IconArrowUpRight } from "../../components/Icons";
 import { EntityLink } from "../../components/EntityLink";
 import { resumoFinanceiroVenda, vendasService } from "../../services/vendas";
+import { contasReceberService } from "../../services/contasReceber";
+import type { ContaReceber } from "../../types/entities";
+import { BotaoStatusConta } from "../../components/financeiro/BotaoStatusConta";
+import { SituacaoContaBadge } from "../../components/financeiro/SituacaoContaBadge";
+import { useToast } from "../../contexts/ToastContext";
+import { mensagemErro } from "../../utils/errors";
+import { statusPodeSerAlteradoNaOrdem } from "../../utils/situacaoContaExibida";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { useAsync } from "../../hooks/useAsync";
 import { formatarData, formatarDataHora, formatarMoeda, traduzirEnum } from "../../utils/format";
@@ -16,23 +30,26 @@ import { obterCustoPrincipal } from "../../utils/custoItem";
 import { formatarEnderecoLinha, formatarLocalidade } from "../../utils/endereco";
 import {
   caminhoListaVendas,
-  formaPagamentoUsaParcelas,
   labelFormaPagamento,
   labelFreteStatus,
   labelLocalVenda,
+  moedaDoFrete,
+  valorFreteCobrado,
   lerMarcadores,
   moedaDaVenda,
-  parcelaEstaPagaPorForma,
 } from "./vendaOpcoes";
 
 export default function VendaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [atualizandoParcelaId, setAtualizandoParcelaId] = useState<string | null>(null);
   const venda = useAsync(() => (id ? vendasService.obterDetalhada(id) : Promise.resolve(null)), [id]);
   const itens = useAsync(() => (id ? vendasService.obterItens(id) : Promise.resolve([])), [id]);
   const parcelasAsync = useAsync(
     () => (id ? vendasService.obterParcelas(id) : Promise.resolve([])),
+    [id],
+  );
+  const contasAsync = useAsync(
+    () => (id ? contasReceberService.listarPorVenda(id) : Promise.resolve([] as ContaReceber[])),
     [id],
   );
   const modeloIds = (itens.data ?? [])
@@ -52,23 +69,21 @@ export default function VendaDetailPage() {
   const localidadeEntrega = enderecoEntrega ? formatarLocalidade(enderecoEntrega) : "";
   const marcadores = lerMarcadores(venda.data?.marcadores);
   const parcelas = parcelasAsync.data ?? [];
-  const formaPagamento = venda.data?.forma_pagamento ?? null;
-  const usaParcelas = formaPagamentoUsaParcelas(formaPagamento);
+  const contas = contasAsync.data ?? [];
+  const contaPorParcela = new Map(
+    contas.filter((c) => c.id_parcela_venda).map((c) => [c.id_parcela_venda!, c]),
+  );
   const listaRegiao = caminhoListaVendas(venda.data?.regiao_venda);
   const moeda = venda.data ? moedaDaVenda(venda.data) : "BRL";
+  const moedaFrete = venda.data ? moedaDoFrete(venda.data) : moeda;
   const labelRegiao = traduzirEnum(venda.data?.regiao_venda);
-  const resumo = resumoFinanceiroVenda(Number(venda.data?.valor_total ?? 0), parcelas);
-
-  const alternarPago = async (idParcela: string, pagoAtual: boolean, forma: string | null) => {
-    if (!parcelaEstaPagaPorForma(forma)) return;
-    setAtualizandoParcelaId(idParcela);
-    try {
-      await vendasService.atualizarParcela(idParcela, { pago: !pagoAtual });
-      parcelasAsync.reload();
-    } finally {
-      setAtualizandoParcelaId(null);
-    }
-  };
+  const resumo = resumoFinanceiroVenda(Number(venda.data?.valor_total ?? 0), parcelas, contas);
+  const codigosSumup = [
+    venda.data?.codigo_venda_adquirente,
+    ...parcelas.map((p) => p.codigo_transacao),
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -210,31 +225,91 @@ export default function VendaDetailPage() {
           <SectionCard title="Valores">
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <F label="Total produtos" value={formatarMoeda(Number(venda.data.total_produtos), moeda)} />
-              <F label="Frete" value={formatarMoeda(Number(venda.data.valor_frete), moeda)} />
-              <F label="Status do frete" value={labelFreteStatus(venda.data.frete_status)} />
-              <F
-                label="Data pagamento frete"
-                value={formatarData(venda.data.data_pagamento_frete)}
-              />
               <F label="Desconto" value={formatarMoeda(Number(venda.data.valor_desconto), moeda)} />
               <F label="Outras despesas" value={formatarMoeda(Number(venda.data.outras_despesas), moeda)} />
               <F label="Total do pedido" value={formatarMoeda(Number(venda.data.valor_total), moeda)} />
             </dl>
           </SectionCard>
 
-          <SectionCard title="Pagamento e parcelas">
+          <SectionCard
+            title="Frete"
+            description="Independente do total do pedido e das parcelas do produto."
+            titleAccessory={
+              <StatusBadge
+                value={venda.data.frete_status}
+                label={labelFreteStatus(venda.data.frete_status)}
+              />
+            }
+          >
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <div className="rounded-xl border border-line bg-surface-subtle px-4 py-3 sm:col-span-1">
+                <div className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+                  A pagar pelo frete
+                </div>
+                <div className="mt-1 font-numeric text-xl font-semibold tabular-nums text-ink">
+                  {formatarMoeda(
+                    valorFreteCobrado(venda.data.frete_status, Number(venda.data.valor_frete)),
+                    moedaFrete,
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-ink-soft">
+                  {venda.data.frete_status === "pendente"
+                    ? "Ainda não foi pago."
+                    : venda.data.frete_status === "pago"
+                      ? venda.data.data_pagamento_frete
+                        ? `Quitado em ${formatarData(venda.data.data_pagamento_frete)}.`
+                        : "Quitado, sem data informada."
+                      : venda.data.frete_status === "cortesia"
+                        ? "Oferecido sem cobrança."
+                        : "Não há frete neste pedido."}
+                </p>
+              </div>
+              <dl className="grid grid-cols-1 gap-5 sm:col-span-2 sm:grid-cols-2">
+                <F label="Valor do frete" value={formatarMoeda(Number(venda.data.valor_frete), moedaFrete)} />
+                <F label="Moeda" value={moedaFrete} />
+                <F label="Situação" value={labelFreteStatus(venda.data.frete_status)} />
+                {venda.data.frete_status === "pago" ? (
+                  <F label="Pago em" value={formatarData(venda.data.data_pagamento_frete)} />
+                ) : null}
+              </dl>
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Pagamento e parcelas"
+            actions={
+              contas.length > 0 ? (
+                <Link
+                  to={`/financeiro/contas-receber/${venda.data.regiao_venda === "europa" ? "europa" : "brasil"}?busca=${encodeURIComponent(venda.data.numero ?? "")}`}
+                  className="text-sm text-brand-700 hover:text-brand-800"
+                >
+                  Ver em Contas a receber
+                </Link>
+              ) : null
+            }
+          >
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <F
                 label="Forma de pagamento"
                 value={labelFormaPagamento(venda.data.forma_pagamento)}
               />
-              {parcelas.length > 0 ? (
-                <F
-                  label="Parcelas"
-                  value={usaParcelas || parcelas.length > 1 ? `${parcelas.length}x` : String(parcelas.length)}
-                />
-              ) : null}
-              <F label="Código de venda" value={venda.data.codigo_venda_adquirente ?? "—"} />
+              <F
+                label="Condição"
+                value={
+                  venda.data.condicao_pagamento ||
+                  (parcelas.length > 1 ? `${parcelas.length} parcelas` : parcelas.length === 1 ? "À vista" : "—")
+                }
+              />
+              <F
+                label="Código SumUp"
+                value={
+                  <VinculoSumup
+                    codigo={codigosSumup || null}
+                    conta={venda.data.regiao_venda === "europa" ? "pt" : "br"}
+                    ordem={{ id: venda.data.id, numero: venda.data.numero }}
+                  />
+                }
+              />
               <F label="Depósito" value={venda.data.deposito ?? "—"} />
               <F label="Data faturamento" value={formatarData(venda.data.data_faturamento)} />
             </dl>
@@ -242,31 +317,21 @@ export default function VendaDetailPage() {
             {parcelas.length > 0 ? (
               <div className="mt-5 border-t border-line pt-4">
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <div className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
-                      Valor pago
-                    </div>
-                    <div className="mt-1 font-numeric tabular-nums text-sm font-semibold text-ink">
-                      {formatarMoeda(resumo.valorPago, moeda)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
-                      Total parcelado
-                    </div>
-                    <div className="mt-1 font-numeric tabular-nums text-sm font-semibold text-ink">
-                      {formatarMoeda(resumo.totalParcelado, moeda)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
-                      Saldo devedor
-                    </div>
-                    <div className="mt-1 font-numeric tabular-nums text-sm font-semibold text-brand-700">
-                      {formatarMoeda(resumo.saldoDevedor, moeda)}
-                    </div>
-                  </div>
+                  <ResumoValor rotulo="Total parcelado" valor={formatarMoeda(resumo.totalParcelado, moeda)} />
+                  <ResumoValor rotulo="Recebido" valor={formatarMoeda(resumo.recebido, moeda)} />
+                  <ResumoValor
+                    rotulo="Em aberto"
+                    valor={formatarMoeda(resumo.emAberto, moeda)}
+                    destaque
+                  />
                 </div>
+                {Math.abs(resumo.faltaParcelar) >= 0.01 && venda.data.status_venda !== "cancelado" ? (
+                  <p className="mb-4 text-xs text-amber-800">
+                    {resumo.faltaParcelar > 0
+                      ? `As parcelas somam ${formatarMoeda(resumo.faltaParcelar, moeda)} a menos que o total do pedido.`
+                      : `As parcelas somam ${formatarMoeda(-resumo.faltaParcelar, moeda)} a mais que o total do pedido.`}
+                  </p>
+                ) : null}
 
                 <div className="mb-2 text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
                   Detalhe das parcelas
@@ -283,12 +348,13 @@ export default function VendaDetailPage() {
                           <th className="text-right">Valor</th>
                           <th>Forma de pagamento</th>
                           <th>Meio</th>
-                          <th className="text-center">Pago</th>
+                          <th>Código SumUp</th>
+                          <th>Situação</th>
                         </tr>
                       </thead>
                       <tbody>
                         {parcelas.map((p) => {
-                          const contaReceber = !parcelaEstaPagaPorForma(p.forma_pagamento);
+                          const conta = contaPorParcela.get(p.id);
                           return (
                             <tr key={p.id}>
                               <td className="font-numeric tabular-nums text-xs">
@@ -306,27 +372,15 @@ export default function VendaDetailPage() {
                               <td className="text-sm text-ink-soft">
                                 {p.meio_pagamento ?? "—"}
                               </td>
-                              <td className="text-center">
-                                <button
-                                  type="button"
-                                  disabled={contaReceber || atualizandoParcelaId === p.id}
-                                  title={
-                                    contaReceber
-                                      ? "Conta a receber — ainda não pago"
-                                      : p.pago
-                                        ? "Marcar como não pago"
-                                        : "Marcar como pago"
-                                  }
-                                  onClick={() =>
-                                    alternarPago(p.id, p.pago, p.forma_pagamento)
-                                  }
-                                  className="disabled:cursor-not-allowed disabled:opacity-70"
-                                >
-                                  <StatusBadge
-                                    value={p.pago ? "pago" : "em_aberto"}
-                                    label={p.pago ? "Pago" : "Em aberto"}
-                                  />
-                                </button>
+                              <td className="font-numeric text-xs text-ink-soft">
+                                {p.codigo_transacao ?? "—"}
+                              </td>
+                              <td>
+                                <SituacaoContaAcao
+                                  conta={conta}
+                                  codigo={p.codigo_transacao}
+                                  onAlterado={() => contasAsync.reload()}
+                                />
                               </td>
                             </tr>
                           );
@@ -395,6 +449,11 @@ export default function VendaDetailPage() {
                                 SKU {iv.codigo}
                               </div>
                             ) : null}
+                            {iv.item_estoque ? null : (
+                              <div className="mt-1">
+                                <StatusBadge value="sem_par" label="Sem par no estoque" tom="aviso" />
+                              </div>
+                            )}
                           </td>
                           <td className="text-right font-numeric tabular-nums text-xs">
                             {iv.quantidade}
@@ -503,6 +562,152 @@ function KpiCard({
         }
       >
         {value}
+      </div>
+    </div>
+  );
+}
+
+function VinculoSumup({
+  codigo,
+  conta,
+  ordem,
+}: {
+  codigo: string | null;
+  conta: ContaSumup;
+  ordem: { id: string; numero: string | null };
+}) {
+  const codigos = extrairCodigosSumup(codigo);
+  const [aberta, setAberta] = useState<VendaSumup | null>(null);
+  const consulta = useAsync(async () => {
+    if (codigos.length === 0) return [] as Array<{ codigo: string; venda: VendaSumup | null }>;
+    return Promise.all(
+      codigos.map(async (item) => ({
+        codigo: item,
+        venda: (await obterVendaSumupPorCodigo(item, conta)).item,
+      })),
+    );
+  }, [codigos.join("|"), conta]);
+
+  if (!codigo?.trim()) return "—";
+  if (codigos.length === 0) return codigo;
+
+  if (consulta.loading) {
+    return <span className="font-numeric tabular-nums text-xs">{codigos.join(" / ")}</span>;
+  }
+
+  if (consulta.error) {
+    return (
+      <span>
+        <span className="font-numeric tabular-nums text-xs">{codigos.join(" / ")}</span>
+        <span className="mt-1 block text-xs text-ink-soft">Não foi possível consultar a SumUp.</span>
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <span className="flex flex-col gap-1">
+        {(consulta.data ?? []).map((item) =>
+          item.venda ? (
+            <button
+              key={item.codigo}
+              type="button"
+              onClick={() => setAberta(item.venda)}
+              className="w-fit font-numeric tabular-nums text-xs text-brand-700 hover:underline"
+            >
+              {item.codigo}
+            </button>
+          ) : (
+            <span key={item.codigo} className="block">
+              <span className="font-numeric tabular-nums text-xs">{item.codigo}</span>
+              <span className="mt-0.5 block text-xs text-ink-soft">
+                Código informado na ordem. A {conta === "pt" ? "SumUp Portugal" : "SumUp Brasil"} não
+                devolveu essa venda.
+              </span>
+            </span>
+          ),
+        )}
+      </span>
+      <SumupVendaModal venda={aberta} conta={conta} ordem={ordem} onClose={() => setAberta(null)} />
+    </>
+  );
+}
+
+function SituacaoContaAcao({
+  conta,
+  codigo,
+  onAlterado,
+}: {
+  conta: ContaReceber | undefined;
+  codigo: string | null;
+  onAlterado: () => void;
+}) {
+  const toast = useToast();
+  const [ocupado, setOcupado] = useState(false);
+  if (!conta) return <SituacaoConta conta={conta} />;
+
+  const recebida = conta.situacao === "recebido";
+  const podeAlterar = statusPodeSerAlteradoNaOrdem(codigo) && conta.situacao !== "cancelado";
+
+  const alternar = async () => {
+    const confirmar = window.confirm(
+      recebida
+        ? "Estornar o recebimento desta parcela?"
+        : "Marcar esta parcela como recebida na data de vencimento?",
+    );
+    if (!confirmar) return;
+    setOcupado(true);
+    try {
+      if (recebida) await contasReceberService.estornarBaixa([conta.id]);
+      else await contasReceberService.baixar([conta.id], null);
+      toast.sucesso(recebida ? "Recebimento estornado." : "Parcela marcada como recebida.");
+      onAlterado();
+    } catch (erro) {
+      toast.erro(mensagemErro(erro), "Não foi possível alterar a situação");
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <SituacaoContaBadge conta={conta} />
+      {podeAlterar ? (
+        <BotaoStatusConta tipo={recebida ? "estornar" : "receber"} ocupado={ocupado} onClick={alternar} />
+      ) : null}
+    </div>
+  );
+}
+
+function SituacaoConta({ conta }: { conta: ContaReceber | undefined }) {
+  if (!conta) {
+    return (
+      <span className="text-xs text-ink-faint" title="Esta parcela não gera conta a receber">
+        —
+      </span>
+    );
+  }
+  return <SituacaoContaBadge conta={conta} />;
+}
+
+function ResumoValor({
+  rotulo,
+  valor,
+  destaque,
+}: {
+  rotulo: string;
+  valor: string;
+  destaque?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[0.68rem] font-semibold uppercase tracking-wider text-ink-soft">
+        {rotulo}
+      </div>
+      <div
+        className={`mt-1 font-numeric tabular-nums text-sm font-semibold ${destaque ? "text-brand-700" : "text-ink"}`}
+      >
+        {valor}
       </div>
     </div>
   );

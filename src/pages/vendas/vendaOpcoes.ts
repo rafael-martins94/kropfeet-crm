@@ -1,39 +1,113 @@
+import type { TipoRegiao } from "../../types/entities";
+
 export interface OpcaoSimples {
   value: string;
   label: string;
 }
 
-/** Formas de pagamento observadas nos pedidos importados do Tiny. */
-export const formaPagamentoOpcoes: OpcaoSimples[] = [
-  { value: "pix", label: "Pix" },
-  { value: "credito", label: "Crédito" },
-  { value: "dinheiro", label: "Dinheiro" },
-  { value: "boleto", label: "Boleto" },
-  { value: "crediario", label: "Crediário" },
-  { value: "vale", label: "Vale" },
-  { value: "multiplas", label: "Múltiplas" },
-  { value: "contareceber", label: "Conta a receber" },
-  { value: "MBWay", label: "MBWay" },
-  { value: "Presente / Amostra grátis", label: "Presente / Amostra grátis" },
-];
+const LABEL_FORMA: Record<string, string> = {
+  pix: "Pix",
+  credito: "Cartão de crédito",
+  debito: "Cartão de débito",
+  dinheiro: "Dinheiro",
+  crediario: "Crediário",
+  vale: "Vale",
+  cartao: "Cartão",
+  mbway: "MBWay",
+  transferencia: "Transferência",
+  cortesia: "Cortesia",
+  multiplas: "Múltiplas",
+  boleto: "Boleto",
+  contareceber: "Conta a receber",
+};
 
-/** Formas comuns usadas nas linhas de parcela (inclui meios que o Tiny grava como forma). */
-export const formaPagamentoParcelaOpcoes: OpcaoSimples[] = [
-  ...formaPagamentoOpcoes,
-  { value: "Revolut", label: "Revolut" },
-  { value: "Stripe", label: "Stripe" },
-  { value: "Wise", label: "Wise" },
-  { value: "SumUp Máquina", label: "SumUp Máquina" },
-  { value: "SumUp Link", label: "SumUp Link" },
-];
+export interface CatalogoPagamentoRegiao {
+  formas: string[];
+  meiosPorForma: Record<string, string[]>;
+  /** Formas em que a condição de pagamento pode gerar mais de uma parcela. */
+  parcelaveis: string[];
+}
 
-/** Meios de pagamento (contas/maquininhas) observados nos pedidos do Tiny. */
-export const meioPagamentoOpcoes: OpcaoSimples[] = [
-  { value: "SumUp", label: "SumUp" },
-  { value: "Mercantil", label: "Mercantil" },
-  { value: "Itaú", label: "Itaú" },
-  { value: "Nubank", label: "Nubank" },
-];
+const CATALOGO_EUROPA: CatalogoPagamentoRegiao = {
+  formas: ["cartao", "mbway", "transferencia", "dinheiro", "vale"],
+  meiosPorForma: {
+    cartao: ["SumUp Máquina", "SumUp Link", "Stripe"],
+    transferencia: ["Revolut", "Wise"],
+  },
+  parcelaveis: [],
+};
+
+export const catalogoPagamento: Record<TipoRegiao, CatalogoPagamentoRegiao> = {
+  brasil: {
+    formas: ["pix", "credito", "debito", "dinheiro", "crediario", "vale"],
+    meiosPorForma: {
+      pix: ["Itaú", "Mercantil", "Nubank"],
+      credito: ["SumUp"],
+      debito: ["SumUp"],
+      crediario: ["Itaú", "Mercantil", "Nubank"],
+    },
+    parcelaveis: ["credito", "crediario"],
+  },
+  europa: CATALOGO_EUROPA,
+  outros: CATALOGO_EUROPA,
+};
+
+function catalogoDaRegiao(regiao: string | null | undefined): CatalogoPagamentoRegiao {
+  return catalogoPagamento[(regiao ?? "brasil") as TipoRegiao] ?? catalogoPagamento.brasil;
+}
+
+export function formasPagamentoDaRegiao(regiao: string | null | undefined): OpcaoSimples[] {
+  return catalogoDaRegiao(regiao).formas.map((f) => ({ value: f, label: labelFormaPagamento(f) }));
+}
+
+/** Meios usados no Brasil e na Europa, sem repetir. */
+export function meiosPagamentoConhecidos(): string[] {
+  const meios = new Set<string>();
+  for (const catalogo of Object.values(catalogoPagamento)) {
+    for (const lista of Object.values(catalogo.meiosPorForma)) {
+      for (const meio of lista) meios.add(meio);
+    }
+  }
+  return [...meios].sort((a, b) => a.localeCompare(b, "pt"));
+}
+
+export function meiosPagamentoDaForma(
+  regiao: string | null | undefined,
+  forma: string | null | undefined,
+): OpcaoSimples[] {
+  const meios = catalogoDaRegiao(regiao).meiosPorForma[(forma ?? "").toLowerCase()] ?? [];
+  return meios.map((m) => ({ value: m, label: m }));
+}
+
+export function formaPermiteParcelar(
+  regiao: string | null | undefined,
+  forma: string | null | undefined,
+): boolean {
+  return catalogoDaRegiao(regiao).parcelaveis.includes((forma ?? "").toLowerCase());
+}
+
+/** Espelha `forma_pagamento_baixa_imediata` no banco: a conta já nasce recebida se venceu. */
+export function formaBaixaImediata(forma: string | null | undefined): boolean {
+  return ["pix", "dinheiro", "vale", "mbway", "transferencia"].includes(
+    (forma ?? "").trim().toLowerCase(),
+  );
+}
+
+export function meioEhSumup(meio: string | null | undefined): boolean {
+  return /^sumup/i.test((meio ?? "").trim());
+}
+
+/** Forma do pedido derivada das parcelas: uma só forma, ou "multiplas". */
+export function formaDerivadaDasParcelas(
+  parcelas: Array<{ forma_pagamento: string | null | undefined }>,
+): string | null {
+  const formas = parcelas
+    .map((p) => (p.forma_pagamento ?? "").trim())
+    .filter(Boolean);
+  if (formas.length === 0) return null;
+  const distintas = new Set(formas.map((f) => f.toLowerCase()));
+  return distintas.size === 1 ? formas[0] : "multiplas";
+}
 
 /** Regiao da venda (mercado). */
 export const regiaoVendaOpcoes: OpcaoSimples[] = [
@@ -46,6 +120,7 @@ export const freteStatusOpcoes: OpcaoSimples[] = [
   { value: "nao_aplicavel", label: "Não aplicável" },
   { value: "pendente", label: "Pendente" },
   { value: "pago", label: "Pago" },
+  { value: "cortesia", label: "Cortesia" },
 ];
 
 export const localVendaOpcoes: OpcaoSimples[] = [
@@ -57,6 +132,12 @@ export const localVendaOpcoes: OpcaoSimples[] = [
 export function labelFreteStatus(valor: string | null | undefined): string {
   if (!valor) return "—";
   return freteStatusOpcoes.find((o) => o.value === valor)?.label ?? valor;
+}
+
+/** Valor que o cliente ainda precisa quitar, ou que já quitou, pelo frete. */
+export function valorFreteCobrado(status: string | null | undefined, valor: number): number {
+  if (status === "pendente" || status === "pago") return Math.max(0, valor);
+  return 0;
 }
 
 export function labelLocalVenda(valor: string | null | undefined): string {
@@ -92,6 +173,22 @@ export function moedaDaVenda(venda: {
   return moedaPorRegiao(venda.regiao_venda);
 }
 
+export const moedaFreteOpcoes: OpcaoSimples[] = [
+  { value: "BRL", label: "Real (BRL)" },
+  { value: "EUR", label: "Euro (EUR)" },
+];
+
+/** Moeda do frete. Quando não houver uma própria, acompanha a moeda do pedido. */
+export function moedaDoFrete(venda: {
+  moeda_frete?: string | null;
+  moeda_venda?: string | null;
+  regiao_venda?: string | null;
+}): "BRL" | "EUR" {
+  const frete = venda.moeda_frete?.trim().toUpperCase();
+  if (frete === "EUR" || frete === "BRL") return frete;
+  return moedaDaVenda(venda) === "EUR" ? "EUR" : "BRL";
+}
+
 export interface MarcadorVenda {
   id?: string;
   descricao?: string;
@@ -110,101 +207,9 @@ export function lerMarcadores(valor: unknown): MarcadorVenda[] {
     .filter((m) => Boolean(m.descricao?.trim()));
 }
 
-/** Parcela vinda de `dados_tiny.parcelas[].parcela` (API Tiny) — legado/fallback. */
-export interface ParcelaDadosTiny {
-  numero: number;
-  data: string | null;
-  valor: number | null;
-  formaPagamento: string | null;
-  meioPagamento: string | null;
-  dias: number | null;
-  obs: string | null;
-}
-
-function textoOuNulo(valor: unknown): string | null {
-  if (typeof valor === "string") {
-    const t = valor.trim();
-    return t || null;
-  }
-  if (typeof valor === "number" && Number.isFinite(valor)) return String(valor);
-  return null;
-}
-
-function numeroOuNulo(valor: unknown): number | null {
-  if (typeof valor === "number" && Number.isFinite(valor)) return valor;
-  if (typeof valor === "string") {
-    const t = valor.trim().replace(",", ".");
-    if (!t) return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-/**
- * Converte data Tiny `DD/MM/YYYY` para ISO `YYYY-MM-DD` (para formatarData).
- * Outros formatos são devolvidos como estão.
- */
-export function dataTinyParaIso(valor: string | null | undefined): string | null {
-  if (!valor) return null;
-  const t = valor.trim();
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  return t;
-}
-
-/** Extrai parcelas de `vendas.dados_tiny` (estrutura Tiny: parcelas[{ parcela: {...} }]). */
-export function lerParcelasDadosTiny(dadosTiny: unknown): ParcelaDadosTiny[] {
-  if (!dadosTiny || typeof dadosTiny !== "object") return [];
-  const raw = (dadosTiny as Record<string, unknown>).parcelas;
-  if (!Array.isArray(raw)) return [];
-
-  const saida: ParcelaDadosTiny[] = [];
-  for (const entry of raw) {
-    if (!entry || typeof entry !== "object") continue;
-    const nested = (entry as Record<string, unknown>).parcela;
-    const p =
-      nested && typeof nested === "object"
-        ? (nested as Record<string, unknown>)
-        : (entry as Record<string, unknown>);
-
-    saida.push({
-      numero: saida.length + 1,
-      data: textoOuNulo(p.data),
-      valor: numeroOuNulo(p.valor),
-      formaPagamento: textoOuNulo(p.forma_pagamento),
-      meioPagamento: textoOuNulo(p.meio_pagamento),
-      dias: numeroOuNulo(p.dias),
-      obs: textoOuNulo(p.obs),
-    });
-  }
-  return saida;
-}
-
-/** `contareceber` = ainda nao pago. */
-export function parcelaEstaPagaPorForma(forma: string | null | undefined): boolean {
-  return (forma ?? "").trim().toLowerCase() !== "contareceber";
-}
-
-/** Múltiplas ou cartão/crédito — casos em que a UI deve destacar as parcelas. */
-export function formaPagamentoUsaParcelas(forma: string | null | undefined): boolean {
-  const f = (forma ?? "").trim().toLowerCase();
-  if (!f) return false;
-  return (
-    f === "multiplas" ||
-    f === "múltiplas" ||
-    f === "credito" ||
-    f === "crédito" ||
-    f.includes("carta")
-  );
-}
-
 export function labelFormaPagamento(forma: string | null | undefined): string {
   if (!forma) return "—";
-  const opcao = [...formaPagamentoParcelaOpcoes, ...formaPagamentoOpcoes].find(
-    (o) => o.value.toLowerCase() === forma.toLowerCase(),
-  );
-  return opcao?.label ?? forma;
+  return LABEL_FORMA[forma.trim().toLowerCase()] ?? forma;
 }
 
 /**

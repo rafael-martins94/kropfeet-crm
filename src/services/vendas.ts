@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import type {
+  ContaReceber,
   EnderecoCliente,
   PaginationParams,
   ParcelaVenda,
@@ -10,6 +11,7 @@ import type {
   VendaUpdate,
 } from "../types/entities";
 import { calcularLucroVenda, resolverCustoItem, type CustoItemEstoque } from "../utils/custoItem";
+import { contaContaComoEmAberto, contaContaComoRecebida } from "../utils/situacaoContaExibida";
 import { atualizar, contar, deletar, inserir, obterPorId } from "./base";
 
 export interface ItemVendaDetalhado {
@@ -69,44 +71,58 @@ export interface VendaDetalhada extends Venda {
 }
 
 export type ParcelaVendaInput = {
-  numero: number;
+  /** Id da parcela já gravada; sem id, a parcela é nova. */
+  id?: string | null;
   data_vencimento: string | null;
   valor: number;
   forma_pagamento: string | null;
   meio_pagamento: string | null;
+  codigo_transacao?: string | null;
   dias?: number | null;
   obs?: string | null;
-  pago: boolean;
+};
+
+export type ResultadoSalvarParcelas = {
+  criadas: number;
+  canceladas: number;
+  divergentes: number;
 };
 
 export type ResumoFinanceiroVenda = {
-  valorPago: number;
   totalParcelado: number;
-  saldoDevedor: number;
+  faltaParcelar: number;
+  recebido: number;
+  emAberto: number;
 };
 
-/** `contareceber` = ainda nao pago; demais formas = pago. */
-export function parcelaEstaPagaPorForma(forma: string | null | undefined): boolean {
-  return (forma ?? "").trim().toLowerCase() !== "contareceber";
+function arred(valor: number): number {
+  return Number(valor.toFixed(2));
 }
 
 export function resumoFinanceiroVenda(
   valorTotal: number,
-  parcelas: Array<{ valor: number; pago: boolean }>,
+  parcelas: Array<{ valor: number | string }>,
+  contas: Array<
+    Pick<ContaReceber, "situacao" | "valor" | "valor_recebido"> &
+      Parameters<typeof contaContaComoRecebida>[0]
+  >,
 ): ResumoFinanceiroVenda {
   const total = Number.isFinite(valorTotal) ? valorTotal : 0;
   const totalParcelado = parcelas.reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
-  const valorPago = parcelas.reduce(
-    (acc, p) => (p.pago ? acc + (Number(p.valor) || 0) : acc),
+  const recebido = contas.reduce(
+    (acc, c) =>
+      contaContaComoRecebida(c) ? acc + (Number(c.valor_recebido ?? c.valor) || 0) : acc,
     0,
   );
-  // Saldo = o que falta receber: total do pedido menos o ja pago.
-  // Se ainda houver valor nao parcelado, ele tambem entra no saldo.
-  const saldoDevedor = Math.max(0, total - valorPago);
+  const emAberto = contas.reduce(
+    (acc, c) => (contaContaComoEmAberto(c) ? acc + (Number(c.valor) || 0) : acc),
+    0,
+  );
   return {
-    valorPago: Number(valorPago.toFixed(2)),
-    totalParcelado: Number(totalParcelado.toFixed(2)),
-    saldoDevedor: Number(saldoDevedor.toFixed(2)),
+    totalParcelado: arred(totalParcelado),
+    faltaParcelar: arred(total - totalParcelado),
+    recebido: arred(recebido),
+    emAberto: arred(emAberto),
   };
 }
 
@@ -394,7 +410,11 @@ export const vendasService = {
     });
   },
 
-  /** Substitui todos os itens da venda pelos informados. */
+  /**
+   * Substitui os itens da venda.
+   * Par que sai de uma ordem já existente volta para em estoque na mesma operação,
+   * desde que não esteja em outra ordem aberta.
+   */
   substituirItens: async (
     idVenda: string,
     itens: Array<{
@@ -405,48 +425,53 @@ export const vendasService = {
       valor_unitario: number;
     }>,
   ): Promise<void> => {
-    const { data: anteriores, error: erroAnteriores } = await supabase
-      .from("itens_venda")
-      .select("id_item_estoque")
-      .eq("id_venda", idVenda);
-    if (erroAnteriores) throw erroAnteriores;
-
-    const idsAnteriores = (anteriores ?? [])
-      .map((row) => row.id_item_estoque)
-      .filter((id): id is string => Boolean(id));
-
-    const { error: erroRemocao } = await supabase
-      .from("itens_venda")
-      .delete()
-      .eq("id_venda", idVenda);
-    if (erroRemocao) throw erroRemocao;
-
-    if (itens.length > 0) {
-      const { error: erroInsercao } = await supabase.from("itens_venda").insert(
-        itens.map((item) => ({
-          id_venda: idVenda,
-          id_item_estoque: item.id_item_estoque,
-          codigo: item.codigo ?? null,
-          descricao: item.descricao ?? null,
-          quantidade: item.quantidade,
-          valor_unitario: item.valor_unitario,
-        })),
-      );
-      if (erroInsercao) throw erroInsercao;
-    }
-
-    if (idsAnteriores.length > 0) {
-      const { error: erroReverter } = await supabase.rpc("reverter_itens_removidos_venda", {
-        p_id_venda: idVenda,
-        p_ids_anteriores: idsAnteriores,
-      });
-      if (erroReverter) throw erroReverter;
-    }
-
-    const { error: erroSync } = await supabase.rpc("sincronizar_efeitos_venda", {
+    const { error } = await supabase.rpc("substituir_itens_venda", {
       p_id_venda: idVenda,
+      p_itens: itens.map((item) => ({
+        id_item_estoque: item.id_item_estoque,
+        codigo: item.codigo ?? null,
+        descricao: item.descricao ?? null,
+        quantidade: item.quantidade,
+        valor_unitario: item.valor_unitario,
+      })),
     });
-    if (erroSync) throw erroSync;
+    if (error) throw error;
+  },
+
+  /** Ordens cujo código SumUp (número da ordem de compra no Tiny) bate com a transação. */
+  listarPorCodigosSumup: async (
+    codigos: string[],
+  ): Promise<Array<{ id: string; numero: string | null; codigo_venda_adquirente: string | null }>> => {
+    const procurados = new Set(
+      codigos.map((codigo) => codigo.trim().toUpperCase()).filter((codigo) => codigo.length >= 4),
+    );
+    if (procurados.size === 0) return [];
+
+    const [vendas, parcelas] = await Promise.all([
+      supabase
+        .from("vendas")
+        .select("id, numero, codigo_venda_adquirente")
+        .not("codigo_venda_adquirente", "is", null),
+      supabase
+        .from("parcelas_venda")
+        .select("codigo_transacao, venda:vendas!inner(id, numero)")
+        .in("codigo_transacao", [...procurados]),
+    ]);
+    if (vendas.error) throw vendas.error;
+    if (parcelas.error) throw parcelas.error;
+
+    const porVenda = (vendas.data ?? []).filter((venda) =>
+      (venda.codigo_venda_adquirente ?? "")
+        .split(/[^A-Za-z0-9]+/)
+        .some((parte) => procurados.has(parte.trim().toUpperCase())),
+    );
+    const porParcela = (parcelas.data ?? []).flatMap((row) => {
+      const venda = row.venda as unknown as { id: string; numero: string | null } | null;
+      return venda
+        ? [{ id: venda.id, numero: venda.numero, codigo_venda_adquirente: row.codigo_transacao }]
+        : [];
+    });
+    return [...porVenda, ...porParcela];
   },
 
   obterParcelas: async (idVenda: string): Promise<ParcelaVenda[]> => {
@@ -459,55 +484,34 @@ export const vendasService = {
     return (data ?? []) as ParcelaVenda[];
   },
 
-  atualizarParcela: async (
-    idParcela: string,
-    patch: { pago?: boolean; forma_pagamento?: string | null; meio_pagamento?: string | null },
-  ): Promise<ParcelaVenda> => {
-    const payload = { ...patch };
-    if (payload.forma_pagamento !== undefined) {
-      payload.pago = parcelaEstaPagaPorForma(payload.forma_pagamento);
-    }
-    const { data, error } = await supabase
-      .from("parcelas_venda")
-      .update(payload)
-      .eq("id", idParcela)
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data as ParcelaVenda;
-  },
-
-  /** Substitui todas as parcelas da venda pelas informadas. */
-  substituirParcelas: async (
+  /**
+   * Grava as parcelas do pedido (na ordem recebida) e sincroniza as contas a receber.
+   * Contas já recebidas não são alteradas; se a parcela mudar, ficam marcadas como divergentes.
+   */
+  salvarParcelas: async (
     idVenda: string,
     parcelas: ParcelaVendaInput[],
-  ): Promise<void> => {
-    const { error: erroRemocao } = await supabase
-      .from("parcelas_venda")
-      .delete()
-      .eq("id_venda", idVenda);
-    if (erroRemocao) throw erroRemocao;
-
-    if (parcelas.length === 0) return;
-
-    const { error: erroInsercao } = await supabase.from("parcelas_venda").insert(
-      parcelas.map((p, idx) => {
-        const forma = p.forma_pagamento ?? null;
-        const pagoForcado = !parcelaEstaPagaPorForma(forma) ? false : p.pago;
-        return {
-          id_venda: idVenda,
-          numero: p.numero || idx + 1,
-          data_vencimento: p.data_vencimento,
-          valor: p.valor,
-          forma_pagamento: forma,
-          meio_pagamento: p.meio_pagamento ?? null,
-          dias: p.dias ?? null,
-          obs: p.obs ?? null,
-          pago: pagoForcado,
-        };
-      }),
-    );
-    if (erroInsercao) throw erroInsercao;
+  ): Promise<ResultadoSalvarParcelas> => {
+    const { data, error } = await supabase.rpc("salvar_parcelas_venda", {
+      p_id_venda: idVenda,
+      p_parcelas: parcelas.map((p) => ({
+        id: p.id ?? null,
+        data_vencimento: p.data_vencimento,
+        valor: p.valor,
+        forma_pagamento: p.forma_pagamento,
+        meio_pagamento: p.meio_pagamento,
+        codigo_transacao: p.codigo_transacao ?? null,
+        dias: p.dias ?? null,
+        obs: p.obs ?? null,
+      })),
+    });
+    if (error) throw error;
+    const r = (data ?? {}) as Partial<ResultadoSalvarParcelas>;
+    return {
+      criadas: Number(r.criadas ?? 0),
+      canceladas: Number(r.canceladas ?? 0),
+      divergentes: Number(r.divergentes ?? 0),
+    };
   },
 
   totalPorStatus: async (): Promise<Record<StatusVenda, number>> => {

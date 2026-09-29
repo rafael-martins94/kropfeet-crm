@@ -7,7 +7,12 @@ import { VitrineTituloEditavel } from "../../components/vitrines/VitrineTituloEd
 import { SectionCard } from "../../components/SectionCard";
 import { NomePdfVitrineField } from "../../components/vitrines/NomePdfVitrineField";
 import { VitrineMapaCaixas } from "../../components/vitrines/VitrineMapaCaixas";
-import { CaixaResumoCard, LinkPdfVitrine, VitrineMeta } from "../../components/vitrines/VitrineShared";
+import {
+  CaixaResumoCard,
+  LinkMapaColetaVitrine,
+  LinkPdfVitrine,
+  VitrineMeta,
+} from "../../components/vitrines/VitrineShared";
 import { SubstituirCaixaModal } from "../../components/vitrines/SubstituirCaixaModal";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAsync } from "../../hooks/useAsync";
@@ -123,7 +128,14 @@ export default function VitrineDetailPage() {
         }
         breadcrumbs={[{ label: "Operação" }, { label: "Vitrines", to: "/vitrines" }, { label: "Detalhes" }]}
         backTo="/vitrines"
-        actions={vitrine.data ? <LinkPdfVitrine id={vitrine.data.id} /> : null}
+        actions={
+          vitrine.data ? (
+            <>
+              {vitrine.data.status !== "rascunho" ? <LinkMapaColetaVitrine id={vitrine.data.id} /> : null}
+              <LinkPdfVitrine id={vitrine.data.id} />
+            </>
+          ) : null
+        }
       />
 
       {vitrine.loading ? (

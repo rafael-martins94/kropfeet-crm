@@ -5,7 +5,7 @@ import { DangerButton, PrimaryButton, SecondaryButton } from "../../components/P
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { IconEye, IconPlus } from "../../components/Icons";
-import { VitrineMeta, VitrineStatusBadge, LinkPdfVitrine } from "../../components/vitrines/VitrineShared";
+import { VitrineMeta, VitrineStatusBadge, LinkMapaColetaVitrine, LinkPdfVitrine } from "../../components/vitrines/VitrineShared";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAsync } from "../../hooks/useAsync";
 import { vitrinesService, type VitrineResumo } from "../../services/vitrines";
@@ -90,6 +90,7 @@ export default function VitrinesHubPage() {
       header: <span className="sr-only">Ações</span>,
       render: (v) => (
         <div className="flex justify-end gap-2">
+          <LinkMapaColetaVitrine id={v.id} />
           <LinkPdfVitrine id={v.id} />
           <Link
             to={`/vitrines/${v.id}`}
@@ -124,6 +125,7 @@ export default function VitrinesHubPage() {
                 <SecondaryButton icon={<IconEye width={16} height={16} />} onClick={() => navigate("/vitrines/atual")}>
                   Abrir
                 </SecondaryButton>
+                <LinkMapaColetaVitrine id={atual.data.id} />
                 <LinkPdfVitrine id={atual.data.id} />
               </div>
             ) : null

@@ -15,6 +15,7 @@ interface PageHeaderProps {
   actions?: ReactNode;
   backTo?: string;
   backState?: unknown;
+  compacto?: boolean;
 }
 
 export function PageHeader({
@@ -24,12 +25,19 @@ export function PageHeader({
   actions,
   backTo,
   backState,
+  compacto = false,
 }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+    <div
+      className={
+        compacto
+          ? "mb-0 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+          : "mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+      }
+    >
       <div>
         {breadcrumbs && breadcrumbs.length > 0 ? (
-          <nav className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">
+          <nav className={`${compacto ? "mb-1" : "mb-2"} flex flex-wrap items-center gap-1.5 text-xs text-ink-soft`}>
             {breadcrumbs.map((c, i) => (
               <span key={`${c.label}-${i}`} className="flex items-center gap-1.5">
                 {c.to ? (
@@ -58,7 +66,13 @@ export function PageHeader({
             </Link>
           ) : null}
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-2xl font-semibold whitespace-nowrap text-brand-700 sm:text-3xl">
+            <h1
+              className={
+                compacto
+                  ? "font-display text-xl font-semibold whitespace-nowrap text-brand-700 sm:text-2xl"
+                  : "font-display text-2xl font-semibold whitespace-nowrap text-brand-700 sm:text-3xl"
+              }
+            >
               {title}
             </h1>
             {titleAccessory}

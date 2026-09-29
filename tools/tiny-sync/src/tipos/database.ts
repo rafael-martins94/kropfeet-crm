@@ -476,6 +476,7 @@ export type Database = {
       parcelas_venda: {
         Row: {
           atualizado_em: string
+          codigo_transacao: string | null
           criado_em: string
           dados_tiny: Json | null
           data_vencimento: string | null
@@ -491,6 +492,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string
+          codigo_transacao?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_vencimento?: string | null
@@ -506,6 +508,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string
+          codigo_transacao?: string | null
           criado_em?: string
           dados_tiny?: Json | null
           data_vencimento?: string | null
@@ -771,6 +774,7 @@ export type Database = {
           total_produtos: number
           url_rastreamento: string | null
           valor_desconto: number
+          moeda_frete: string | null
           valor_frete: number
           valor_total: number
         }
@@ -809,6 +813,7 @@ export type Database = {
           total_produtos?: number
           url_rastreamento?: string | null
           valor_desconto?: number
+          moeda_frete?: string | null
           valor_frete?: number
           valor_total?: number
         }
@@ -847,6 +852,7 @@ export type Database = {
           total_produtos?: number
           url_rastreamento?: string | null
           valor_desconto?: number
+          moeda_frete?: string | null
           valor_frete?: number
           valor_total?: number
         }
@@ -879,6 +885,14 @@ export type Database = {
         Args: { p_id_venda: string; p_ids_anteriores: string[] }
         Returns: number
       }
+      substituir_itens_venda: {
+        Args: { p_id_venda: string; p_itens?: Json }
+        Returns: Json
+      }
+      salvar_parcelas_venda: {
+        Args: { p_id_venda: string; p_parcelas?: Json }
+        Returns: Json
+      }
       sincronizar_efeitos_venda: {
         Args: { p_id_venda: string }
         Returns: Json
@@ -893,7 +907,7 @@ export type Database = {
         | "marketplace"
         | "outro"
       origem_cadastro_enum: "manual" | "tiny" | "importacao_planilha" | "api"
-      frete_status_enum: "nao_aplicavel" | "pendente" | "pago"
+      frete_status_enum: "nao_aplicavel" | "pendente" | "pago" | "cortesia"
       local_venda_enum: "galeria" | "online"
       sistema_numeracao_enum: "br" | "eu" | "us" | "outro"
       situacao_fornecedor_enum: "ativo" | "inativo"

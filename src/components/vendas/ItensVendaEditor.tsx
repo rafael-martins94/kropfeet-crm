@@ -12,6 +12,8 @@ export type ItemVendaFormLinha = {
   codigo: string;
   descricao: string;
   valor_unitario: string;
+  /** Item de estoque sem preço: o valor digitado aqui vira o preço de venda do item ao salvar. */
+  definir_preco_estoque?: boolean;
 };
 
 type ResultadoBusca = {
@@ -100,7 +102,8 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
         id_item_estoque: item.id,
         codigo: item.sku,
         descricao: item.nome_produto,
-        valor_unitario: item.preco_venda != null ? String(item.preco_venda) : "0",
+        valor_unitario: item.preco_venda ? String(item.preco_venda) : "",
+        definir_preco_estoque: !item.preco_venda,
       },
     ]);
     setBusca("");
@@ -109,6 +112,14 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
 
   const remover = (key: string) => {
     onChange(value.filter((item) => item.key !== key));
+  };
+
+  const definirValor = (key: string, valor: string) => {
+    onChange(
+      value.map((item) =>
+        item.key === key ? { ...item, valor_unitario: valor.replace(/[^\d.,]/g, "") } : item,
+      ),
+    );
   };
 
   const subtotal = totalItensVenda(value);
@@ -224,7 +235,26 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
                       ) : null}
                     </td>
                     <td className="text-right font-numeric tabular-nums text-sm">
-                      {Number.isFinite(unit) ? formatarMoeda(unit, moeda) : "—"}
+                      {item.definir_preco_estoque && item.id_item_estoque ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="input-base w-32 px-2 py-1.5 text-right font-numeric text-sm"
+                            value={item.valor_unitario}
+                            placeholder="0,00"
+                            aria-label={`Valor de ${item.descricao}`}
+                            onChange={(e) => definirValor(item.key, e.target.value)}
+                          />
+                          <span className="text-[0.68rem] text-amber-800">
+                            Sem preço no estoque · será salvo no item
+                          </span>
+                        </div>
+                      ) : Number.isFinite(unit) ? (
+                        formatarMoeda(unit, moeda)
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="text-right">
                       <button

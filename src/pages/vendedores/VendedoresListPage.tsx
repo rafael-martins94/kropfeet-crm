@@ -15,12 +15,16 @@ import { useAsync } from "../../hooks/useAsync";
 import { useDebounce } from "../../hooks/useDebounce";
 import { vendedoresService } from "../../services/vendedores";
 import type { Vendedor } from "../../types/entities";
+import { cn } from "../../utils/cn";
 import { mensagemErro } from "../../utils/errors";
 import { formatarData } from "../../utils/format";
+
+type AbaVendedores = "ativos" | "inativos";
 
 export default function VendedoresListPage() {
   const toast = useToast();
   const [page, setPage] = useState(1);
+  const [aba, setAba] = useState<AbaVendedores>("ativos");
   const [search, setSearch] = useState("");
   const searchDebounced = useDebounce(search, 300);
   const [editor, setEditor] = useState<{ id: string | null; nome: string } | null>(null);
@@ -28,9 +32,20 @@ export default function VendedoresListPage() {
   const [salvando, setSalvando] = useState(false);
 
   const { data, loading, error, reload } = useAsync(
-    () => vendedoresService.listar({ page, pageSize: 20, search: searchDebounced }),
-    [page, searchDebounced],
+    () =>
+      vendedoresService.listar({
+        page,
+        pageSize: 20,
+        search: searchDebounced,
+        ativo: aba === "ativos",
+      }),
+    [page, searchDebounced, aba],
   );
+
+  const trocarAba = (proxima: AbaVendedores) => {
+    setAba(proxima);
+    setPage(1);
+  };
 
   const abrirNovo = () => {
     setErroEditor(null);
@@ -145,17 +160,49 @@ export default function VendedoresListPage() {
         <ScrollableListShell
           toolbar={
             <div className="flex flex-col gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <SearchInput
-                placeholder="Buscar por nome…"
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setPage(1);
-                }}
-                wrapperClassName="w-full sm:max-w-xs"
-              />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div
+                  className="inline-flex w-fit rounded-lg border border-line bg-surface-subtle p-0.5"
+                  role="tablist"
+                  aria-label="Situação dos vendedores"
+                >
+                  {(
+                    [
+                      ["ativos", "Ativos"],
+                      ["inativos", "Inativos"],
+                    ] as const
+                  ).map(([valor, rotulo]) => (
+                    <button
+                      key={valor}
+                      type="button"
+                      role="tab"
+                      aria-selected={aba === valor}
+                      className={cn(
+                        "rounded-md px-3 py-1.5 text-sm font-medium transition",
+                        aba === valor
+                          ? "bg-surface text-ink shadow-sm"
+                          : "text-ink-soft hover:text-ink",
+                      )}
+                      onClick={() => trocarAba(valor)}
+                    >
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+                <SearchInput
+                  placeholder="Buscar por nome…"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setPage(1);
+                  }}
+                  wrapperClassName="w-full sm:max-w-xs"
+                />
+              </div>
               <div className="text-xs text-ink-soft">
-                {data ? `${data.total.toLocaleString("pt-BR")} vendedor(es)` : ""}
+                {data
+                  ? `${data.total.toLocaleString("pt-BR")} ${aba === "ativos" ? "ativo(s)" : "inativo(s)"}`
+                  : ""}
               </div>
             </div>
           }
@@ -168,8 +215,12 @@ export default function VendedoresListPage() {
                 rows={data?.data ?? []}
                 rowKey={(vendedor) => vendedor.id}
                 loading={loading}
-                emptyTitle="Nenhum vendedor"
-                emptyDescription="Cadastre quem aparece na ordem de venda e no catálogo da galeria."
+                emptyTitle={aba === "ativos" ? "Nenhum vendedor ativo" : "Nenhum vendedor inativo"}
+                emptyDescription={
+                  aba === "ativos"
+                    ? "Cadastre quem aparece na ordem de venda e no catálogo da galeria."
+                    : "Vendedores desativados aparecem nesta aba."
+                }
               />
             )
           }

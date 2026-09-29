@@ -4,7 +4,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { SearchInput } from "../../components/SearchInput";
 import { SectionCard } from "../../components/SectionCard";
-import { LinkPdfVitrine, VitrineStatusBadge } from "../../components/vitrines/VitrineShared";
+import { LinkMapaColetaVitrine, LinkPdfVitrine, VitrineStatusBadge } from "../../components/vitrines/VitrineShared";
 import { useAsync } from "../../hooks/useAsync";
 import { useDebounce } from "../../hooks/useDebounce";
 import { vitrinesService, type VitrineResumo } from "../../services/vitrines";
@@ -72,6 +72,7 @@ export default function VitrinesHistoricoPage() {
       header: <span className="sr-only">Ações</span>,
       render: (v) => (
         <div className="flex justify-end gap-2">
+          <LinkMapaColetaVitrine id={v.id} />
           <LinkPdfVitrine id={v.id} />
           <Link
             to={`/vitrines/${v.id}`}

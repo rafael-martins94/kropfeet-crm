@@ -90,6 +90,40 @@ export interface VitrineVersaoResumo {
   snapshot_caixas: Json;
 }
 
+export interface MapaColetaItem {
+  id_item_estoque: string;
+  /** Não fica gravado no mapa; é preenchido na leitura a partir do item de estoque. */
+  id_modelo_produto?: string | null;
+  sku: string | null;
+  nome: string | null;
+  nome_modelo: string | null;
+  marca: string | null;
+  numeracao_br: number | null;
+  numeracao_eu: number | null;
+  numeracao_us: string | null;
+  sistema_numeracao: string | null;
+  foto_url: string | null;
+  caixa_origem: number | null;
+  caixa_destino: number | null;
+  id_local: string | null;
+  local_nome: string | null;
+}
+
+/** Caixa da vitrine no estado atual, e não congelada na publicação: trocas de par posteriores aparecem aqui. */
+export interface MapaColetaGabaritoItem extends MapaColetaItem {
+  situacao: "nova" | "mudou_caixa" | "continua" | "vendida";
+}
+
+/** Congelado em `publicar_vitrine`. `reconstruido` indica vitrines anteriores ao recurso, sem local de origem das entradas. */
+export interface MapaColetaVitrine {
+  gerado_em: string;
+  reconstruido: boolean;
+  id_vitrine_anterior: string | null;
+  entradas: MapaColetaItem[];
+  saidas: MapaColetaItem[];
+  trocas_caixa: MapaColetaItem[];
+}
+
 export interface VitrineDestinoDetalhado extends VitrineDestinoSaida {
   item?: VitrineItemDetalhado["item"];
   local_destino?: LocalEstoque | null;
@@ -233,6 +267,88 @@ export const vitrinesService = {
     const { data, error } = await supabase.from("vitrines").select("*").eq("id", id).maybeSingle();
     if (error) throw error;
     return data ?? null;
+  },
+
+  obterMapaColeta: async (
+    id: string,
+  ): Promise<{
+    vitrine: Vitrine;
+    mapa: MapaColetaVitrine | null;
+    tituloVitrineAnterior: string | null;
+    gabarito: MapaColetaGabaritoItem[];
+  } | null> => {
+    const vitrine = await vitrinesService.obter(id);
+    if (!vitrine) return null;
+    const mapa = (vitrine.mapa_coleta ?? null) as unknown as MapaColetaVitrine | null;
+    if (!mapa) return { vitrine, mapa: null, tituloVitrineAnterior: null, gabarito: [] };
+
+    const [anterior, itensVitrine] = await Promise.all([
+      mapa.id_vitrine_anterior ? vitrinesService.obter(mapa.id_vitrine_anterior) : Promise.resolve(null),
+      vitrinesService.listarItens(id),
+    ]);
+
+    const idsEntradas = new Set(mapa.entradas.map((item) => item.id_item_estoque));
+    const idsTrocas = new Set(mapa.trocas_caixa.map((item) => item.id_item_estoque));
+    const gabarito: MapaColetaGabaritoItem[] = itensVitrine
+      .filter((item) => item.numero_caixa != null)
+      .sort((a, b) => (a.numero_caixa ?? 0) - (b.numero_caixa ?? 0))
+      .map((item) => {
+        const snapshot = item.snapshot;
+        const estoque = item.item;
+        return {
+          id_item_estoque: item.id_item_estoque,
+          id_modelo_produto: estoque?.id_modelo_produto ?? snapshot?.id_modelo_produto ?? null,
+          sku: snapshot?.sku ?? estoque?.sku ?? null,
+          nome: item.nome_exibicao?.trim() || snapshot?.nome_exibicao || estoque?.nome_produto || null,
+          nome_modelo: snapshot?.nome_modelo ?? estoque?.modelo?.nome_modelo ?? null,
+          marca: snapshot?.marca ?? estoque?.modelo?.marca?.nome ?? null,
+          numeracao_br: snapshot?.numeracao_br ?? estoque?.numeracao_br ?? null,
+          numeracao_eu: snapshot?.numeracao_eu ?? estoque?.numeracao_eu ?? null,
+          numeracao_us: snapshot?.numeracao_us ?? estoque?.numeracao_us ?? null,
+          sistema_numeracao: snapshot?.sistema_numeracao ?? estoque?.sistema_numeracao ?? null,
+          foto_url: snapshot?.foto_url ?? null,
+          caixa_origem: null,
+          caixa_destino: item.numero_caixa,
+          id_local: null,
+          local_nome: null,
+          situacao:
+            item.estado_caixa === "vendida"
+              ? "vendida"
+              : idsEntradas.has(item.id_item_estoque)
+                ? "nova"
+                : idsTrocas.has(item.id_item_estoque)
+                  ? "mudou_caixa"
+                  : "continua",
+        };
+      });
+
+    const ids = [
+      ...new Set([...mapa.entradas, ...mapa.saidas, ...mapa.trocas_caixa].map((item) => item.id_item_estoque)),
+    ];
+    const modeloPorItem = new Map<string, string | null>();
+    if (ids.length > 0) {
+      const { data, error } = await supabase
+        .from("itens_estoque")
+        .select("id, id_modelo_produto")
+        .in("id", ids);
+      if (error) throw error;
+      for (const row of data ?? []) modeloPorItem.set(row.id, row.id_modelo_produto);
+    }
+
+    const comModelo = (itens: MapaColetaItem[]) =>
+      itens.map((item) => ({ ...item, id_modelo_produto: modeloPorItem.get(item.id_item_estoque) ?? null }));
+
+    return {
+      vitrine,
+      tituloVitrineAnterior: anterior?.titulo ?? null,
+      gabarito,
+      mapa: {
+        ...mapa,
+        entradas: comModelo(mapa.entradas),
+        saidas: comModelo(mapa.saidas),
+        trocas_caixa: comModelo(mapa.trocas_caixa),
+      },
+    };
   },
 
   obterAtual: async (): Promise<VitrineResumo | null> => {

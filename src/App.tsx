@@ -1,13 +1,15 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { AppLayout } from "./layouts/AppLayout";
-import { ProtectedRoute, PublicOnlyRoute } from "./routes/ProtectedRoute";
+import { CatalogoRoute, CrmRoute, ProtectedRoute, PublicOnlyRoute } from "./routes/ProtectedRoute";
 
 import LoginPage from "./pages/LoginPage";
+import CatalogoLoginPage from "./pages/CatalogoLoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import CatalogoKropCafePage from "./pages/CatalogoKropCafePage";
+import CatalogoEstoquePage from "./pages/CatalogoEstoquePage";
 
 import MarcasListPage from "./pages/marcas/MarcasListPage";
 import MarcaFormPage from "./pages/marcas/MarcaFormPage";
@@ -40,6 +42,8 @@ import VitrinesHistoricoPage from "./pages/vitrines/VitrinesHistoricoPage";
 import VitrineDetailPage from "./pages/vitrines/VitrineDetailPage";
 import VitrineWizardPage from "./pages/vitrines/VitrineWizardPage";
 import VitrinePdfPage from "./pages/vitrines/VitrinePdfPage";
+import VitrineMapaColetaPage from "./pages/vitrines/VitrineMapaColetaPage";
+import VitrineMapaColetaPdfPage from "./pages/vitrines/VitrineMapaColetaPdfPage";
 
 import OrdensCompraListPage from "./pages/ordens-compra/OrdensCompraListPage";
 import OrdemCompraFormPage from "./pages/ordens-compra/OrdemCompraFormPage";
@@ -55,6 +59,8 @@ import VendasListPage from "./pages/vendas/VendasListPage";
 import VendaFormPage from "./pages/vendas/VendaFormPage";
 import VendaDetailPage from "./pages/vendas/VendaDetailPage";
 import CarrinhosGaleriaListPage from "./pages/carrinhos-galeria/CarrinhosGaleriaListPage";
+import SumupVendasPage from "./pages/sumup/SumupVendasPage";
+import ContasReceberPage from "./pages/financeiro/ContasReceberPage";
 import VendedoresListPage from "./pages/vendedores/VendedoresListPage";
 
 import CambiosListPage from "./pages/cambios-moeda/CambiosListPage";
@@ -65,18 +71,40 @@ import ImagensListPage from "./pages/imagens/ImagensListPage";
 import UsuariosListPage from "./pages/usuarios/UsuariosListPage";
 import UsuarioFormPage from "./pages/usuarios/UsuarioFormPage";
 
+function RedirecionarContasReceber() {
+  const [params] = useSearchParams();
+  const consulta = params.toString();
+  return (
+    <Navigate to={`/financeiro/contas-receber/brasil${consulta ? `?${consulta}` : ""}`} replace />
+  );
+}
+
+function RedirecionarSumupLegado() {
+  const [params] = useSearchParams();
+  const regiao = params.get("conta") === "br" ? "brasil" : "portugal";
+  const proximos = new URLSearchParams(params);
+  proximos.delete("conta");
+  const consulta = proximos.toString();
+  return <Navigate to={`/financeiro/sumup/${regiao}${consulta ? `?${consulta}` : ""}`} replace />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
       <Routes>
-        <Route path="/catalogo-kropcafe" element={<CatalogoKropCafePage />} />
+        <Route path="/catalogo-kropcafe/entrar" element={<CatalogoLoginPage />} />
+        <Route element={<CatalogoRoute />}>
+          <Route path="/catalogo-kropcafe" element={<CatalogoKropCafePage />} />
+          <Route path="/catalogo-kropcafe/estoque" element={<CatalogoEstoquePage />} />
+        </Route>
 
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<LoginPage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>
+          <Route element={<CrmRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
@@ -117,6 +145,8 @@ export default function App() {
             <Route path="/vitrines/:id" element={<VitrineDetailPage />} />
             <Route path="/vitrines/:id/editar" element={<VitrineWizardPage />} />
             <Route path="/vitrines/:id/pdf" element={<VitrinePdfPage />} />
+            <Route path="/vitrines/:id/mapa" element={<VitrineMapaColetaPage />} />
+            <Route path="/vitrines/:id/mapa/pdf" element={<VitrineMapaColetaPdfPage />} />
 
             <Route path="/ordens-compra" element={<OrdensCompraListPage />} />
             <Route path="/ordens-compra/novo" element={<OrdemCompraFormPage />} />
@@ -137,6 +167,11 @@ export default function App() {
             <Route path="/vendas/:id/editar" element={<VendaFormPage />} />
 
             <Route path="/carrinhos-galeria" element={<CarrinhosGaleriaListPage />} />
+            <Route path="/vendas-sumup" element={<RedirecionarSumupLegado />} />
+            <Route path="/financeiro/sumup" element={<Navigate to="/financeiro/sumup/portugal" replace />} />
+            <Route path="/financeiro/sumup/:regiao" element={<SumupVendasPage />} />
+            <Route path="/financeiro/contas-receber" element={<RedirecionarContasReceber />} />
+            <Route path="/financeiro/contas-receber/:regiao" element={<ContasReceberPage />} />
             <Route path="/vendedores" element={<VendedoresListPage />} />
 
             <Route path="/cambios-moeda" element={<CambiosListPage />} />
@@ -147,6 +182,7 @@ export default function App() {
             <Route path="/usuarios" element={<UsuariosListPage />} />
             <Route path="/usuarios/novo" element={<UsuarioFormPage />} />
             <Route path="/usuarios/:id/editar" element={<UsuarioFormPage />} />
+          </Route>
           </Route>
         </Route>
 

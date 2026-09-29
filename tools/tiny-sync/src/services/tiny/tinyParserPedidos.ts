@@ -26,14 +26,15 @@ export interface DadosParcelaVendaParseada {
   meioPagamento: string | null;
   dias: number | null;
   obs: string | null;
-  pago: boolean;
-  dadosTiny: Json;
+  dadosTiny: Json | null;
 }
 
 export interface DadosVendaParseada {
   idTiny: string;
   numero: string | null;
   numeroEcommerce: string | null;
+  /** Código da SumUp, gravado no Tiny no campo número da ordem de compra. */
+  codigoVendaAdquirente: string | null;
   nomeCliente: string | null;
   regiaoVenda: Database["public"]["Enums"]["tipo_regiao_enum"];
   dataPedido: string | null;
@@ -106,13 +107,43 @@ function parseItemPedido(item: TinyPedidoItemDetalhe): DadosItemVendaParseado {
   };
 }
 
-/** `contareceber` = ainda nao pago; demais formas = pago. */
-export function parcelaEstaPaga(formaPagamento: string | null | undefined): boolean {
-  return (formaPagamento ?? "").trim().toLowerCase() !== "contareceber";
+type Regiao = Database["public"]["Enums"]["tipo_regiao_enum"];
+
+/**
+ * Converte a forma do Tiny para o catálogo do CRM (mesma regra da migration de contas a receber).
+ * Na Europa o meio (Revolut, SumUp...) vinha gravado como forma. `contareceber` não é forma.
+ */
+export function normalizarFormaPagamento(
+  forma: string | null,
+  meio: string | null,
+  regiao: Regiao,
+): { forma: string | null; meio: string | null } {
+  if (!forma) return { forma: null, meio };
+  if (forma.toLowerCase() === "contareceber") return { forma: null, meio };
+  if (forma === "MBWay") return { forma: "mbway", meio };
+  if (forma === "Presente / Amostra grátis") return { forma: "cortesia", meio };
+  if (regiao === "europa") {
+    if (forma === "Revolut" || forma === "Wise") {
+      return { forma: "transferencia", meio: meio ?? forma };
+    }
+    if (forma === "SumUp Máquina" || forma === "SumUp Link" || forma === "Stripe") {
+      return { forma: "cartao", meio: forma };
+    }
+    if (forma === "credito") return { forma: "cartao", meio };
+  }
+  return { forma, meio };
+}
+
+/** Primeiro código de transação SumUp (T + 6 ou mais caracteres), se houver um único no texto. */
+export function codigoSumupUnico(texto: string | null): string | null {
+  if (!texto) return null;
+  const codigos = new Set(texto.toUpperCase().match(/T[A-Z0-9]{6,}/g) ?? []);
+  return codigos.size === 1 ? ([...codigos][0] ?? null) : null;
 }
 
 function parseParcelasPedido(
   pedido: TinyPedidoDetalhe,
+  regiao: Regiao,
 ): DadosParcelaVendaParseada[] {
   const raw = pedido.parcelas;
   if (!Array.isArray(raw) || raw.length === 0) return [];
@@ -123,22 +154,47 @@ function parseParcelasPedido(
     if (!entry || typeof entry !== "object") continue;
     const nested = (entry as { parcela?: TinyPedidoParcela }).parcela;
     const p = nested && typeof nested === "object" ? nested : (entry as TinyPedidoParcela);
-    const formaPagamento = normalizarTexto(p.forma_pagamento);
+    const { forma, meio } = normalizarFormaPagamento(
+      normalizarTexto(p.forma_pagamento),
+      normalizarTexto(p.meio_pagamento) ?? meioPedido,
+      regiao,
+    );
     const dias = paraNumeroOuNulo(p.dias);
 
     saida.push({
       numero: saida.length + 1,
       dataVencimento: paraDataApenas(p.data),
       valor: paraNumeroOuNulo(p.valor) ?? 0,
-      formaPagamento,
-      meioPagamento: normalizarTexto(p.meio_pagamento) ?? meioPedido,
+      formaPagamento: forma,
+      meioPagamento: meio,
       dias: dias != null ? Math.trunc(dias) : null,
       obs: normalizarTexto(p.obs),
-      pago: parcelaEstaPaga(formaPagamento),
       dadosTiny: p as unknown as Json,
     });
   }
   return saida;
+}
+
+/** Pedido sem parcelas no Tiny e com forma simples vira uma parcela com o total. */
+function parcelaUnicaDoPedido(
+  forma: string | null,
+  meio: string | null,
+  valorTotal: number,
+  dataPedido: string | null,
+): DadosParcelaVendaParseada[] {
+  if (!forma || forma === "cortesia" || forma === "multiplas" || valorTotal <= 0) return [];
+  return [
+    {
+      numero: 1,
+      dataVencimento: dataPedido ? dataPedido.slice(0, 10) : null,
+      valor: valorTotal,
+      formaPagamento: forma,
+      meioPagamento: meio,
+      dias: 0,
+      obs: null,
+      dadosTiny: null,
+    },
+  ];
 }
 
 export function parsePedidoTiny(
@@ -155,13 +211,27 @@ export function parsePedidoTiny(
       ? (pedido.marcadores.map((m) => m.marcador) as unknown as Json)
       : null;
 
+  const pagamentoPedido = normalizarFormaPagamento(
+    normalizarTexto(pedido.forma_pagamento),
+    normalizarTexto(pedido.meio_pagamento),
+    regiaoVenda,
+  );
+  const valorTotal = paraNumeroOuNulo(pedido.total_pedido) ?? 0;
+  const dataPedido = paraDataIso(pedido.data_pedido);
+  const parcelasTiny = parseParcelasPedido(pedido, regiaoVenda);
+  const parcelas =
+    parcelasTiny.length > 0
+      ? parcelasTiny
+      : parcelaUnicaDoPedido(pagamentoPedido.forma, pagamentoPedido.meio, valorTotal, dataPedido);
+
   return {
     idTiny: String(pedido.id),
     numero: normalizarTexto(pedido.numero),
     numeroEcommerce: normalizarTexto(pedido.numero_ecommerce),
+    codigoVendaAdquirente: normalizarTexto(pedido.numero_ordem_compra),
     nomeCliente: normalizarTexto(pedido.cliente?.nome),
     regiaoVenda,
-    dataPedido: paraDataIso(pedido.data_pedido),
+    dataPedido,
     dataPrevista: paraDataApenas(pedido.data_prevista),
     dataFaturamento: paraDataApenas(pedido.data_faturamento),
     dataEnvio: paraDataApenas(pedido.data_envio),
@@ -172,8 +242,8 @@ export function parsePedidoTiny(
     valorFrete: paraNumeroOuNulo(pedido.valor_frete) ?? 0,
     valorDesconto: paraNumeroOuNulo(pedido.valor_desconto) ?? 0,
     outrasDespesas: paraNumeroOuNulo(pedido.outras_despesas) ?? 0,
-    valorTotal: paraNumeroOuNulo(pedido.total_pedido) ?? 0,
-    formaPagamento: normalizarTexto(pedido.forma_pagamento),
+    valorTotal,
+    formaPagamento: pagamentoPedido.forma,
     deposito: normalizarTexto(pedido.deposito),
     codigoRastreamento: normalizarTexto(pedido.codigo_rastreamento),
     urlRastreamento: normalizarTexto(pedido.url_rastreamento),
@@ -182,6 +252,6 @@ export function parsePedidoTiny(
     marcadores,
     dadosTiny: pedido as unknown as Json,
     itens,
-    parcelas: parseParcelasPedido(pedido),
+    parcelas,
   };
 }
