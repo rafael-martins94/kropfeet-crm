@@ -375,6 +375,12 @@ const TEXTOS: Record<
     salvarCliente: string;
     salvarGerarOrdem: string;
     gerarPagamento: string;
+    pagamentoPresencial: string;
+    codigoSumup: string;
+    codigoSumupAjuda: string;
+    codigoInvalido: string;
+    confirmarPresencial: string;
+    seguir: string;
     sumupBrasil: string;
     sumupEuropa: string;
     usarValorItens: string;
@@ -387,9 +393,7 @@ const TEXTOS: Record<
     linkCopiado: string;
     totalItens: string;
     vendedor: string;
-    vendedorAjuda: string;
-    vendedorObrigatorio: string;
-    escolherVendedor: string;
+    linkPronto: string;
     cancelar: string;
     nomeObrigatorio: string;
     telefoneObrigatorio: string;
@@ -461,6 +465,12 @@ const TEXTOS: Record<
     salvarCliente: "Salvar",
     salvarGerarOrdem: "Salvar e gerar ordem de venda",
     gerarPagamento: "Gerar pagamento",
+    pagamentoPresencial: "Pagamento presencial",
+    codigoSumup: "Código da filipeta",
+    codigoSumupAjuda: "Cole o código da venda impresso na filipeta da máquina SumUp.",
+    codigoInvalido: "Cole o código SumUp da filipeta.",
+    confirmarPresencial: "Confirmar e gerar ordem",
+    seguir: "Continuar",
     sumupBrasil: "SumUp Brasil",
     sumupEuropa: "SumUp Europa",
     usarValorItens: "Usa o valor dos itens",
@@ -473,9 +483,7 @@ const TEXTOS: Record<
     linkCopiado: "Link copiado",
     totalItens: "Total dos itens",
     vendedor: "Vendedor",
-    vendedorAjuda: "A mesma lista da ordem de venda.",
-    vendedorObrigatorio: "Selecione o vendedor.",
-    escolherVendedor: "Selecione o vendedor",
+    linkPronto: "link de pagamento",
     cancelar: "Cancelar",
     nomeObrigatorio: "Informe o nome do cliente.",
     telefoneObrigatorio: "Informe o telefone do cliente.",
@@ -483,8 +491,8 @@ const TEXTOS: Record<
     paisInvalido: "Escolha um país da lista.",
     selecaoSalvaTitulo: "Seleção salva",
     selecaoSalvaAviso: "O cliente foi cadastrado com a tag Galeria e os pares escolhidos.",
-    ordemCriadaTitulo: "Ordem de venda criada",
-    ordemCriadaAviso: "O cliente foi cadastrado e os pares entraram na ordem.",
+    ordemCriadaTitulo: "Ordem de venda",
+    ordemCriadaAviso: "O pagamento na máquina foi lançado.",
     verOrdem: "Ver ordem de venda",
     novoAtendimento: "Novo atendimento",
     remover: "Remover",
@@ -560,6 +568,12 @@ const TEXTOS: Record<
     salvarCliente: "Save",
     salvarGerarOrdem: "Save and create sales order",
     gerarPagamento: "Create payment",
+    pagamentoPresencial: "In-person payment",
+    codigoSumup: "Receipt code",
+    codigoSumupAjuda: "Paste the sale code printed on the SumUp card machine receipt.",
+    codigoInvalido: "Paste the SumUp code from the receipt.",
+    confirmarPresencial: "Confirm and create order",
+    seguir: "Continue",
     sumupBrasil: "SumUp Brazil",
     sumupEuropa: "SumUp Europe",
     usarValorItens: "Uses the item prices",
@@ -572,9 +586,7 @@ const TEXTOS: Record<
     linkCopiado: "Link copied",
     totalItens: "Items total",
     vendedor: "Seller",
-    vendedorAjuda: "The same list used on the sales order.",
-    vendedorObrigatorio: "Select the seller.",
-    escolherVendedor: "Select the seller",
+    linkPronto: "payment link",
     cancelar: "Cancel",
     nomeObrigatorio: "Enter the client's name.",
     telefoneObrigatorio: "Enter the client's phone.",
@@ -582,8 +594,8 @@ const TEXTOS: Record<
     paisInvalido: "Choose a country from the list.",
     selecaoSalvaTitulo: "Selection saved",
     selecaoSalvaAviso: "The client was saved with the Gallery tag and the chosen pairs.",
-    ordemCriadaTitulo: "Sales order created",
-    ordemCriadaAviso: "The client was saved and the pairs were added to the order.",
+    ordemCriadaTitulo: "Sales order",
+    ordemCriadaAviso: "The card machine payment was recorded.",
     verOrdem: "View sales order",
     novoAtendimento: "New visit",
     remover: "Remove",
@@ -659,6 +671,12 @@ const TEXTOS: Record<
     salvarCliente: "Guardar",
     salvarGerarOrdem: "Guardar y generar orden de venta",
     gerarPagamento: "Generar pago",
+    pagamentoPresencial: "Pago presencial",
+    codigoSumup: "Código del recibo",
+    codigoSumupAjuda: "Pega el código de la venta impreso en el recibo de la máquina SumUp.",
+    codigoInvalido: "Pega el código SumUp del recibo.",
+    confirmarPresencial: "Confirmar y generar orden",
+    seguir: "Continuar",
     sumupBrasil: "SumUp Brasil",
     sumupEuropa: "SumUp Europa",
     usarValorItens: "Usa el valor de los artículos",
@@ -671,9 +689,7 @@ const TEXTOS: Record<
     linkCopiado: "Enlace copiado",
     totalItens: "Total de los artículos",
     vendedor: "Vendedor",
-    vendedorAjuda: "La misma lista de la orden de venta.",
-    vendedorObrigatorio: "Selecciona el vendedor.",
-    escolherVendedor: "Selecciona el vendedor",
+    linkPronto: "enlace de pago",
     cancelar: "Cancelar",
     nomeObrigatorio: "Indica el nombre del cliente.",
     telefoneObrigatorio: "Indica el teléfono del cliente.",
@@ -681,8 +697,8 @@ const TEXTOS: Record<
     paisInvalido: "Elige un país de la lista.",
     selecaoSalvaTitulo: "Selección guardada",
     selecaoSalvaAviso: "El cliente quedó registrado con la etiqueta Galería y los pares elegidos.",
-    ordemCriadaTitulo: "Orden de venta creada",
-    ordemCriadaAviso: "El cliente quedó registrado y los pares entraron en la orden.",
+    ordemCriadaTitulo: "Orden de venta",
+    ordemCriadaAviso: "El pago en la máquina quedó registrado.",
     verOrdem: "Ver orden de venta",
     novoAtendimento: "Nueva atención",
     remover: "Quitar",
@@ -758,6 +774,12 @@ const TEXTOS: Record<
     salvarCliente: "Enregistrer",
     salvarGerarOrdem: "Enregistrer et créer la commande",
     gerarPagamento: "Générer le paiement",
+    pagamentoPresencial: "Paiement en personne",
+    codigoSumup: "Code du ticket",
+    codigoSumupAjuda: "Collez le code de vente imprimé sur le ticket de la machine SumUp.",
+    codigoInvalido: "Collez le code SumUp du ticket.",
+    confirmarPresencial: "Confirmer et créer la commande",
+    seguir: "Continuer",
     sumupBrasil: "SumUp Brésil",
     sumupEuropa: "SumUp Europe",
     usarValorItens: "Utilise le prix des articles",
@@ -770,9 +792,7 @@ const TEXTOS: Record<
     linkCopiado: "Lien copié",
     totalItens: "Total des articles",
     vendedor: "Vendeur",
-    vendedorAjuda: "La même liste que la commande.",
-    vendedorObrigatorio: "Sélectionnez le vendeur.",
-    escolherVendedor: "Sélectionnez le vendeur",
+    linkPronto: "lien de paiement",
     cancelar: "Annuler",
     nomeObrigatorio: "Indiquez le nom du client.",
     telefoneObrigatorio: "Indiquez le téléphone du client.",
@@ -780,8 +800,8 @@ const TEXTOS: Record<
     paisInvalido: "Choisissez un pays dans la liste.",
     selecaoSalvaTitulo: "Sélection enregistrée",
     selecaoSalvaAviso: "Le client a été enregistré avec l'étiquette Galerie et les paires choisies.",
-    ordemCriadaTitulo: "Commande créée",
-    ordemCriadaAviso: "Le client a été enregistré et les paires ont été ajoutées à la commande.",
+    ordemCriadaTitulo: "Commande",
+    ordemCriadaAviso: "Le paiement sur la machine a été enregistré.",
     verOrdem: "Voir la commande",
     novoAtendimento: "Nouvel accueil",
     remover: "Retirer",
@@ -1763,6 +1783,7 @@ export default function CatalogoKropCafePage() {
                           <span className="mt-0.5 truncate text-xs text-white/45">
                             {[
                               carrinho.telefone,
+                              carrinho.tem_link ? t.linkPronto : "",
                               `${carrinho.itens.length} ${t.itens}`,
                               carrinho.criado_em
                                 ? new Intl.DateTimeFormat(idioma, {

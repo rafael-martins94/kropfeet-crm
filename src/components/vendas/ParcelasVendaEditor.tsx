@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { IconPlus, IconTrash } from "../Icons";
+import { IconCopy, IconPlus, IconTrash } from "../Icons";
 import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
 import { StatusBadge } from "../StatusBadge";
 import { BotaoStatusConta } from "../financeiro/BotaoStatusConta";
@@ -10,6 +10,7 @@ import {
   formasPagamentoDaRegiao,
   labelFormaPagamento,
   meioEhSumup,
+  parcelaUsaCodigoSumup,
   meiosPagamentoDaForma,
   type OpcaoSimples,
 } from "../../pages/vendas/vendaOpcoes";
@@ -248,6 +249,25 @@ export function ParcelasVendaEditor({
     setErroGerar(null);
   };
 
+  const primeiraCodigoKey = value.find((linha) => parcelaUsaCodigoSumup(linha))?.key ?? null;
+  const temOutrasComCodigo = value.filter((linha) => parcelaUsaCodigoSumup(linha)).length > 1;
+  const codigoDaPrimeira =
+    value.find((linha) => linha.key === primeiraCodigoKey)?.codigo_transacao.trim().toUpperCase() ??
+    "";
+
+  const aplicarCodigo = (bruto: string) => {
+    const codigo = bruto.toUpperCase();
+    onChange(
+      value.map((linha) => {
+        if (estaTravada(linha) || !parcelaUsaCodigoSumup(linha)) return linha;
+        return { ...linha, codigo_transacao: codigo };
+      }),
+    );
+  };
+
+  const codigoParaNovaLinha = (forma: string, meio: string) =>
+    parcelaUsaCodigoSumup({ forma_pagamento: forma, meio_pagamento: meio }) ? codigoDaPrimeira : "";
+
   const gerar = () => {
     if (!formaGerar) {
       setErroGerar("Escolha a forma de pagamento.");
@@ -271,6 +291,7 @@ export function ParcelasVendaEditor({
           valor: String(p.valor),
           forma_pagamento: formaGerar,
           meio_pagamento: meioGerar,
+          codigo_transacao: codigoParaNovaLinha(formaGerar, meioGerar),
         }),
       ),
     ]);
@@ -302,6 +323,14 @@ export function ParcelasVendaEditor({
             proxima.meio_pagamento = meios.length === 1 ? meios[0].value : "";
           }
         }
+        if (
+          patch.codigo_transacao === undefined &&
+          !proxima.codigo_transacao.trim() &&
+          parcelaUsaCodigoSumup(proxima) &&
+          codigoDaPrimeira
+        ) {
+          proxima.codigo_transacao = codigoDaPrimeira;
+        }
         return proxima;
       }),
     );
@@ -317,6 +346,7 @@ export function ParcelasVendaEditor({
         dias: "0",
         forma_pagamento: formaGerar,
         meio_pagamento: meioGerar,
+        codigo_transacao: codigoParaNovaLinha(formaGerar, meioGerar),
         valor: String(Math.max(0, resumo.faltaParcelar)),
       }),
     ]);
@@ -502,7 +532,7 @@ export function ParcelasVendaEditor({
                 <th className="w-[6.5rem] px-2 py-2 text-right">Valor</th>
                 <th className="px-2 py-2">Forma</th>
                 <th className="px-2 py-2">Meio</th>
-                <th className="w-[8rem] px-2 py-2">Código SumUp</th>
+                <th className="w-[11rem] px-2 py-2">Código SumUp</th>
                 <th className="w-[7.5rem] px-2 py-2">Situação</th>
                 <th className="w-9 px-1 py-2">
                   <span className="sr-only">Remover</span>
@@ -584,15 +614,30 @@ export function ParcelasVendaEditor({
                     </td>
                     <td className="px-2 py-2 align-middle">
                       {meioEhSumup(p.meio_pagamento) || p.codigo_transacao ? (
-                        <input
-                          type="text"
-                          className="input-base w-full min-w-0 px-2 py-1.5 font-numeric text-xs uppercase"
-                          value={p.codigo_transacao}
-                          placeholder="T…"
-                          onChange={(e) =>
-                            atualizar(p.key, { codigo_transacao: e.target.value.toUpperCase() })
-                          }
-                        />
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            className="input-base w-full min-w-0 px-2 py-1.5 font-numeric text-xs uppercase"
+                            value={p.codigo_transacao}
+                            placeholder="T…"
+                            onChange={(e) => {
+                              const codigo = e.target.value.toUpperCase();
+                              if (p.key === primeiraCodigoKey) aplicarCodigo(codigo);
+                              else atualizar(p.key, { codigo_transacao: codigo });
+                            }}
+                          />
+                          {p.key === primeiraCodigoKey && temOutrasComCodigo ? (
+                            <button
+                              type="button"
+                              title="Repetir nas outras parcelas"
+                              aria-label="Repetir nas outras parcelas"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line text-ink-soft hover:bg-surface-subtle hover:text-brand-700"
+                              onClick={() => aplicarCodigo(p.codigo_transacao)}
+                            >
+                              <IconCopy width={14} height={14} />
+                            </button>
+                          ) : null}
+                        </div>
                       ) : (
                         <span className="text-xs text-ink-faint">—</span>
                       )}

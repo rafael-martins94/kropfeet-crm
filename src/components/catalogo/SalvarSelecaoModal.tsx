@@ -28,6 +28,14 @@ export type TextosSalvarSelecao = {
   salvarCliente: string;
   salvarSelecao: string;
   gerarPagamento: string;
+  pagamentoPresencial: string;
+  codigoSumup: string;
+  codigoSumupAjuda: string;
+  codigoInvalido: string;
+  confirmarPresencial: string;
+  ordemCriadaTitulo: string;
+  ordemCriadaAviso: string;
+  seguir: string;
   voltar: string;
   cancelar: string;
   nomeObrigatorio: string;
@@ -60,7 +68,12 @@ type SalvarSelecaoModalProps = {
   onConcluido: () => void;
 };
 
-type Passo = "cadastro" | "acoes" | "conta" | "valor" | "link" | "salvo";
+type Passo = "cadastro" | "acoes" | "conta" | "valor" | "codigo" | "link" | "ordem" | "salvo";
+type ModoPagamento = "link" | "presencial";
+
+function codigoSumup(texto: string): string {
+  return texto.toUpperCase().match(/T[A-Z0-9]{6,24}/)?.[0] ?? "";
+}
 
 const campoClasse =
   "h-11 w-full rounded-xl border border-white/15 bg-white/[0.06] px-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-[#d7b56d] focus:ring-2 focus:ring-[#d7b56d]/25";
@@ -99,6 +112,8 @@ export function SalvarSelecaoModal({
   const tituloId = useId();
   const nomeRef = useRef<HTMLInputElement>(null);
   const valorRef = useRef<HTMLInputElement>(null);
+  const codigoRef = useRef<HTMLInputElement>(null);
+  const fecharRef = useRef<() => void>(() => {});
   const dadosProntos = Boolean(cliente?.nome.trim() && cliente.telefone.trim());
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -109,14 +124,18 @@ export function SalvarSelecaoModal({
   const [paisAberto, setPaisAberto] = useState(false);
   const [observacao, setObservacao] = useState("");
   const [passo, setPasso] = useState<Passo>("cadastro");
+  const [modo, setModo] = useState<ModoPagamento>("link");
   const [contaEscolhida, setContaEscolhida] = useState<ContaSumup>("pt");
   const [valorTexto, setValorTexto] = useState("");
+  const [valorConfirmado, setValorConfirmado] = useState<number | null>(null);
+  const [codigoTexto, setCodigoTexto] = useState("");
+  const [ordemNumero, setOrdemNumero] = useState<string | null>(null);
+  const [ordemCodigo, setOrdemCodigo] = useState<string | null>(null);
   const [link, setLink] = useState<LinkPagamentoSumup | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
-  const salvouRef = useRef(false);
 
   const paises = useMemo(() => listarPaises(idioma), [idioma]);
   const paisesFiltrados = useMemo(() => filtrarPaises(paises, paisBusca), [paises, paisBusca]);
@@ -139,14 +158,18 @@ export function SalvarSelecaoModal({
     setPaisAberto(false);
     setObservacao(cliente?.observacao ?? "");
     setPasso(cliente?.nome.trim() && cliente.telefone.trim() ? "acoes" : "cadastro");
+    setModo("link");
     setContaEscolhida(totalBrasil != null && totalEuropa == null ? "br" : "pt");
     setValorTexto("");
+    setValorConfirmado(null);
+    setCodigoTexto("");
+    setOrdemNumero(null);
+    setOrdemCodigo(null);
     setLink(null);
     setQr(null);
     setCopiado(false);
     setErro(null);
     setSalvando(false);
-    salvouRef.current = false;
     const foco = window.setTimeout(() => {
       if (!(cliente?.nome.trim() && cliente.telefone.trim())) nomeRef.current?.focus();
     }, 0);
@@ -156,15 +179,18 @@ export function SalvarSelecaoModal({
   useEffect(() => {
     if (!open) return;
     const aoTeclar = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !salvando) onClose();
+      if (event.key === "Escape" && !salvando) fecharRef.current();
     };
     window.addEventListener("keydown", aoTeclar);
     return () => window.removeEventListener("keydown", aoTeclar);
   }, [open, salvando, onClose]);
 
   useEffect(() => {
-    if (passo !== "valor") return;
-    const foco = window.setTimeout(() => valorRef.current?.focus(), 0);
+    if (passo !== "valor" && passo !== "codigo") return;
+    const foco = window.setTimeout(() => {
+      if (passo === "codigo") codigoRef.current?.focus();
+      else valorRef.current?.focus();
+    }, 0);
     return () => window.clearTimeout(foco);
   }, [passo]);
 
@@ -232,27 +258,65 @@ export function SalvarSelecaoModal({
   const persistir = async (
     dados: NonNullable<ReturnType<typeof clienteAtual>>,
   ) => {
-    if (salvouRef.current) return;
-    salvouRef.current = true;
+    await catalogoKropCafeService.salvarSelecao({
+      nome: dados.nomeLimpo,
+      telefone: dados.telefoneLimpo,
+      email: dados.emailLimpo || null,
+      pais: dados.pais,
+      observacao: dados.observacaoLimpa,
+      gerarOrdem: false,
+      vendedor: null,
+      itens: itens.map((item) => ({
+        id: item.id,
+        sku: item.sku,
+        numeracao: item.numeracao,
+        preco: item.preco == null ? null : formatarMoeda(item.preco, item.moeda ?? "EUR"),
+      })),
+    });
+  };
+
+  const fechar = async () => {
+    if (salvando) return;
+    if (passo === "ordem" || passo === "salvo" || (passo === "link" && link)) {
+      onClose();
+      return;
+    }
+    const nomeInformado = (dadosProntos ? cliente?.nome : nome)?.trim() ?? "";
+    const telefoneInformado = (dadosProntos ? cliente?.telefone : telefone)?.trim() ?? "";
+    if (!nomeInformado || !telefoneInformado) {
+      onClose();
+      return;
+    }
+    const dados = clienteAtual();
+    if (!dados) return;
+    setSalvando(true);
+    setErro(null);
     try {
-      await catalogoKropCafeService.salvarSelecao({
-        nome: dados.nomeLimpo,
-        telefone: dados.telefoneLimpo,
-        email: dados.emailLimpo || null,
-        pais: dados.pais,
-        observacao: dados.observacaoLimpa,
-        gerarOrdem: false,
-        vendedor: null,
-        itens: itens.map((item) => ({
-          id: item.id,
-          sku: item.sku,
-          numeracao: item.numeracao,
-          preco: item.preco == null ? null : formatarMoeda(item.preco, item.moeda ?? "EUR"),
-        })),
-      });
-    } catch (erro) {
-      salvouRef.current = false;
-      throw erro;
+      await persistir(dados);
+      onClose();
+    } catch (err) {
+      setErro(mensagemErro(err));
+    } finally {
+      setSalvando(false);
+    }
+  };
+  fecharRef.current = () => {
+    void fechar();
+  };
+
+  const avancarPagamento = async (proximo: ModoPagamento) => {
+    const dados = clienteAtual();
+    if (!dados) return;
+    setSalvando(true);
+    setErro(null);
+    try {
+      await persistir(dados);
+      setModo(proximo);
+      setPasso("conta");
+    } catch (err) {
+      setErro(mensagemErro(err));
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -277,14 +341,52 @@ export function SalvarSelecaoModal({
     setSalvando(true);
     setErro(null);
     try {
+      const itensPagamento = itens.map((item) => ({
+        id: item.id,
+        sku: item.sku,
+        numeracao: item.numeracao,
+        preco: item.preco == null ? null : formatarMoeda(item.preco, item.moeda ?? "EUR"),
+      }));
+      const preparo = await catalogoKropCafeService.abrirPagamento({
+        nome: dados.nomeLimpo,
+        telefone: dados.telefoneLimpo,
+        email: dados.emailLimpo || null,
+        pais: dados.pais,
+        observacao: dados.observacaoLimpa,
+        conta,
+        valor,
+        itens: itensPagamento,
+      });
       const descricao = [dados.nomeLimpo, itens.map((item) => item.sku).filter(Boolean).slice(0, 8).join(", ")]
         .filter(Boolean)
         .join(" · ")
         .slice(0, 140);
+      if (preparo.link && preparo.link.conta === conta) {
+        setLink({
+          id: preparo.link.id,
+          url: preparo.link.url,
+          valor: preparo.link.valor,
+          moeda: preparo.link.moeda,
+        });
+        setCopiado(false);
+        setPasso("link");
+        return;
+      }
       const criado = await criarLinkPagamentoSumup({
         conta,
         valor,
         descricao: descricao || "Galeria KropCafé",
+        pedido: {
+          nome: dados.nomeLimpo,
+          telefone: dados.telefoneLimpo,
+          email: dados.emailLimpo || null,
+          pais: dados.pais,
+          observacao: dados.observacaoLimpa,
+          itens: itensPagamento,
+          id_cliente: preparo.id_cliente,
+          id_vendedor: preparo.id_vendedor,
+          id_carrinho: preparo.id_carrinho,
+        },
       });
       setLink(criado);
       setCopiado(false);
@@ -300,6 +402,17 @@ export function SalvarSelecaoModal({
     const total = conta === "br" ? totalBrasil : totalEuropa;
     setErro(null);
     setContaEscolhida(conta);
+    if (modo === "presencial") {
+      if (total != null) {
+        setValorConfirmado(total);
+        setCodigoTexto("");
+        setPasso("codigo");
+        return;
+      }
+      setValorTexto("");
+      setPasso("valor");
+      return;
+    }
     if (total != null) {
       void gerarLink(conta, total);
       return;
@@ -315,7 +428,52 @@ export function SalvarSelecaoModal({
       valorRef.current?.focus();
       return;
     }
+    if (modo === "presencial") {
+      setValorConfirmado(valor);
+      setCodigoTexto("");
+      setErro(null);
+      setPasso("codigo");
+      return;
+    }
     void gerarLink(contaEscolhida, valor);
+  };
+
+  const confirmarPresencial = async () => {
+    const dados = clienteAtual();
+    const codigo = codigoSumup(codigoTexto);
+    if (!dados || valorConfirmado == null) return;
+    if (!codigo) {
+      setErro(textos.codigoInvalido);
+      codigoRef.current?.focus();
+      return;
+    }
+    setSalvando(true);
+    setErro(null);
+    try {
+      const ordem = await catalogoKropCafeService.confirmarPresencial({
+        nome: dados.nomeLimpo,
+        telefone: dados.telefoneLimpo,
+        email: dados.emailLimpo || null,
+        pais: dados.pais,
+        observacao: dados.observacaoLimpa,
+        conta: contaEscolhida,
+        valor: valorConfirmado,
+        codigo,
+        itens: itens.map((item) => ({
+          id: item.id,
+          sku: item.sku,
+          numeracao: item.numeracao,
+          preco: item.preco == null ? null : formatarMoeda(item.preco, item.moeda ?? "EUR"),
+        })),
+      });
+      setOrdemNumero(ordem.numero);
+      setOrdemCodigo(ordem.codigo);
+      setPasso("ordem");
+    } catch (err) {
+      setErro(mensagemErro(err));
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const copiarLink = async () => {
@@ -334,7 +492,7 @@ export function SalvarSelecaoModal({
     <div
       className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-stone-950/70 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center"
       onClick={() => {
-        if (!salvando) onClose();
+        if (!salvando) void fechar();
       }}
     >
       <div
@@ -353,6 +511,25 @@ export function SalvarSelecaoModal({
               <span className="font-black text-white">{(cliente?.nome || nome).trim()}. </span>
               {textos.selecaoSalvaAviso}
             </p>
+            <button
+              type="button"
+              onClick={onConcluido}
+              className="mt-6 min-h-14 w-full rounded-full bg-[#d7b56d] px-5 text-base font-black text-stone-950 transition hover:bg-[#e2c688]"
+            >
+              {textos.novoAtendimento}
+            </button>
+          </>
+        ) : passo === "ordem" ? (
+          <>
+            <h2 id={tituloId} className="text-xl font-black tracking-tight">
+              {textos.ordemCriadaTitulo}
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-white/75">
+              <span className="font-black text-white">{(cliente?.nome || nome).trim()}. </span>
+              {textos.ordemCriadaAviso}
+            </p>
+            <p className="mt-4 text-center text-2xl font-black text-[#d7b56d]">{ordemNumero}</p>
+            <p className="mt-1 text-center font-numeric text-sm tracking-wide text-white/70">{ordemCodigo}</p>
             <button
               type="button"
               onClick={onConcluido}
@@ -398,11 +575,36 @@ export function SalvarSelecaoModal({
             onSubmit={(event) => {
               event.preventDefault();
               if (passo === "valor") confirmarValor();
+              else if (passo === "codigo") void confirmarPresencial();
               else void salvar();
             }}
             className="space-y-3"
           >
-            {passo === "valor" ? (
+            {passo === "codigo" ? (
+              <>
+                <h2 id={tituloId} className="text-xl font-black tracking-tight">
+                  {textos.pagamentoPresencial}
+                </h2>
+                <p className="text-sm leading-relaxed text-white/70">{textos.codigoSumupAjuda}</p>
+                {valorConfirmado != null ? (
+                  <p className="text-center text-2xl font-black text-[#d7b56d]">
+                    {formatarMoeda(valorConfirmado, moedaEscolhida)}
+                  </p>
+                ) : null}
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-white/70">{textos.codigoSumup}</span>
+                  <input
+                    ref={codigoRef}
+                    value={codigoTexto}
+                    onChange={(event) => setCodigoTexto(event.target.value.toUpperCase())}
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    placeholder="T…"
+                    className={cn(campoClasse, "font-numeric uppercase")}
+                  />
+                </label>
+              </>
+            ) : passo === "valor" ? (
               <>
                 <h2 id={tituloId} className="text-xl font-black tracking-tight">
                   {contaEscolhida === "br" ? textos.sumupBrasil : textos.sumupEuropa}
@@ -423,7 +625,7 @@ export function SalvarSelecaoModal({
             ) : passo === "conta" ? (
               <>
                 <h2 id={tituloId} className="text-xl font-black tracking-tight">
-                  {textos.gerarPagamento}
+                  {modo === "presencial" ? textos.pagamentoPresencial : textos.gerarPagamento}
                 </h2>
                 <div className="flex flex-col gap-3">
                   {(totalBrasil != null && totalEuropa == null ? (["br", "pt"] as const) : (["pt", "br"] as const)).map((conta) => {
@@ -584,14 +786,36 @@ export function SalvarSelecaoModal({
             {erro ? <p className="text-sm font-bold text-red-200">{erro}</p> : null}
 
             <div className="flex flex-col gap-2 pt-1">
-              {passo === "valor" ? (
+              {passo === "codigo" ? (
+                <>
+                  <button
+                    type="submit"
+                    disabled={salvando || !codigoSumup(codigoTexto)}
+                    className="h-11 rounded-full bg-[#146c43] px-4 text-sm font-black text-white transition hover:bg-[#1c8a52] disabled:opacity-60"
+                  >
+                    {textos.confirmarPresencial}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErro(null);
+                      const total = contaEscolhida === "br" ? totalBrasil : totalEuropa;
+                      setPasso(total == null ? "valor" : "conta");
+                    }}
+                    disabled={salvando}
+                    className="h-10 rounded-full border border-[#7eb6e0]/50 bg-[#7eb6e0]/12 px-4 text-sm font-bold text-[#d6ebff] transition hover:border-[#7eb6e0] hover:bg-[#7eb6e0]/22 disabled:opacity-60"
+                  >
+                    {textos.voltar}
+                  </button>
+                </>
+              ) : passo === "valor" ? (
                 <>
                   <button
                     type="submit"
                     disabled={salvando}
                     className="h-11 rounded-full bg-[#146c43] px-4 text-sm font-black text-white transition hover:bg-[#1c8a52] disabled:opacity-60"
                   >
-                    {textos.gerarPagamento}
+                    {modo === "presencial" ? textos.seguir : textos.gerarPagamento}
                   </button>
                   <button
                     type="button"
@@ -629,18 +853,22 @@ export function SalvarSelecaoModal({
                   <button
                     type="button"
                     disabled={salvando}
-                    onClick={() => {
-                      if (!clienteAtual()) return;
-                      setErro(null);
-                      setPasso("conta");
-                    }}
+                    onClick={() => void avancarPagamento("link")}
                     className="h-11 rounded-full bg-[#146c43] px-4 text-sm font-black text-white transition hover:bg-[#1c8a52] disabled:opacity-60"
                   >
                     {textos.gerarPagamento}
                   </button>
                   <button
                     type="button"
-                    onClick={onClose}
+                    disabled={salvando}
+                    onClick={() => void avancarPagamento("presencial")}
+                    className="h-11 rounded-full border border-[#d7b56d]/70 px-4 text-sm font-black text-[#d7b56d] transition hover:bg-[#d7b56d]/10 disabled:opacity-60"
+                  >
+                    {textos.pagamentoPresencial}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void fechar()}
                     disabled={salvando}
                     className="h-10 rounded-full border border-white/15 px-4 text-sm font-semibold text-white/75 transition hover:border-white/40 hover:text-white disabled:opacity-60"
                   >

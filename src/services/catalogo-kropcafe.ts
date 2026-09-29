@@ -28,7 +28,16 @@ export type CarrinhoCatalogoSalvo = {
   email: string | null;
   pais: string | null;
   observacao: string | null;
+  tem_link: boolean;
   itens: ItemCarrinhoCatalogoSalvo[];
+};
+
+export type LinkCarrinhoSalvo = {
+  id: string;
+  url: string;
+  valor: number;
+  moeda: string;
+  conta: "pt" | "br";
 };
 
 export type ClienteCatalogoRecuperado = {
@@ -186,6 +195,7 @@ export const catalogoKropCafeService = {
         email: textoOuNulo(row.email),
         pais: textoOuNulo(row.pais),
         observacao: textoOuNulo(row.observacao),
+        tem_link: row.tem_link === true,
         itens,
       }];
     });
@@ -280,6 +290,94 @@ export const catalogoKropCafeService = {
       id_cliente: resultado.id_cliente,
       id_venda: resultado.id_venda ?? null,
       numero: resultado.numero ?? null,
+    };
+  },
+
+  confirmarPresencial: async (params: {
+    nome: string;
+    telefone: string;
+    email: string | null;
+    pais: string | null;
+    observacao: string | null;
+    conta: "pt" | "br";
+    valor: number;
+    codigo: string;
+    itens: Array<{ id: string; sku: string; numeracao: string; preco: string | null }>;
+  }): Promise<{ id_venda: string; numero: string | null; codigo: string }> => {
+    const { data, error } = await supabase.rpc("catalogo_kropcafe_pagamento_presencial", {
+      p_nome: params.nome,
+      p_telefone: params.telefone,
+      p_email: params.email,
+      p_pais: params.pais,
+      p_observacao: params.observacao,
+      p_itens: params.itens,
+      p_conta: params.conta,
+      p_valor: params.valor,
+      p_codigo: params.codigo,
+    });
+    if (error) throw error;
+    const resultado = data as { id_venda?: string; numero?: string | null; codigo?: string } | null;
+    if (!resultado?.id_venda || !resultado.codigo) {
+      throw new Error("Não foi possível abrir a ordem de venda.");
+    }
+    return {
+      id_venda: resultado.id_venda,
+      numero: resultado.numero ?? null,
+      codigo: resultado.codigo,
+    };
+  },
+
+  abrirPagamento: async (params: {
+    nome: string;
+    telefone: string;
+    email: string | null;
+    pais: string | null;
+    observacao: string | null;
+    conta: "pt" | "br";
+    valor: number;
+    itens: Array<{ id: string; sku: string; numeracao: string; preco: string | null }>;
+  }): Promise<{
+    id_cliente: string;
+    id_vendedor: string | null;
+    id_carrinho: string;
+    link: LinkCarrinhoSalvo | null;
+  }> => {
+    const { data, error } = await supabase.rpc("catalogo_kropcafe_abrir_pagamento", {
+      p_nome: params.nome,
+      p_telefone: params.telefone,
+      p_email: params.email,
+      p_pais: params.pais,
+      p_observacao: params.observacao,
+      p_itens: params.itens,
+      p_conta: params.conta,
+      p_valor: params.valor,
+    });
+    if (error) throw error;
+    const resultado = data as {
+      id_cliente?: string;
+      id_vendedor?: string | null;
+      id_carrinho?: string;
+      link?: {
+        id?: string;
+        url?: string;
+        valor?: number;
+        moeda?: string;
+        conta?: string;
+      } | null;
+    } | null;
+    if (!resultado?.id_cliente || !resultado.id_carrinho) {
+      throw new Error("Não foi possível preparar o pagamento.");
+    }
+    const link = resultado.link;
+    const conta = link?.conta === "br" || link?.conta === "pt" ? link.conta : null;
+    return {
+      id_cliente: resultado.id_cliente,
+      id_vendedor: resultado.id_vendedor ?? null,
+      id_carrinho: resultado.id_carrinho,
+      link:
+        link?.id && link.url && conta && typeof link.valor === "number" && link.moeda
+          ? { id: link.id, url: link.url, valor: link.valor, moeda: link.moeda, conta }
+          : null,
     };
   },
 };

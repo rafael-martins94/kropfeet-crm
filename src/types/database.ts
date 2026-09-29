@@ -45,30 +45,51 @@ export type Database = {
       carrinhos_galeria: {
         Row: {
           busca: string
+          conta_pagamento: string | null
           criado_em: string
           id: string
+          id_checkout: string | null
           id_cliente: string
+          id_usuario: string | null
           id_venda: string | null
           itens: Json
+          moeda_pagamento: string | null
           observacao: string | null
+          status: string
+          url_pagamento: string | null
+          valor_pagamento: number | null
         }
         Insert: {
           busca?: string
+          conta_pagamento?: string | null
           criado_em?: string
           id?: string
+          id_checkout?: string | null
           id_cliente: string
+          id_usuario?: string | null
           id_venda?: string | null
           itens?: Json
+          moeda_pagamento?: string | null
           observacao?: string | null
+          status?: string
+          url_pagamento?: string | null
+          valor_pagamento?: number | null
         }
         Update: {
           busca?: string
+          conta_pagamento?: string | null
           criado_em?: string
           id?: string
+          id_checkout?: string | null
           id_cliente?: string
+          id_usuario?: string | null
           id_venda?: string | null
           itens?: Json
+          moeda_pagamento?: string | null
           observacao?: string | null
+          status?: string
+          url_pagamento?: string | null
+          valor_pagamento?: number | null
         }
         Relationships: [
           {
@@ -1434,6 +1455,53 @@ export type Database = {
         }
         Returns: Json
       }
+      catalogo_kropcafe_pagamento_presencial: {
+        Args: {
+          p_nome: string
+          p_telefone: string
+          p_email?: string | null
+          p_pais?: string | null
+          p_observacao?: string | null
+          p_itens?: Json
+          p_conta?: string | null
+          p_valor?: number | null
+          p_codigo?: string | null
+        }
+        Returns: Json
+      }
+      catalogo_kropcafe_abrir_pagamento: {
+        Args: {
+          p_nome: string
+          p_telefone: string
+          p_email?: string | null
+          p_pais?: string | null
+          p_observacao?: string | null
+          p_itens?: Json
+          p_conta?: string | null
+          p_valor?: number | null
+        }
+        Returns: Json
+      }
+      registrar_checkout_sumup: {
+        Args: {
+          p_id_checkout: string
+          p_conta: string
+          p_valor: number
+          p_moeda: string
+          p_url?: string | null
+          p_pedido?: Json | null
+        }
+        Returns: undefined
+      }
+      aplicar_retorno_checkout_sumup: {
+        Args: {
+          p_id_checkout: string
+          p_status: string
+          p_codigo?: string | null
+          p_id_venda?: string | null
+        }
+        Returns: Json
+      }
       conferir_item_estoque: {
         Args: {
           p_id_conferencia: string
@@ -1475,6 +1543,10 @@ export type Database = {
       is_admin: { Args: Record<string, never>; Returns: boolean }
       confirmar_email_usuario: {
         Args: { p_email: string }
+        Returns: undefined
+      }
+      definir_senha_usuario: {
+        Args: { p_id: string; p_senha: string }
         Returns: undefined
       }
       garantir_perfil_usuario: {

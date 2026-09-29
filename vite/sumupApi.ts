@@ -205,16 +205,22 @@ async function atenderCheckout(
   const valor = lerValorCheckout(corpo.valor);
   const moeda = brasil ? "BRL" : "EUR";
   const descricao = (texto(corpo.descricao) ?? "Galeria KropCafé").slice(0, 140);
+  const referencia = texto(corpo.id_venda) ?? crypto.randomUUID();
+  const base = (env.VITE_SUPABASE_URL || env.SUPABASE_URL || "https://ladpawjpnaydgqremtnu.supabase.co").replace(
+    /\/$/,
+    "",
+  );
   const merchant = await obterMerchantCode(chave, merchantConfigurado);
   const resposta = await chamarSumup(`${ORIGEM}/v0.1/checkouts`, chave, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      checkout_reference: crypto.randomUUID(),
+      checkout_reference: referencia,
       amount: valor,
       currency: moeda,
       merchant_code: merchant,
       description: descricao,
+      return_url: `${base}/functions/v1/sumup`,
       hosted_checkout: { enabled: true },
     }),
   });
@@ -227,12 +233,13 @@ async function atenderCheckout(
   if (!resposta.ok) {
     throw new ErroConsulta(await lerErroSumup(resposta), 502);
   }
-  const criado = (await resposta.json()) as { hosted_checkout_url?: unknown };
+  const criado = (await resposta.json()) as { hosted_checkout_url?: unknown; id?: unknown };
   const url = texto(criado.hosted_checkout_url);
-  if (!url) {
+  const id = texto(criado.id);
+  if (!url || !id) {
     throw new ErroConsulta("A SumUp não devolveu o link de pagamento.", 502);
   }
-  responder(res, 200, { url, valor, moeda });
+  responder(res, 200, { id, url, valor, moeda });
 }
 
 function codigoDoPerfil(corpo: unknown): string | null {

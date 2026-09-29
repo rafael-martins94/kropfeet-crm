@@ -24,6 +24,7 @@ type ClienteResumo = Pick<
 export type CarrinhoGaleriaLista = {
   id: string;
   criado_em: string;
+  status: string;
   itens: ItemCarrinhoGaleria[];
   observacao: string | null;
   id_cliente: string;
@@ -33,7 +34,7 @@ export type CarrinhoGaleriaLista = {
 };
 
 const selecao = `
-  id, criado_em, itens, observacao, id_cliente, id_venda,
+  id, criado_em, status, itens, observacao, id_cliente, id_venda,
   cliente:clientes(id, nome, telefone, email, pais),
   venda:vendas(id, numero, status_venda, valor_total, moeda_venda)
 `;
@@ -75,15 +76,14 @@ export const carrinhosGaleriaService = {
 
     const aplicarSituacao = <
       T extends {
-        is: (coluna: string, valor: null) => T;
-        not: (coluna: string, operador: string, valor: null) => T;
+        eq: (coluna: string, valor: string) => T;
       },
     >(
       query: T,
       filtro: SituacaoCarrinhoGaleria,
     ) => {
-      if (filtro === "salvo") return query.is("id_venda", null);
-      if (filtro === "com_ordem") return query.not("id_venda", "is", null);
+      if (filtro === "salvo") return query.eq("status", "aberto");
+      if (filtro === "com_ordem") return query.eq("status", "finalizado");
       return query;
     };
 
@@ -97,13 +97,13 @@ export const carrinhosGaleriaService = {
     let salvosQuery = supabase
       .from("carrinhos_galeria")
       .select("id", { count: "exact", head: true })
-      .is("id_venda", null);
+      .eq("status", "aberto");
     salvosQuery = aplicarBusca(salvosQuery);
 
     let ordensQuery = supabase
       .from("carrinhos_galeria")
       .select("id", { count: "exact", head: true })
-      .not("id_venda", "is", null);
+      .eq("status", "finalizado");
     ordensQuery = aplicarBusca(ordensQuery);
 
     const [listaRes, salvosRes, ordensRes] = await Promise.all([

@@ -34,6 +34,8 @@ export default function UsuarioFormPage() {
     "convite",
   );
   const [senha, setSenha] = useState("");
+  const [senhaConfirmacao, setSenhaConfirmacao] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   useEffect(() => {
     if (!modoEdicao || !id) return;
@@ -65,11 +67,22 @@ export default function UsuarioFormPage() {
     setSalvando(true);
     try {
       if (modoEdicao && id) {
+        if (senha || senhaConfirmacao) {
+          if (senha.length < 8) {
+            throw new Error("A senha deve ter pelo menos 8 caracteres.");
+          }
+          if (senha !== senhaConfirmacao) {
+            throw new Error("A confirmação da senha não confere.");
+          }
+        }
         await usuariosService.atualizar(id, {
           nome: nome.trim(),
           papel,
           ativo,
         });
+        if (senha) {
+          await usuariosService.definirSenha(id, senha);
+        }
         if (id === usuarioAtual?.id) {
           await recarregarPerfil();
         }
@@ -155,6 +168,41 @@ export default function UsuarioFormPage() {
               onChange={(e) => setPapel(e.target.value as PapelUsuario)}
               options={OPCOES_PAPEL}
             />
+            {modoEdicao ? (
+              <div className="space-y-4 border-t border-line pt-4">
+                <div>
+                  <p className="text-sm font-medium text-ink">Senha</p>
+                  <p className="text-xs text-ink-soft">
+                    Preencha para trocar. Em branco, a senha atual permanece. Nada é enviado por e-mail.
+                  </p>
+                </div>
+                <FormInput
+                  label="Nova senha"
+                  type={mostrarSenha ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                />
+                <FormInput
+                  label="Confirmar nova senha"
+                  type={mostrarSenha ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={senhaConfirmacao}
+                  onChange={(e) => setSenhaConfirmacao(e.target.value)}
+                  placeholder="Repita a nova senha"
+                />
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-soft">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-line text-brand-600"
+                    checked={mostrarSenha}
+                    onChange={(e) => setMostrarSenha(e.target.checked)}
+                  />
+                  Mostrar senha
+                </label>
+              </div>
+            ) : null}
           </div>
         </SectionCard>
 
@@ -173,7 +221,9 @@ export default function UsuarioFormPage() {
               </p>
             ) : null}
           </SectionCard>
-        ) : (
+        ) : null}
+
+        {!modoEdicao ? (
           <SectionCard title="Definição de senha">
             <div className="space-y-4">
               <div className="flex flex-col gap-2">
@@ -230,7 +280,7 @@ export default function UsuarioFormPage() {
               ) : null}
             </div>
           </SectionCard>
-        )}
+        ) : null}
 
         {erro ? (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

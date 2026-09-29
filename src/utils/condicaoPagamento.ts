@@ -1,9 +1,13 @@
 /**
  * Condição de pagamento no estilo Tiny:
- * - "10x"       → 10 parcelas mensais, a primeira um mês após a data base;
+ * - "10x"       → 10 parcelas no ritmo da SumUp parcelada (de 29 em 29 dias);
  * - "0 30 60"   → parcelas nos dias informados a partir da data base (0 = entrada);
  * - "" / "à vista" → uma parcela na data base.
+ * As datas exatas de um código SumUp entram pela conciliação dos repasses.
  */
+
+/** Cartão parcelado na SumUp cai cerca de 29 dias depois da cobrança, e de 29 em 29 em seguida. */
+const INTERVALO_PARCELA_DIAS = 29;
 export type CondicaoPagamento =
   | { tipo: "mensal"; parcelas: number }
   | { tipo: "dias"; dias: number[] };
@@ -55,15 +59,6 @@ export function somarDias(iso: string, dias: number): string {
   return paraIso(data);
 }
 
-/** Soma meses mantendo o dia; em meses mais curtos usa o último dia (31/01 + 1 → 28/02). */
-export function somarMeses(iso: string, meses: number): string {
-  const base = deIso(iso);
-  const alvo = new Date(base.getFullYear(), base.getMonth() + meses, 1);
-  const ultimoDia = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
-  alvo.setDate(Math.min(base.getDate(), ultimoDia));
-  return paraIso(alvo);
-}
-
 /** Divide em centavos; a diferença do arredondamento vai para a última parcela. */
 export function dividirValor(total: number, partes: number): number[] {
   if (partes <= 0) return [];
@@ -74,15 +69,15 @@ export function dividirValor(total: number, partes: number): number[] {
   return valores.map((c) => c / 100);
 }
 
-/** Primeiro vencimento padrão: um mês após a data base no mensal; senão, o primeiro dia da lista. */
+/** Primeiro vencimento padrão: 29 dias após a data base no "Nx"; senão, o primeiro dia da lista. */
 export function primeiroVencimentoPadrao(condicao: CondicaoPagamento, dataBaseIso: string): string {
   return condicao.tipo === "mensal"
-    ? somarMeses(dataBaseIso, 1)
+    ? somarDias(dataBaseIso, INTERVALO_PARCELA_DIAS)
     : somarDias(dataBaseIso, condicao.dias[0] ?? 0);
 }
 
 /**
- * No mensal, `primeiroVencimentoIso` define a 1ª parcela e as demais seguem mês a mês;
+ * No "Nx", `primeiroVencimentoIso` define a 1ª parcela e as demais seguem de 29 em 29 dias;
  * na lista de dias, desloca todas as datas mantendo os intervalos.
  */
 export function gerarVencimentos(
@@ -92,7 +87,9 @@ export function gerarVencimentos(
 ): string[] {
   const primeiro = primeiroVencimentoIso || primeiroVencimentoPadrao(condicao, dataBaseIso);
   if (condicao.tipo === "mensal") {
-    return Array.from({ length: condicao.parcelas }, (_, i) => somarMeses(primeiro, i));
+    return Array.from({ length: condicao.parcelas }, (_, i) =>
+      somarDias(primeiro, INTERVALO_PARCELA_DIAS * i),
+    );
   }
   const inicio = condicao.dias[0] ?? 0;
   return condicao.dias.map((d) => somarDias(primeiro, d - inicio));

@@ -24,7 +24,9 @@ import {
 import {
   caminhoListaVendas,
   formaDerivadaDasParcelas,
+  extrairCodigoSumup,
   freteStatusOpcoes,
+  parcelaUsaCodigoSumup,
   labelFormaPagamento,
   localVendaOpcoes,
   moedaDoFrete,
@@ -281,7 +283,14 @@ export default function VendaFormPage() {
               valor: String(p.valor ?? 0),
               forma_pagamento: p.forma_pagamento ?? "",
               meio_pagamento: p.meio_pagamento ?? "",
-              codigo_transacao: p.codigo_transacao ?? "",
+              codigo_transacao:
+                p.codigo_transacao?.trim() ||
+                (parcelaUsaCodigoSumup({
+                  forma_pagamento: p.forma_pagamento,
+                  meio_pagamento: p.meio_pagamento,
+                })
+                  ? extrairCodigoSumup(v.codigo_venda_adquirente)
+                  : ""),
             }),
           ),
         );
@@ -480,6 +489,12 @@ export default function VendaFormPage() {
       const total = totalSemFrete(subtotal, num(form.valor_desconto), num(form.outras_despesas));
       payload.total_produtos = Number(subtotal.toFixed(2));
       payload.valor_total = itens.length > 0 ? total : num(form.valor_total) || total;
+      const codigosDasParcelas = [
+        ...new Set(parcelas.map((p) => extrairCodigoSumup(p.codigo_transacao)).filter(Boolean)),
+      ];
+      if (codigosDasParcelas.length === 1) {
+        payload.codigo_venda_adquirente = codigosDasParcelas[0];
+      }
 
       const itensPayload = itens.map((item) => ({
         id_item_estoque: item.id_item_estoque,
@@ -832,12 +847,6 @@ export default function VendaFormPage() {
                           Cortesia / amostra grátis (sem pagamento)
                         </label>
                       )}
-                      {form.codigo_venda_adquirente ? (
-                        <p className="text-xs text-ink-faint">
-                          Código SumUp antigo do pedido:{" "}
-                          <span className="font-numeric">{form.codigo_venda_adquirente}</span>
-                        </p>
-                      ) : null}
                     </div>
 
                     {form.forma_pagamento === "cortesia" && parcelas.length === 0 ? null : (

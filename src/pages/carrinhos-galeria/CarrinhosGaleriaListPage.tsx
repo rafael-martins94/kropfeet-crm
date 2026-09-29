@@ -19,8 +19,8 @@ import { cn } from "../../utils/cn";
 
 const filtros: Array<{ id: SituacaoCarrinhoGaleria; label: string }> = [
   { id: "todos", label: "Todos" },
-  { id: "salvo", label: "Salvos" },
-  { id: "com_ordem", label: "Com ordem de venda" },
+  { id: "salvo", label: "Abertos" },
+  { id: "com_ordem", label: "Finalizados" },
 ];
 
 function contagemDoFiltro(
@@ -98,9 +98,9 @@ export default function CarrinhosGaleriaListPage() {
       width: "150px",
       render: (row) => (
         <StatusBadge
-          value={row.id_venda ? "com_ordem" : "salvo"}
-          label={row.id_venda ? "Ordem gerada" : "Salvo"}
-          tom={row.id_venda ? "sucesso" : "aviso"}
+          value={row.status === "finalizado" ? "com_ordem" : "aberto"}
+          label={row.status === "finalizado" ? "Finalizado" : "Aberto"}
+          tom={row.status === "finalizado" ? "sucesso" : "aviso"}
         />
       ),
     },
@@ -127,13 +127,13 @@ export default function CarrinhosGaleriaListPage() {
   const vazio =
     situacao === "salvo"
       ? {
-          title: "Nenhum carrinho só salvo",
-          description: "Aqui ficam as seleções da galeria que ainda não geraram ordem de venda.",
+          title: "Nenhum carrinho aberto",
+          description: "Aqui ficam as seleções da galeria que ainda não viraram venda.",
         }
       : situacao === "com_ordem"
         ? {
-            title: "Nenhum carrinho com ordem",
-            description: "Aqui ficam as seleções da galeria que já geraram uma ordem de venda.",
+            title: "Nenhum carrinho finalizado",
+            description: "Aqui ficam as seleções da galeria cuja venda já foi efetuada.",
           }
         : {
             title: "Nenhum carrinho da galeria",

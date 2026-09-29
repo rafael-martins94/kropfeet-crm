@@ -97,6 +97,25 @@ export function meioEhSumup(meio: string | null | undefined): boolean {
   return /^sumup/i.test((meio ?? "").trim());
 }
 
+/** Crédito e débito no Brasil só passam pela SumUp. Na Europa, o meio precisa ser SumUp. */
+export function parcelaUsaCodigoSumup(linha: {
+  forma_pagamento?: string | null;
+  meio_pagamento?: string | null;
+  codigo_transacao?: string | null;
+}): boolean {
+  if (meioEhSumup(linha.meio_pagamento)) return true;
+  const meio = (linha.meio_pagamento ?? "").trim();
+  if (meio) return Boolean((linha.codigo_transacao ?? "").trim());
+  const forma = (linha.forma_pagamento ?? "").trim().toLowerCase();
+  return forma === "credito" || forma === "debito";
+}
+
+export function extrairCodigoSumup(texto: string | null | undefined): string {
+  const bruto = (texto ?? "").trim().toUpperCase();
+  if (!bruto) return "";
+  return bruto.match(/T[A-Z0-9]{6,24}/)?.[0] ?? (bruto.includes(" ") ? "" : bruto);
+}
+
 /** Forma do pedido derivada das parcelas: uma só forma, ou "multiplas". */
 export function formaDerivadaDasParcelas(
   parcelas: Array<{ forma_pagamento: string | null | undefined }>,

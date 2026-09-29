@@ -113,6 +113,17 @@ export const usuariosService = {
     await usuariosService.atualizar(id, { ativo });
   },
 
+  async definirSenha(id: string, senha: string): Promise<void> {
+    if (senha.length < 8) {
+      throw new Error("A senha deve ter pelo menos 8 caracteres.");
+    }
+    const { error } = await supabase.rpc("definir_senha_usuario", {
+      p_id: id,
+      p_senha: senha,
+    });
+    if (error) throw error;
+  },
+
   /**
    * Cria um novo usuário via supabase.auth.signUp usando um client isolado
    * (sem persistir sessão), de modo a NÃO afetar a sessão do admin atual.

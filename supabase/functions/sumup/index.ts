@@ -1,7 +1,10 @@
 // Edge Function: consulta a SumUp (Portugal e Brasil) e sincroniza transações e recebíveis.
+// O checkout online manda return_url para esta função. A SumUp avisa com
+// CHECKOUT_STATUS_CHANGED; o status só vale depois de reler o checkout na API.
 // Secrets: SUMUP_PT_API_KEY, SUMUP_BR_API_KEY, SUMUP_CRON_TOKEN (agendamento) e, opcionais,
 // SUMUP_PT_MERCHANT_CODE / SUMUP_BR_MERCHANT_CODE.
 // verify_jwt fica desligado: a autorização (equipe do CRM ou token do agendamento) é feita aqui.
+// O POST da SumUp não traz sessão; a confirmação é a releitura do checkout.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 type Conta = "pt" | "br";
@@ -215,18 +218,32 @@ function lerValorCheckout(valor: unknown): number {
   return Math.round(numeroValor * 100) / 100;
 }
 
-async function criarCheckout(conta: Conta, valor: number, descricao: string | null) {
+function urlRetornoCheckout(): string {
+  const base = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/$/, "");
+  if (!base.startsWith("https://")) {
+    throw new ErroConsulta("A URL de retorno do pagamento não está configurada.", 500);
+  }
+  return `${base}/functions/v1/sumup`;
+}
+
+async function criarCheckout(
+  conta: Conta,
+  valor: number,
+  descricao: string | null,
+  idVenda: string | null,
+) {
   const merchant = await obterMerchantCode(conta);
   const moeda = conta === "br" ? "BRL" : "EUR";
   const resposta = await chamarSumup(conta, `${ORIGEM}/v0.1/checkouts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      checkout_reference: crypto.randomUUID(),
+      checkout_reference: idVenda ?? crypto.randomUUID(),
       amount: valor,
       currency: moeda,
       merchant_code: merchant,
       description: (descricao ?? "Galeria KropCafé").slice(0, 140),
+      return_url: urlRetornoCheckout(),
       hosted_checkout: { enabled: true },
     }),
   });
@@ -239,8 +256,88 @@ async function criarCheckout(conta: Conta, valor: number, descricao: string | nu
   if (!resposta.ok) throw new ErroConsulta(await lerErroSumup(resposta), 502);
   const criado = objeto(await resposta.json());
   const url = texto(criado?.hosted_checkout_url);
-  if (!url) throw new ErroConsulta("A SumUp não devolveu o link de pagamento.", 502);
-  return { url, valor, moeda };
+  const id = texto(criado?.id);
+  if (!url || !id) throw new ErroConsulta("A SumUp não devolveu o link de pagamento.", 502);
+  return { id, url, valor, moeda };
+}
+
+async function lerCheckout(conta: Conta, id: string): Promise<Record<string, unknown> | null> {
+  const resposta = await chamarSumup(conta, `${ORIGEM}/v0.1/checkouts/${encodeURIComponent(id)}`);
+  if (resposta.status === 404) return null;
+  if (!resposta.ok) throw new ErroConsulta(await lerErroSumup(resposta), 502);
+  return objeto(await resposta.json());
+}
+
+function transacaoConfirmada(checkout: Record<string, unknown>): { codigo: string } | null {
+  const pagas = lista(checkout.transactions)
+    .filter((item) => (texto(item.status) ?? "").toUpperCase() === "SUCCESSFUL" && texto(item.transaction_code))
+    .sort((a, b) => (texto(b.timestamp) ?? "").localeCompare(texto(a.timestamp) ?? ""));
+  const codigo = texto(pagas[0]?.transaction_code)?.toUpperCase() ?? null;
+  if (!codigo || !/^T[A-Z0-9]{6,24}$/.test(codigo)) return null;
+  return { codigo };
+}
+
+async function processarRetornoCheckout(admin: SupabaseClient, idCheckout: string): Promise<void> {
+  const guardado = await admin
+    .from("checkouts_sumup")
+    .select("conta, id_venda")
+    .eq("id_checkout", idCheckout)
+    .maybeSingle();
+  if (guardado.error) throw new ErroConsulta(guardado.error.message, 500);
+
+  const contaGuardada = guardado.data?.conta === "pt" || guardado.data?.conta === "br" ? guardado.data.conta : null;
+  const ordem = (contaGuardada ? [contaGuardada, contaGuardada === "pt" ? "br" : "pt"] : ["pt", "br"]) as Conta[];
+  let conta: Conta | null = null;
+  let checkout: Record<string, unknown> | null = null;
+  for (const candidata of ordem) {
+    checkout = await lerCheckout(candidata, idCheckout);
+    if (checkout) {
+      conta = candidata;
+      break;
+    }
+  }
+  if (!checkout || !conta) return;
+
+  const status = (texto(checkout.status) ?? "PENDING").toUpperCase();
+  const paga = status === "PAID" ? transacaoConfirmada(checkout) : null;
+  if (status === "PAID" && !paga) {
+    throw new ErroConsulta("O checkout está pago, mas a SumUp ainda não devolveu o código.", 502);
+  }
+
+  const linha: Record<string, unknown> = {
+    id_checkout: idCheckout,
+    conta,
+    valor: numero(checkout.amount) ?? 0,
+    moeda: texto(checkout.currency) ?? MOEDA_PADRAO[conta],
+    status,
+    atualizado_em: new Date().toISOString(),
+  };
+  const urlCheckout = texto(checkout.hosted_checkout_url);
+  if (urlCheckout) linha.url = urlCheckout;
+  if (paga) linha.codigo_transacao = paga.codigo;
+
+  const { error } = await admin.from("checkouts_sumup").upsert(linha, { onConflict: "id_checkout" });
+  if (error) throw new ErroConsulta(error.message, 500);
+  if (!paga) return;
+
+  try {
+    const detalhe = await obterDetalhe(conta, "transaction_code", paga.codigo);
+    if (detalhe) await gravarDetalhe(admin, conta, detalhe);
+  } catch (erro) {
+    console.error(
+      "detalhe sumup",
+      paga.codigo,
+      erro instanceof Error ? sanitizar(erro.message) : "falha",
+    );
+  }
+
+  const aplicado = await admin.rpc("aplicar_retorno_checkout_sumup", {
+    p_id_checkout: idCheckout,
+    p_status: status,
+    p_codigo: paga.codigo,
+    p_id_venda: guardado.data?.id_venda ?? null,
+  });
+  if (aplicado.error) throw new ErroConsulta(aplicado.error.message, 500);
 }
 
 async function obterMerchantCode(conta: Conta): Promise<string> {
@@ -755,12 +852,38 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
+    const evento = texto(corpo.event_type);
+    if (evento) {
+      try {
+        if (evento === "CHECKOUT_STATUS_CHANGED") {
+          const idCheckout = texto(corpo.id);
+          if (idCheckout) await processarRetornoCheckout(admin, idCheckout);
+        }
+        return new Response(null, { status: 200 });
+      } catch (erro) {
+        console.error("retorno sumup", erro instanceof Error ? sanitizar(erro.message) : "falha");
+        return new Response(null, { status: 500 });
+      }
+    }
+
     if (acao === "checkout") {
       await autorizarAtivo(req, admin);
-      return responder(
-        200,
-        await criarCheckout(lerConta(corpo.conta), lerValorCheckout(corpo.valor), texto(corpo.descricao)),
+      const conta = lerConta(corpo.conta);
+      const criado = await criarCheckout(conta, lerValorCheckout(corpo.valor), texto(corpo.descricao), null);
+      const { error } = await admin.from("checkouts_sumup").upsert(
+        {
+          id_checkout: criado.id,
+          conta,
+          valor: criado.valor,
+          moeda: criado.moeda,
+          status: "PENDING",
+          url: criado.url,
+          atualizado_em: new Date().toISOString(),
+        },
+        { onConflict: "id_checkout" },
       );
+      if (error) throw new ErroConsulta("Não foi possível guardar o link para o retorno do pagamento.", 500);
+      return responder(200, { id: criado.id, url: criado.url, valor: criado.valor, moeda: criado.moeda });
     }
 
     const origem = await autorizar(req);

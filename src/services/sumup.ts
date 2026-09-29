@@ -230,19 +230,21 @@ export async function vincularTransacaoSumup(idTransacao: string, idVenda: strin
 }
 
 export type LinkPagamentoSumup = {
+  id: string;
   url: string;
   valor: number;
   moeda: string;
 };
 
 function normalizarLinkPagamento(corpo: Partial<LinkPagamentoSumup> | null): LinkPagamentoSumup {
+  const id = typeof corpo?.id === "string" ? corpo.id.trim() : "";
   const url = typeof corpo?.url === "string" ? corpo.url.trim() : "";
   const valor = typeof corpo?.valor === "number" ? corpo.valor : Number(corpo?.valor);
   const moeda = typeof corpo?.moeda === "string" ? corpo.moeda.trim().toUpperCase() : "";
-  if (!url.startsWith("https://") || !Number.isFinite(valor) || valor <= 0 || (moeda !== "BRL" && moeda !== "EUR")) {
+  if (!id || !url.startsWith("https://") || !Number.isFinite(valor) || valor <= 0 || (moeda !== "BRL" && moeda !== "EUR")) {
     throw new Error("A SumUp não devolveu o link de pagamento.");
   }
-  return { url, valor, moeda };
+  return { id, url, valor, moeda };
 }
 
 async function chamarProxyPost<T>(caminho: string, corpo: unknown): Promise<T> {
@@ -262,27 +264,52 @@ export async function criarLinkPagamentoSumup(params: {
   conta: ContaSumup;
   valor: number;
   descricao: string;
+  pedido: {
+    nome: string;
+    telefone: string;
+    email: string | null;
+    pais: string | null;
+    observacao: string | null;
+    itens: Array<{ id: string; sku: string; numeracao: string; preco: string | null }>;
+    id_cliente: string;
+    id_vendedor: string | null;
+    id_carrinho: string;
+  };
 }): Promise<LinkPagamentoSumup> {
-  const pedido = {
+  const corpo = {
     acao: "checkout",
     conta: params.conta,
     valor: params.valor,
     descricao: params.descricao,
   };
-  if (import.meta.env.DEV) {
-    try {
-      return normalizarLinkPagamento(await chamarFuncao<Partial<LinkPagamentoSumup>>(pedido));
-    } catch {
-      return normalizarLinkPagamento(
-        await chamarProxyPost<Partial<LinkPagamentoSumup>>("checkout", {
-          conta: params.conta,
-          valor: params.valor,
-          descricao: params.descricao,
-        }),
-      );
+  const criar = async () => {
+    if (import.meta.env.DEV) {
+      try {
+        return normalizarLinkPagamento(await chamarFuncao<Partial<LinkPagamentoSumup>>(corpo));
+      } catch {
+        return normalizarLinkPagamento(
+          await chamarProxyPost<Partial<LinkPagamentoSumup>>("checkout", {
+            conta: params.conta,
+            valor: params.valor,
+            descricao: params.descricao,
+          }),
+        );
+      }
     }
-  }
-  return normalizarLinkPagamento(await chamarFuncao<Partial<LinkPagamentoSumup>>(pedido));
+    return normalizarLinkPagamento(await chamarFuncao<Partial<LinkPagamentoSumup>>(corpo));
+  };
+
+  const link = await criar();
+  const { error } = await supabase.rpc("registrar_checkout_sumup", {
+    p_id_checkout: link.id,
+    p_conta: params.conta,
+    p_valor: link.valor,
+    p_moeda: link.moeda,
+    p_url: link.url,
+    p_pedido: params.pedido,
+  });
+  if (error) throw error;
+  return link;
 }
 
 export async function conciliarRecebiveisSumup(codigos: string[]): Promise<void> {
