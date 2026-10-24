@@ -231,6 +231,7 @@ async function criarCheckout(
   valor: number,
   descricao: string | null,
   idVenda: string | null,
+  tokenLink?: string | null,
 ) {
   const merchant = await obterMerchantCode(conta);
   const moeda = conta === "br" ? "BRL" : "EUR";
@@ -243,7 +244,9 @@ async function criarCheckout(
       currency: moeda,
       merchant_code: merchant,
       description: (descricao ?? "Galeria KropCafé").slice(0, 140),
-      return_url: urlRetornoCheckout(),
+      return_url: tokenLink
+        ? `${urlRetornoCheckout()}?token=${encodeURIComponent(tokenLink)}`
+        : urlRetornoCheckout(),
       hosted_checkout: { enabled: true },
     }),
   });
@@ -318,26 +321,28 @@ async function processarRetornoCheckout(admin: SupabaseClient, idCheckout: strin
 
   const { error } = await admin.from("checkouts_sumup").upsert(linha, { onConflict: "id_checkout" });
   if (error) throw new ErroConsulta(error.message, 500);
-  if (!paga) return;
 
-  try {
-    const detalhe = await obterDetalhe(conta, "transaction_code", paga.codigo);
-    if (detalhe) await gravarDetalhe(admin, conta, detalhe);
-  } catch (erro) {
-    console.error(
-      "detalhe sumup",
-      paga.codigo,
-      erro instanceof Error ? sanitizar(erro.message) : "falha",
-    );
+  if (paga) {
+    try {
+      const detalhe = await obterDetalhe(conta, "transaction_code", paga.codigo);
+      if (detalhe) await gravarDetalhe(admin, conta, detalhe);
+    } catch (erro) {
+      console.error(
+        "detalhe sumup",
+        paga.codigo,
+        erro instanceof Error ? sanitizar(erro.message) : "falha",
+      );
+    }
   }
 
   const aplicado = await admin.rpc("aplicar_retorno_checkout_sumup", {
     p_id_checkout: idCheckout,
     p_status: status,
-    p_codigo: paga.codigo,
+    p_codigo: paga?.codigo ?? null,
     p_id_venda: guardado.data?.id_venda ?? null,
   });
   if (aplicado.error) throw new ErroConsulta(aplicado.error.message, 500);
+  await enviarAvisoDeVenda(admin, aplicado.data);
 }
 
 async function obterMerchantCode(conta: Conta): Promise<string> {
@@ -839,8 +844,68 @@ async function autorizar(req: Request): Promise<"servico" | "equipe"> {
   return "equipe";
 }
 
+function textoErroRpc(erro: { message?: string } | null): string {
+  const mensagem = erro?.message ?? "Não foi possível concluir o pagamento.";
+  const trecho = mensagem.split("\n")[0] ?? mensagem;
+  return sanitizar(trecho.replace(/^.*ERROR:\s*/i, "")).slice(0, 300);
+}
+
+async function enviarAvisoDeVenda(admin: SupabaseClient, resultado: unknown): Promise<void> {
+  const dados = objeto(resultado);
+  const idAviso = texto(dados?.id_aviso);
+  const destinatario = texto(dados?.email_destinatario);
+  if (!idAviso) return;
+  const chave = Deno.env.get("RESEND_API_KEY")?.trim();
+  const remetente = Deno.env.get("AVISO_EMAIL_FROM")?.trim();
+  if (!destinatario || !chave || !remetente) {
+    await admin.from("avisos").update({ email_status: "nao_configurado" }).eq("id", idAviso);
+    return;
+  }
+  try {
+    const resposta = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${chave}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: remetente,
+        to: [destinatario],
+        subject: texto(dados?.email_assunto) ?? "Nova venda pelo link de pedido",
+        text: texto(dados?.email_corpo) ?? "Uma venda foi confirmada por um link de pedido.",
+      }),
+    });
+    if (!resposta.ok) {
+      await admin
+        .from("avisos")
+        .update({ email_status: "falha", email_detalhe: `O provedor de e-mail respondeu ${resposta.status}.` })
+        .eq("id", idAviso);
+      return;
+    }
+    await admin.from("avisos").update({ email_status: "enviado", email_detalhe: null }).eq("id", idAviso);
+  } catch (erro) {
+    await admin
+      .from("avisos")
+      .update({
+        email_status: "falha",
+        email_detalhe: sanitizar(erro instanceof Error ? erro.message : "Falha ao enviar o e-mail."),
+      })
+      .eq("id", idAviso);
+  }
+}
+
+async function redirecionarRetorno(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const token = texto(url.searchParams.get("token"));
+  if (token) {
+    return Response.redirect(`https://kropfeet.com/p/${encodeURIComponent(token)}`, 302);
+  }
+  return new Response(
+    "<!doctype html><meta charset=\"utf-8\"><title>Pagamento</title><p>Pagamento registrado. Volte à página do pedido para ver a confirmação.</p>",
+    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method === "GET") return redirecionarRetorno(req);
   if (req.method !== "POST") return responder(405, { mensagem: "Método não permitido." });
 
   try {
@@ -864,6 +929,68 @@ Deno.serve(async (req) => {
         console.error("retorno sumup", erro instanceof Error ? sanitizar(erro.message) : "falha");
         return new Response(null, { status: 500 });
       }
+    }
+
+    if (acao === "checkout_link") {
+      const token = texto(corpo.token);
+      const itens = Array.isArray(corpo.itens) ? corpo.itens : null;
+      const endereco = objeto(corpo.endereco);
+      if (!token || !itens || !endereco) throw new ErroConsulta("Dados do pedido incompletos.", 400);
+      const preparado = await admin.rpc("link_pedido_preparar_pagamento", {
+        p_token: token,
+        p_itens: itens,
+        p_nome: texto(corpo.nome),
+        p_email: texto(corpo.email),
+        p_telefone: texto(corpo.telefone),
+        p_cpf: texto(corpo.cpf),
+        p_nascimento: texto(corpo.nascimento),
+        p_endereco: endereco,
+      });
+      if (preparado.error) throw new ErroConsulta(textoErroRpc(preparado.error), 400);
+      const dados = objeto(preparado.data);
+      const idReserva = texto(dados?.id_reserva);
+      const segredo = texto(dados?.segredo);
+      const conta = dados?.conta === "br" || dados?.conta === "pt" ? dados.conta : null;
+      const valor = numero(dados?.valor);
+      if (!idReserva || !segredo || !conta || valor === null) {
+        throw new ErroConsulta("Não foi possível reservar o pedido.", 500);
+      }
+      try {
+        const criado = await criarCheckout(conta, valor, texto(dados?.descricao), null, texto(dados?.token));
+        const vinculo = await admin.rpc("link_pedido_vincular_checkout", {
+          p_id_reserva: idReserva,
+          p_segredo: segredo,
+          p_id_checkout: criado.id,
+          p_url: criado.url,
+        });
+        if (vinculo.error) throw new ErroConsulta(textoErroRpc(vinculo.error), 500);
+        return responder(200, { id: criado.id, url: criado.url, valor: criado.valor, moeda: criado.moeda });
+      } catch (erro) {
+        await admin.rpc("link_pedido_liberar_reserva", { p_id_reserva: idReserva, p_segredo: segredo });
+        throw erro;
+      }
+    }
+
+    if (acao === "consultar_checkout_link") {
+      const token = texto(corpo.token);
+      const idCheckout = texto(corpo.id_checkout);
+      if (!token || !idCheckout) throw new ErroConsulta("Pagamento não encontrado.", 404);
+      const guardado = await admin
+        .from("checkouts_sumup")
+        .select("pedido")
+        .eq("id_checkout", idCheckout)
+        .maybeSingle();
+      const pedido = objeto(guardado.data?.pedido);
+      if (guardado.error || pedido?.origem !== "link_pedido" || pedido.token !== token) {
+        throw new ErroConsulta("Pagamento não encontrado.", 404);
+      }
+      await processarRetornoCheckout(admin, idCheckout);
+      const status = await admin.rpc("link_pedido_status_checkout", {
+        p_token: token,
+        p_id_checkout: idCheckout,
+      });
+      if (status.error) throw new ErroConsulta(textoErroRpc(status.error), 500);
+      return responder(200, status.data);
     }
 
     if (acao === "checkout") {

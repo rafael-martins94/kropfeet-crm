@@ -70,6 +70,10 @@ import ImagensListPage from "./pages/imagens/ImagensListPage";
 
 import UsuariosListPage from "./pages/usuarios/UsuariosListPage";
 import UsuarioFormPage from "./pages/usuarios/UsuarioFormPage";
+import LinksPedidoListPage from "./pages/links-pedido/LinksPedidoListPage";
+import LinkPedidoFormPage from "./pages/links-pedido/LinkPedidoFormPage";
+import LinkPedidoDetailPage from "./pages/links-pedido/LinkPedidoDetailPage";
+import LinkPedidoPublicoPage from "./pages/links-pedido/LinkPedidoPublicoPage";
 
 function RedirecionarContasReceber() {
   const [params] = useSearchParams();
@@ -93,6 +97,7 @@ export default function App() {
     <AuthProvider>
       <ToastProvider>
       <Routes>
+        <Route path="/p/:token" element={<LinkPedidoPublicoPage />} />
         <Route path="/catalogo-kropcafe/entrar" element={<CatalogoLoginPage />} />
         <Route element={<CatalogoRoute />}>
           <Route path="/catalogo-kropcafe" element={<CatalogoKropCafePage />} />
@@ -167,6 +172,9 @@ export default function App() {
             <Route path="/vendas/:id/editar" element={<VendaFormPage />} />
 
             <Route path="/carrinhos-galeria" element={<CarrinhosGaleriaListPage />} />
+            <Route path="/links-pedido" element={<LinksPedidoListPage />} />
+            <Route path="/links-pedido/novo" element={<LinkPedidoFormPage />} />
+            <Route path="/links-pedido/:id" element={<LinkPedidoDetailPage />} />
             <Route path="/vendas-sumup" element={<RedirecionarSumupLegado />} />
             <Route path="/financeiro/sumup" element={<Navigate to="/financeiro/sumup/portugal" replace />} />
             <Route path="/financeiro/sumup/:regiao" element={<SumupVendasPage />} />

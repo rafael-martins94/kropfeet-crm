@@ -79,7 +79,7 @@ export function PageHeader({
           </div>
         </div>
       </div>
-      {actions ? <div className="flex flex-shrink-0 items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="ml-auto flex flex-shrink-0 items-center justify-end gap-2">{actions}</div> : null}
     </div>
   );
 }

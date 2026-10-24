@@ -5,6 +5,8 @@ import { inicioDoDiaPortugalIso, inicioDoDiaSeguintePortugalIso } from "../src/u
 const CAMINHO = "/api/sumup/transacoes";
 const CAMINHO_TRANSACAO = "/api/sumup/transacao";
 const CAMINHO_CHECKOUT = "/api/sumup/checkout";
+const CAMINHO_CHECKOUT_LINK = "/api/sumup/checkout-link";
+const CAMINHO_CONSULTA_LINK = "/api/sumup/checkout-link/status";
 const ORIGEM = "https://api.sumup.com";
 const LIMITE_PAGINA = "100";
 const MAX_PAGINAS = 40;
@@ -529,6 +531,161 @@ async function atender(
   });
 }
 
+function textoErroRpc(mensagem: string): string {
+  return sanitizar(mensagem.split("\n")[0]?.replace(/^.*ERROR:\s*/i, "") ?? mensagem);
+}
+
+async function chamarRpc<T>(
+  env: Record<string, string>,
+  funcao: string,
+  args: Record<string, unknown>,
+): Promise<T> {
+  const base = (env.VITE_SUPABASE_URL || env.SUPABASE_URL || "").replace(/\/$/, "");
+  const chave = (env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || "").trim();
+  if (!base || !chave) {
+    throw new ErroConsulta("A URL ou a chave pública do Supabase não está no .env.local.", 503);
+  }
+  const resposta = await fetch(`${base}/rest/v1/rpc/${funcao}`, {
+    method: "POST",
+    headers: {
+      apikey: chave,
+      Authorization: `Bearer ${chave}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+  const corpo = await resposta.json().catch(() => null);
+  if (!resposta.ok) {
+    const mensagem =
+      corpo && typeof corpo === "object" && "message" in corpo
+        ? String((corpo as { message?: unknown }).message ?? "")
+        : "";
+    throw new ErroConsulta(textoErroRpc(mensagem || "Não foi possível concluir o pedido."), resposta.status);
+  }
+  return corpo as T;
+}
+
+async function atenderCheckoutLink(
+  req: Connect.IncomingMessage,
+  res: RespostaHttp,
+  lerEnv: () => Record<string, string>,
+) {
+  const env = lerEnv();
+  const corpo = await lerJson(req);
+  const token = texto(corpo.token);
+  const itens = Array.isArray(corpo.itens) ? corpo.itens : null;
+  const endereco = corpo.endereco && typeof corpo.endereco === "object" ? corpo.endereco : null;
+  if (!token || !itens || !endereco) throw new ErroConsulta("Dados do pedido incompletos.", 400);
+
+  const preparado = await chamarRpc<{
+    id_reserva?: string;
+    segredo?: string;
+    valor?: number;
+    moeda?: string;
+    conta?: string;
+    token?: string;
+    descricao?: string;
+  }>(env, "link_pedido_preparar_pagamento", {
+    p_token: token,
+    p_itens: itens,
+    p_nome: texto(corpo.nome),
+    p_email: texto(corpo.email),
+    p_telefone: texto(corpo.telefone),
+    p_cpf: texto(corpo.cpf),
+    p_nascimento: texto(corpo.nascimento),
+    p_endereco: endereco,
+  });
+
+  const conta = preparado.conta === "br" || preparado.conta === "pt" ? preparado.conta : null;
+  if (!preparado.id_reserva || !preparado.segredo || !conta || !(Number(preparado.valor) > 0)) {
+    throw new ErroConsulta("Não foi possível reservar o pedido.", 500);
+  }
+
+  try {
+    const criado = await criarCheckoutLocal(env, conta, Number(preparado.valor), preparado.descricao ?? null);
+    await chamarRpc(env, "link_pedido_vincular_checkout", {
+      p_id_reserva: preparado.id_reserva,
+      p_segredo: preparado.segredo,
+      p_id_checkout: criado.id,
+      p_url: criado.url,
+    });
+    responder(res, 200, criado);
+  } catch (erro) {
+    await chamarRpc(env, "link_pedido_liberar_reserva", {
+      p_id_reserva: preparado.id_reserva,
+      p_segredo: preparado.segredo,
+    }).catch(() => undefined);
+    throw erro;
+  }
+}
+
+async function criarCheckoutLocal(
+  env: Record<string, string>,
+  conta: "br" | "pt",
+  valor: number,
+  descricao: string | null,
+) {
+  const brasil = conta === "br";
+  const nomeChave = brasil ? "SUMUP_BR_API_KEY" : "SUMUP_API_KEY";
+  const chave = (brasil ? env.SUMUP_BR_API_KEY : env.SUMUP_PT_API_KEY || env.SUMUP_API_KEY)?.trim();
+  const merchantConfigurado = brasil
+    ? env.SUMUP_BR_MERCHANT_CODE
+    : env.SUMUP_PT_MERCHANT_CODE || env.SUMUP_MERCHANT_CODE;
+  if (!chave) {
+    throw new ErroConsulta(
+      `${nomeChave} não está no .env.local. Sem essa chave o link de pagamento não é criado.`,
+      503,
+    );
+  }
+  const merchant = await obterMerchantCode(chave, merchantConfigurado);
+  const moeda = brasil ? "BRL" : "EUR";
+  const base = (env.VITE_SUPABASE_URL || env.SUPABASE_URL || "https://ladpawjpnaydgqremtnu.supabase.co").replace(
+    /\/$/,
+    "",
+  );
+  const resposta = await chamarSumup(`${ORIGEM}/v0.1/checkouts`, chave, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      checkout_reference: crypto.randomUUID(),
+      amount: valor,
+      currency: moeda,
+      merchant_code: merchant,
+      description: (descricao ?? "KropFeet").slice(0, 140),
+      return_url: `${base}/functions/v1/sumup`,
+      hosted_checkout: { enabled: true },
+    }),
+  });
+  if (!resposta.ok) throw new ErroConsulta(await lerErroSumup(resposta), 502);
+  const criado = (await resposta.json()) as { hosted_checkout_url?: unknown; id?: unknown };
+  const url = texto(criado.hosted_checkout_url);
+  const id = texto(criado.id);
+  if (!url || !id) throw new ErroConsulta("A SumUp não devolveu o link de pagamento.", 502);
+  return { id, url, valor, moeda };
+}
+
+async function atenderConsultaLink(
+  req: Connect.IncomingMessage,
+  res: RespostaHttp,
+  lerEnv: () => Record<string, string>,
+) {
+  const env = lerEnv();
+  const corpo = await lerJson(req);
+  const token = texto(corpo.token);
+  const idCheckout = texto(corpo.id_checkout);
+  if (!token || !idCheckout) throw new ErroConsulta("Pagamento não encontrado.", 404);
+  const status = await chamarRpc<{ encontrado?: boolean; situacao?: string; id_venda?: string | null }>(
+    env,
+    "link_pedido_status_checkout",
+    { p_token: token, p_id_checkout: idCheckout },
+  );
+  responder(res, 200, {
+    ...status,
+    confirmacao:
+      "A consulta local não confirma a venda. Publique a função SumUp para a ordem nascer depois do pagamento.",
+  });
+}
+
 export function sumupApiPlugin(): Plugin {
   let modo = "development";
   let envDir = "";
@@ -537,6 +694,20 @@ export function sumupApiPlugin(): Plugin {
 
   const middleware: Connect.NextHandleFunction = (req, res, next) => {
     const caminho = (req.url ?? "").split("?")[0];
+    if (caminho === CAMINHO_CHECKOUT_LINK || caminho === CAMINHO_CONSULTA_LINK) {
+      if (req.method !== "POST") {
+        responder(res, 405, { mensagem: "Método não permitido." });
+        return;
+      }
+      const atender = caminho === CAMINHO_CHECKOUT_LINK ? atenderCheckoutLink : atenderConsultaLink;
+      void atender(req, res, lerEnv).catch((erro: unknown) => {
+        if (res.writableEnded) return;
+        const status = erro instanceof ErroConsulta ? erro.status : 500;
+        const mensagem = erro instanceof Error ? sanitizar(erro.message) : "Falha ao processar o link.";
+        responder(res, status, { mensagem });
+      });
+      return;
+    }
     if (caminho === CAMINHO_CHECKOUT) {
       if (req.method !== "POST") {
         responder(res, 405, { mensagem: "Método não permitido." });

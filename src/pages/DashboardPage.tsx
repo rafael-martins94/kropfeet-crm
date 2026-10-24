@@ -18,11 +18,13 @@ import {
   IconUser,
 } from "../components/Icons";
 import { dashboardService } from "../services/dashboard";
+import { linksPedidoService } from "../services/links-pedido";
 import { useAsync } from "../hooks/useAsync";
 import { formatarDataHora, formatarNumero } from "../utils/format";
 
 export default function DashboardPage() {
   const metricas = useAsync(() => dashboardService.carregarMetricas(), []);
+  const avisos = useAsync(() => linksPedidoService.avisosRecentes(), []);
   const ultimosModelos = useAsync(() => dashboardService.ultimosModelos(6), []);
   const ultimosItens = useAsync(() => dashboardService.ultimosItens(6), []);
 
@@ -54,6 +56,36 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {(avisos.data?.length ?? 0) > 0 ? (
+        <SectionCard title="Vendas por link" className="mb-6">
+          <ul className="space-y-3">
+            {avisos.data?.map((aviso) => (
+              <li key={aviso.id} className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{aviso.titulo}</p>
+                  <p className="text-sm text-ink-soft">{aviso.corpo}</p>
+                  <p className="mt-1 text-xs text-ink-muted">{formatarDataHora(aviso.criado_em)}</p>
+                </div>
+                <div className="flex gap-2">
+                  {aviso.id_venda ? (
+                    <Link to={`/vendas/${aviso.id_venda}`} className="text-sm font-semibold text-brand-700 hover:underline">
+                      Ver ordem
+                    </Link>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="text-sm font-semibold text-ink-muted hover:text-ink"
+                    onClick={() => void linksPedidoService.marcarAvisoLido(aviso.id).then(() => avisos.reload())}
+                  >
+                    Marcar como lido
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      ) : null}
 
       <div className="mb-6">
         {metricas.error ? (

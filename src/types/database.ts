@@ -121,6 +121,7 @@ export type Database = {
           cpf_cnpj: string | null
           criado_em: string
           dados_tiny: Json | null
+          data_nascimento: string | null
           email: string | null
           fantasia: string | null
           id: string
@@ -142,6 +143,7 @@ export type Database = {
           cpf_cnpj?: string | null
           criado_em?: string
           dados_tiny?: Json | null
+          data_nascimento?: string | null
           email?: string | null
           fantasia?: string | null
           id?: string
@@ -162,6 +164,7 @@ export type Database = {
           cpf_cnpj?: string | null
           criado_em?: string
           dados_tiny?: Json | null
+          data_nascimento?: string | null
           email?: string | null
           fantasia?: string | null
           id?: string
@@ -1402,6 +1405,186 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracao_app: {
+        Row: { atualizado_em: string; chave: string; valor: string | null }
+        Insert: { atualizado_em?: string; chave: string; valor?: string | null }
+        Update: { atualizado_em?: string; chave?: string; valor?: string | null }
+        Relationships: []
+      }
+      historico_preco_destino: {
+        Row: {
+          criado_em: string
+          id: string
+          id_modelo_produto: string
+          id_usuario: string | null
+          moeda: string
+          preco: number
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          id_modelo_produto: string
+          id_usuario?: string | null
+          moeda: string
+          preco: number
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          id_modelo_produto?: string
+          id_usuario?: string | null
+          moeda?: string
+          preco?: number
+        }
+        Relationships: []
+      }
+      links_pedido: {
+        Row: {
+          acessos: number
+          atualizado_em: string
+          conta_sumup: string
+          criado_em: string
+          destino: string
+          id: string
+          id_usuario: string | null
+          instagram: string
+          mensagem_boas_vindas: string | null
+          mensagem_compartilhar: string | null
+          moeda: string
+          nome: string | null
+          status: string
+          token: string
+          ultimo_acesso_em: string | null
+          validade_horas: number
+          aberto_em: string | null
+          validade_em: string
+          vendas_confirmadas: number
+        }
+        Insert: {
+          acessos?: number
+          atualizado_em?: string
+          conta_sumup: string
+          criado_em?: string
+          destino: string
+          id?: string
+          id_usuario?: string | null
+          instagram: string
+          mensagem_boas_vindas?: string | null
+          mensagem_compartilhar?: string | null
+          moeda: string
+          nome?: string | null
+          status?: string
+          token: string
+          ultimo_acesso_em?: string | null
+          validade_horas: number
+          aberto_em?: string | null
+          validade_em: string
+          vendas_confirmadas?: number
+        }
+        Update: {
+          acessos?: number
+          atualizado_em?: string
+          conta_sumup?: string
+          criado_em?: string
+          destino?: string
+          id?: string
+          id_usuario?: string | null
+          instagram?: string
+          mensagem_boas_vindas?: string | null
+          mensagem_compartilhar?: string | null
+          moeda?: string
+          nome?: string | null
+          status?: string
+          token?: string
+          ultimo_acesso_em?: string | null
+          validade_horas?: number
+          aberto_em?: string | null
+          validade_em?: string
+          vendas_confirmadas?: number
+        }
+        Relationships: []
+      }
+      links_pedido_itens: {
+        Row: {
+          id: string
+          id_item_estoque: string
+          id_link: string
+          id_modelo_produto: string
+          moeda: string
+          moeda_original: string | null
+          ordem: number
+          preco: number
+          preco_original: number | null
+        }
+        Insert: {
+          id?: string
+          id_item_estoque: string
+          id_link: string
+          id_modelo_produto: string
+          moeda: string
+          moeda_original?: string | null
+          ordem?: number
+          preco: number
+          preco_original?: number | null
+        }
+        Update: {
+          id?: string
+          id_item_estoque?: string
+          id_link?: string
+          id_modelo_produto?: string
+          moeda?: string
+          moeda_original?: string | null
+          ordem?: number
+          preco?: number
+          preco_original?: number | null
+        }
+        Relationships: []
+      }
+      links_pedido_vendas: {
+        Row: { criado_em: string; id_checkout: string | null; id_link: string; id_venda: string }
+        Insert: { criado_em?: string; id_checkout?: string | null; id_link: string; id_venda: string }
+        Update: { criado_em?: string; id_checkout?: string | null; id_link?: string; id_venda?: string }
+        Relationships: []
+      }
+      avisos: {
+        Row: {
+          corpo: string | null
+          criado_em: string
+          email_detalhe: string | null
+          email_status: string
+          id: string
+          id_link: string | null
+          id_venda: string | null
+          lido: boolean
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          corpo?: string | null
+          criado_em?: string
+          email_detalhe?: string | null
+          email_status?: string
+          id?: string
+          id_link?: string | null
+          id_venda?: string | null
+          lido?: boolean
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          corpo?: string | null
+          criado_em?: string
+          email_detalhe?: string | null
+          email_status?: string
+          id?: string
+          id_link?: string | null
+          id_venda?: string | null
+          lido?: boolean
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
     }
     Views: { [_ in never]: never }
     Functions: {
@@ -1653,6 +1836,25 @@ export type Database = {
         Returns: { id_modelo_produto: string; total: number }[]
       }
       vitrines_id_local_vitrine: { Args: Record<string, never>; Returns: string | null }
+      link_pedido_criar: {
+        Args: {
+          p_instagram: string
+          p_nome?: string | null
+          p_destino: string
+          p_validade_horas: number
+          p_mensagem?: string | null
+          p_mensagem_compartilhar?: string | null
+          p_itens: Json
+        }
+        Returns: Json
+      }
+      link_pedido_desativar: { Args: { p_id: string }; Returns: undefined }
+      link_pedido_reativar: { Args: { p_id: string }; Returns: undefined }
+      link_pedido_publico: { Args: { p_token: string }; Returns: Json }
+      link_pedido_status_checkout: {
+        Args: { p_token: string; p_id_checkout: string }
+        Returns: Json
+      }
     }
     Enums: {
       canal_venda_enum:

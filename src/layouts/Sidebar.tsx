@@ -11,6 +11,7 @@ import {
   IconChevronRight,
   IconDashboard,
   IconFileText,
+  IconLink,
   IconFolder,
   IconImage,
   IconLogout,
@@ -75,6 +76,7 @@ const menu: MenuGroup[] = [
       { to: "/clientes", label: "Clientes", icon: <IconUser /> },
       { to: "/vendedores", label: "Vendedores", icon: <IconUsers /> },
       { to: "/carrinhos-galeria", label: "Carrinhos galeria", icon: <IconCart /> },
+      { to: "/links-pedido", label: "Links de pedido", icon: <IconLink /> },
     ],
   },
   {

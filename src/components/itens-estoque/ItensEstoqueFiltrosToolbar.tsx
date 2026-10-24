@@ -1,9 +1,12 @@
 import { SearchInput } from "../SearchInput";
 import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
 import { StatusItemFilterDropdown } from "../StatusItemFilterDropdown";
+import { StatusSelectDropdown } from "../StatusSelectDropdown";
 import { SituacaoConferenciaFilterDropdown } from "./SituacaoConferenciaFilterDropdown";
 import { statusOpcoesFiltro } from "./itensEstoqueFiltrosConstants";
 import type { SituacaoConferenciaFiltro } from "../../services/conferencias-estoque";
+import type { RegiaoEstoqueFiltro } from "../../services/itens-estoque";
+import type { DisplaySizeSystem } from "../../utils/sizeConversion";
 import type { StatusItem } from "../../types/entities";
 import { cn } from "../../utils/cn";
 import type { SearchableSelectOption } from "../SearchableSelectDropdown";
@@ -26,7 +29,13 @@ interface ItensEstoqueFiltrosToolbarProps {
   locaisLoading?: boolean;
   categoriasLoading?: boolean;
   /** Na conferência, troca categoria por situação da conferência. */
-  variant?: "default" | "conferencia";
+  /** No link de pedido, troca o local de estoque pela região. */
+  regiaoEstoque?: RegiaoEstoqueFiltro;
+  onRegiaoEstoqueChange?: (value: RegiaoEstoqueFiltro) => void;
+  displaySizeSystem?: DisplaySizeSystem | "";
+  onDisplaySizeSystemChange?: (value: DisplaySizeSystem | "") => void;
+  /** Na conferência, troca categoria por situação da conferência. No link, troca o local pela região. */
+  variant?: "default" | "conferencia" | "link";
 }
 
 export function ItensEstoqueFiltrosToolbar({
@@ -47,6 +56,10 @@ export function ItensEstoqueFiltrosToolbar({
   locaisLoading,
   categoriasLoading,
   variant = "default",
+  regiaoEstoque = "",
+  onRegiaoEstoqueChange,
+  displaySizeSystem = "",
+  onDisplaySizeSystemChange,
 }: ItensEstoqueFiltrosToolbarProps) {
   const gridClass =
     variant === "conferencia"
@@ -56,11 +69,17 @@ export function ItensEstoqueFiltrosToolbar({
           "md:[grid-template-columns:minmax(0,2fr)_minmax(0,1fr)_minmax(0,1.15fr)]",
           "lg:[grid-template-columns:minmax(0,2.35fr)_minmax(0,1.05fr)_minmax(0,1.2fr)_minmax(6.25rem,0.72fr)_minmax(6.25rem,0.72fr)]",
         )
-      : cn(
-          "grid min-w-0 flex-1 items-end gap-x-3 gap-y-4",
-          "[grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]",
-          "lg:[grid-template-columns:minmax(0,2.1fr)_minmax(0,1.05fr)_minmax(0,1.15fr)_minmax(0,1.05fr)_minmax(0,0.85fr)]",
-        );
+      : variant === "link"
+        ? cn(
+            "grid min-w-0 flex-1 items-end gap-x-3 gap-y-4",
+            "[grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]",
+            "lg:[grid-template-columns:minmax(0,1.15fr)_minmax(0,0.9fr)_minmax(0,0.95fr)_minmax(0,1fr)_minmax(6.5rem,0.65fr)_minmax(0,1.3fr)]",
+          )
+        : cn(
+            "grid min-w-0 flex-1 items-end gap-x-3 gap-y-4",
+            "[grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]",
+            "lg:[grid-template-columns:minmax(0,2.1fr)_minmax(0,1.05fr)_minmax(0,1.15fr)_minmax(0,1.05fr)_minmax(0,0.85fr)]",
+          );
 
   return (
     <div className="border-b border-line px-5 py-4">
@@ -84,18 +103,36 @@ export function ItensEstoqueFiltrosToolbar({
             onChange={onStatusChange}
           />
         </div>
-        <SearchableSelectDropdown
-          multiple
-          label="Local de estoque"
-          value={localEstoqueIds}
-          options={opcoesLocalFiltro}
-          emptyLabel="Todos os locais"
-          loading={locaisLoading}
-          searchPlaceholder="Buscar local…"
-          triggerClassName="w-full min-w-0"
-          onChange={onLocalEstoqueIdsChange}
-          className="min-w-0 w-full"
-        />
+        {variant === "link" ? (
+          <div className="flex min-w-0 w-full flex-col gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+              Região
+            </span>
+            <StatusSelectDropdown
+              value={regiaoEstoque}
+              options={[
+                { value: "", label: "Todas as regiões", tom: "neutro" },
+                { value: "br", label: "Brasil", tom: "brand" },
+                { value: "eu", label: "Europa", tom: "info" },
+              ]}
+              onChange={(valor) => onRegiaoEstoqueChange?.(valor as RegiaoEstoqueFiltro)}
+              className="w-full min-w-0"
+            />
+          </div>
+        ) : (
+          <SearchableSelectDropdown
+            multiple
+            label="Local de estoque"
+            value={localEstoqueIds}
+            options={opcoesLocalFiltro}
+            emptyLabel="Todos os locais"
+            loading={locaisLoading}
+            searchPlaceholder="Buscar local…"
+            triggerClassName="w-full min-w-0"
+            onChange={onLocalEstoqueIdsChange}
+            className="min-w-0 w-full"
+          />
+        )}
         {variant === "conferencia" ? (
           <SituacaoConferenciaFilterDropdown
             value={situacaoConferencia}
@@ -116,6 +153,24 @@ export function ItensEstoqueFiltrosToolbar({
             className="min-w-0 w-full"
           />
         )}
+        {variant === "link" ? (
+          <div className="flex min-w-0 w-full flex-col gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+              Padrão
+            </span>
+            <StatusSelectDropdown
+              value={displaySizeSystem}
+              options={[
+                { value: "", label: "—", tom: "neutro" },
+                { value: "br", label: "BR", tom: "brand" },
+                { value: "eu", label: "EU", tom: "info" },
+                { value: "us", label: "US", tom: "teal" },
+              ]}
+              onChange={(valor) => onDisplaySizeSystemChange?.(valor as DisplaySizeSystem | "")}
+              className="w-full min-w-0"
+            />
+          </div>
+        ) : null}
         <div className="flex min-w-0 w-full flex-col gap-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
             Numeração

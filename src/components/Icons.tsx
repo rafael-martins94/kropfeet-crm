@@ -225,6 +225,13 @@ export const IconRefresh = (p: IconProps) => (
   </svg>
 );
 
+export const IconLink = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L10.5 5.43" />
+    <path d="M14 11a5 5 0 0 0-7.07 0L4.8 13.12a5 5 0 0 0 7.07 7.07L13.5 18.57" />
+  </svg>
+);
+
 export const IconCopy = (p: IconProps) => (
   <svg {...base} {...p}>
     <rect x="8" y="8" width="12" height="12" rx="2" />
