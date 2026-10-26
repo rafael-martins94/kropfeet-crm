@@ -69,13 +69,6 @@ export interface VendaRecente {
   data_pedido: string | null;
 }
 
-export interface ModeloMaisVendido {
-  chave: string;
-  idModelo: string | null;
-  nome: string;
-  pares: number;
-}
-
 export interface ResumoLinksPedido {
   linksAtivos: number;
   linksCriados: number;
@@ -95,7 +88,6 @@ export interface DashboardResumo {
   pendencias: PendenciasDashboard;
   andamento: Record<StatusAndamento, Partial<Record<TipoRegiao, number>>>;
   historico: MesHistorico[];
-  maisVendidos: ModeloMaisVendido[];
 }
 
 const MESES_HISTORICO = 6;
@@ -341,36 +333,6 @@ async function carregarPendencias(): Promise<PendenciasDashboard> {
   };
 }
 
-async function carregarMaisVendidos(intervalo: IntervaloDashboard, limite = 5): Promise<ModeloMaisVendido[]> {
-  const { data, error } = await supabase
-    .from("itens_venda")
-    .select(
-      `quantidade, descricao,
-       item_estoque:itens_estoque(id_modelo_produto, modelo:modelos_produto(id, nome_modelo)),
-       venda:vendas!inner(data_pedido, status_venda)`,
-    )
-    .gte("venda.data_pedido", intervalo.de.toISOString())
-    .lte("venda.data_pedido", intervalo.ate.toISOString())
-    .neq("venda.status_venda", "cancelado")
-    .limit(20000);
-  if (error) throw error;
-
-  const porModelo = new Map<string, ModeloMaisVendido>();
-  for (const it of (data ?? []) as unknown as Array<{
-    quantidade: number;
-    descricao: string | null;
-    item_estoque: { id_modelo_produto: string | null; modelo: { id: string; nome_modelo: string } | null } | null;
-  }>) {
-    const modelo = it.item_estoque?.modelo ?? null;
-    const nome = modelo?.nome_modelo ?? it.descricao?.trim() ?? "Sem descrição";
-    const chave = modelo?.id ?? `desc:${nome.toLowerCase()}`;
-    const atual = porModelo.get(chave) ?? { chave, idModelo: modelo?.id ?? null, nome, pares: 0 };
-    atual.pares += Number(it.quantidade) || 0;
-    porModelo.set(chave, atual);
-  }
-  return [...porModelo.values()].sort((a, b) => b.pares - a.pares).slice(0, limite);
-}
-
 async function carregarLinks(intervalo: IntervaloDashboard): Promise<ResumoLinksPedido> {
   const agora = new Date().toISOString();
   const [links, vendasLink, linksAtivos] = await Promise.all([
@@ -429,13 +391,12 @@ async function carregarLinks(intervalo: IntervaloDashboard): Promise<ResumoLinks
 export const dashboardService = {
   async carregarResumo(periodo: PeriodoDashboard): Promise<DashboardResumo> {
     const intervalo = intervaloDoPeriodo(periodo);
-    const [vendas, financeiro, estoque, pendencias, andamento, maisVendidos, links] = await Promise.all([
+    const [vendas, financeiro, estoque, pendencias, andamento, links] = await Promise.all([
       carregarVendas(intervalo),
       carregarFinanceiro(intervalo),
       carregarEstoque(),
       carregarPendencias(),
       carregarAndamento(),
-      carregarMaisVendidos(intervalo),
       carregarLinks(intervalo),
     ]);
     return {
@@ -446,7 +407,6 @@ export const dashboardService = {
       estoque,
       pendencias,
       andamento,
-      maisVendidos,
     };
   },
 

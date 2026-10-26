@@ -267,13 +267,7 @@ export default function DashboardPage() {
         <PainelEstoque estoque={dados?.estoque} carregando={carregando} />
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <SectionCard
-          title="Últimas vendas"
-          className="lg:col-span-3"
-          actions={<VerTodos to="/vendas" />}
-          noPadding
-        >
+      <SectionCard title="Últimas vendas" className="mb-4" actions={<VerTodos to="/vendas" />} noPadding>
           {ultimasVendas.loading ? (
             <div className="p-4">
               <InlineLoader />
@@ -307,56 +301,7 @@ export default function DashboardPage() {
               ))}
             </ul>
           )}
-        </SectionCard>
-
-        <SectionCard
-          title="Mais vendidos"
-          titleAccessory={<span className="text-xs text-ink-soft">{infoPeriodo.rotulo.toLowerCase()}</span>}
-          className="lg:col-span-2"
-          noPadding
-        >
-          {carregando ? (
-            <div className="p-4">
-              <InlineLoader />
-            </div>
-          ) : (dados?.maisVendidos ?? []).length === 0 ? (
-            <EmptyState title="Sem vendas no período" description="Nenhum par vendido neste período." />
-          ) : (
-            <ol className="space-y-3 px-4 py-4 sm:px-5">
-              {dados?.maisVendidos.map((m, i) => {
-                const max = dados.maisVendidos[0]?.pares || 1;
-                const conteudo = (
-                  <>
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="truncate text-sm text-ink">
-                        <span className="mr-1.5 text-xs font-semibold text-ink-soft">{i + 1}.</span>
-                        {m.nome}
-                      </span>
-                      <span className="flex-shrink-0 text-xs font-semibold tabular-nums text-ink-muted">
-                        {formatarNumero(m.pares)} {m.pares === 1 ? "par" : "pares"}
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-subtle">
-                      <div className="h-full rounded-full bg-brand-500" style={{ width: `${(m.pares / max) * 100}%` }} />
-                    </div>
-                  </>
-                );
-                return (
-                  <li key={m.chave}>
-                    {m.idModelo ? (
-                      <Link to={`/modelos-produto/${m.idModelo}`} className="block hover:opacity-80">
-                        {conteudo}
-                      </Link>
-                    ) : (
-                      conteudo
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </SectionCard>
-      </div>
+      </SectionCard>
 
       <HistoricoVendas historico={dados?.historico} carregando={carregando} />
     </div>
