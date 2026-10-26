@@ -895,7 +895,8 @@ async function redirecionarRetorno(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const token = texto(url.searchParams.get("token"));
   if (token) {
-    return Response.redirect(`https://kropfeet.com/p/${encodeURIComponent(token)}`, 302);
+    const app = (Deno.env.get("APP_URL") || "https://app.kropfeet.com").replace(/\/$/, "");
+    return Response.redirect(`${app}/p/${encodeURIComponent(token)}`, 302);
   }
   return new Response(
     "<!doctype html><meta charset=\"utf-8\"><title>Pagamento</title><p>Pagamento registrado. Volte à página do pedido para ver a confirmação.</p>",

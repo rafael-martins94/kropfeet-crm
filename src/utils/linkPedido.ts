@@ -48,7 +48,7 @@ export function prazoDaMensagemLink(horas: number): string {
   return `${horas} horas`;
 }
 
-export const DOMINIO_PUBLICO_LINK = "https://kropfeet.com";
+export const DOMINIO_PUBLICO_LINK = (import.meta.env.VITE_APP_URL || "https://app.kropfeet.com").replace(/\/$/, "");
 
 export function urlDoLink(token: string): string {
   return `${DOMINIO_PUBLICO_LINK}/p/${token}`;

@@ -170,8 +170,8 @@ No dashboard do serviço recém-criado, vá em **Environment** e preencha:
 
 ### 3. (Supabase) Libere a URL do Render
 
-No painel do Supabase, em **Authentication → URL Configuration**, inclua a URL
-gerada pelo Render (ex.: `https://kropfeet-crm.onrender.com`) em:
+O sistema responde em `https://app.kropfeet.com` (CNAME `app` → `kropfeet-crm.onrender.com`
+na GoDaddy). No painel do Supabase, em **Authentication → URL Configuration**, use esse endereço em:
 
 - **Site URL**
 - **Additional Redirect URLs** (para o fluxo de recuperação de senha)
