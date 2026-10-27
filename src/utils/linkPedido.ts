@@ -41,10 +41,14 @@ export function numeracaoVisivel(
 const MENSAGENS_LINK_ANTIGAS = new Set([
   "Olá {nome}! Separei estes tênis para você. Este link vale {validade}. Se ninguém abrir em 7 dias, ele expira:\n{url}",
   "Separei estes tênis para você. Após a abertura, o link tem validade de {validade}.\n{url}",
+  "Aqui está o link com a seleção de sneakers que preparei especialmente para você, com os modelos disponíveis na sua numeração.\n{url}\n\nSe desejar algum e quiser avançar com o pedido, basta seguir as etapas indicadas para finalizar a compra.\nNa sequência, volto a falar com você pelo WhatsApp! 🥰\n\nAtenção!\nQualquer um deles você pode parcelar em até 10x sem juros.\n\nJá estou curiosa para saber qual será a sua escolha!",
 ]);
 
 export const MENSAGEM_LINK_PADRAO =
-  "Aqui está o link com a seleção de sneakers que preparei especialmente para você, com os modelos disponíveis na sua numeração.\n{url}\n\nSe desejar algum e quiser avançar com o pedido, basta seguir as etapas indicadas para finalizar a compra.\nNa sequência, volto a falar com você pelo WhatsApp! 🥰\n\nAtenção!\nQualquer um deles você pode parcelar em até 10x sem juros.\n\nJá estou curiosa para saber qual será a sua escolha!";
+  "Aqui está o link com a seleção de sneakers que preparei especialmente para você, com os modelos disponíveis na sua numeração.\n{url}";
+
+export const BOAS_VINDAS_LINK_PADRAO =
+  "Já estou curiosa para saber qual será a sua escolha!\n\nSe desejar algum dos modelos dessa lista e quiser avançar com o pedido, basta seguir as etapas indicadas para finalizar a compra.\nNa sequência, volto a falar com você pelo WhatsApp! 🥰\n\nAtenção!\nQualquer um deles você pode parcelar em até 10x sem juros.\n\nSe tiver qualquer dúvida, não hesite em me chamar.\nSaiba que estou à disposição.\n\nBeijos no seu coração, que Deus lhe abençoe e boas compras!!";
 
 export function prazoDaMensagemLink(horas: number): string {
   return `${horas} horas`;

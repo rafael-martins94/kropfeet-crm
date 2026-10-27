@@ -15,7 +15,7 @@ import { linksPedidoService, type DestinoLink } from "../../services/links-pedid
 import { formatarMoeda } from "../../utils/format";
 import { mensagemErro } from "../../utils/errors";
 import { calcularValoresCompra, mensagemCotacaoIndisponivel } from "../../services/cambio-compra";
-import { destinoPorMoeda, itemTemPrecoNaMoeda, mensagemDoLink, MENSAGEM_LINK_PADRAO, normalizarMoeda, prazoDaMensagemLink, urlDoLink, type ValidadeHorasLink } from "../../utils/linkPedido";
+import { BOAS_VINDAS_LINK_PADRAO, destinoPorMoeda, itemTemPrecoNaMoeda, mensagemDoLink, MENSAGEM_LINK_PADRAO, normalizarMoeda, prazoDaMensagemLink, urlDoLink, type ValidadeHorasLink } from "../../utils/linkPedido";
 import { cn } from "../../utils/cn";
 
 const ETAPAS_BASE = [
@@ -99,7 +99,7 @@ export default function LinkPedidoFormPage() {
   const [nome, setNome] = useState("");
   const [destino, setDestino] = useState<DestinoLink>("brasil");
   const [validadeHoras, setValidadeHoras] = useState<ValidadeHorasLink>(24);
-  const [boasVindas, setBoasVindas] = useState("Separei estes pares para você. Escolha os que quiser e finalize por aqui.");
+  const [boasVindas, setBoasVindas] = useState(BOAS_VINDAS_LINK_PADRAO);
   const [mensagem, setMensagem] = useState(MENSAGEM_LINK_PADRAO);
   const [selecionados, setSelecionados] = useState<TenisDoLink[]>([]);
   const [gerando, setGerando] = useState(false);
@@ -359,7 +359,7 @@ export default function LinkPedidoFormPage() {
               value={boasVindas}
               onChange={(e) => setBoasVindas(e.target.value)}
               wrapperClassName="md:col-span-2"
-              rows={3}
+              rows={12}
             />
           </div>
           <div className="mt-5 flex justify-end">
@@ -589,7 +589,7 @@ export default function LinkPedidoFormPage() {
             value={mensagem}
             onChange={(e) => setMensagem(e.target.value)}
             wrapperClassName="mt-4"
-            rows={12}
+            rows={4}
           />
           </div>
         </SectionCard>

@@ -183,7 +183,7 @@ export default function LinkPedidoPublicoPage() {
             <section className="rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-line">
               <p className="text-sm text-ink-soft">Olá, {link.tratamento}</p>
               <h1 className="mt-1 font-display text-2xl font-semibold text-brand-700 sm:text-3xl">Seus tênis</h1>
-              {link.mensagem ? <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink">{link.mensagem}</p> : null}
+              {link.mensagem ? <p className="mt-3 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-ink">{link.mensagem}</p> : null}
               <p className="mt-3 text-xs font-medium text-ink-soft">
                 Válido até {formatarDataHora(link.validade_em)} · {link.destino === "europa" ? "Europa" : "Brasil"} · {link.moeda}
               </p>
