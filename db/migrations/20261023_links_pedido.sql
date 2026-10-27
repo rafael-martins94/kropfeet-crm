@@ -622,7 +622,8 @@ BEGIN
       'numeracao_us', ie.numeracao_us,
       'preco', li.preco,
       'moeda', li.moeda,
-      'foto', img.caminho_arquivo,
+      'foto', img.fotos->>0,
+      'fotos', coalesce(img.fotos, '[]'::jsonb),
       'origem', CASE le.tipo_regiao
         WHEN 'brasil' THEN 'Brasil'
         WHEN 'europa' THEN 'Europa'
@@ -645,12 +646,10 @@ BEGIN
     JOIN public.itens_estoque ie ON ie.id = li.id_item_estoque
     LEFT JOIN public.locais_estoque le ON le.id = ie.id_local_estoque
     LEFT JOIN LATERAL (
-      SELECT im.caminho_arquivo
+      SELECT jsonb_agg(im.caminho_arquivo ORDER BY im.imagem_principal DESC, im.ordem_exibicao, im.criado_em) AS fotos
       FROM public.imagens_modelo_produto im
       WHERE im.id_modelo_produto = ie.id_modelo_produto
         AND im.caminho_arquivo IS NOT NULL
-      ORDER BY im.imagem_principal DESC, im.ordem_exibicao, im.criado_em
-      LIMIT 1
     ) img ON true
     WHERE li.id_link = r.id
   ) AS lista;

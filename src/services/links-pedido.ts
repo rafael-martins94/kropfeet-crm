@@ -212,6 +212,7 @@ export type ItemPublico = {
   preco: number;
   moeda: string;
   foto: string | null;
+  fotos?: string[];
   origem: string;
   disponivel: boolean;
   ordem: number;
