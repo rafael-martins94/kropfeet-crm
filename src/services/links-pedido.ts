@@ -205,7 +205,6 @@ export const linksPedidoService = {
 
 export type ItemPublico = {
   id: string;
-  nome: string;
   sku: string;
   numeracao_br: number | null;
   numeracao_eu: number | null;

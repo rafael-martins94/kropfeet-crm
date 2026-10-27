@@ -186,7 +186,7 @@ export default function LinkPedidoPublicoPage() {
                           {foto ? <img src={foto} alt="" className="h-full w-full object-cover" /> : null}
                         </div>
                         <div className="space-y-2 p-4">
-                          <h2 className="text-base font-semibold">{item.nome}</h2>
+                          <h2 className="font-numeric text-base font-semibold">{item.sku}</h2>
                           <p className="text-sm text-ink-soft">{numeracaoVisivel(item)}</p>
                           <div className="flex items-center justify-between gap-3">
                             <span className="font-numeric text-lg font-semibold">{formatarMoeda(Number(item.preco), item.moeda)}</span>

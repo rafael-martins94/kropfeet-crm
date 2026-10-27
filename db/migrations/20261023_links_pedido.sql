@@ -616,7 +616,6 @@ BEGIN
   FROM (
     SELECT jsonb_build_object(
       'id', ie.id,
-      'nome', ie.nome_produto,
       'sku', ie.sku,
       'numeracao_br', ie.numeracao_br,
       'numeracao_eu', ie.numeracao_eu,

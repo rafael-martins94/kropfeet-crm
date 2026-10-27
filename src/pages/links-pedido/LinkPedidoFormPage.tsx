@@ -585,11 +585,11 @@ export default function LinkPedidoFormPage() {
           </ul>
           <FormTextarea
             label="Mensagem para copiar"
-            hint="Use {validade} para as horas escolhidas e {url} para o link."
+            hint="O trecho {url} vira o endereço do link."
             value={mensagem}
             onChange={(e) => setMensagem(e.target.value)}
             wrapperClassName="mt-4"
-            rows={4}
+            rows={12}
           />
           </div>
         </SectionCard>
@@ -618,7 +618,7 @@ export default function LinkPedidoFormPage() {
             </PrimaryButton>
           }
         >
-          <div className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-xl border border-line bg-surface-subtle px-4 py-3 text-sm leading-relaxed text-ink">
+          <div className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-xl border border-line bg-surface-subtle px-4 py-3 text-sm leading-relaxed text-ink">
             {texto}
           </div>
           <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center">
