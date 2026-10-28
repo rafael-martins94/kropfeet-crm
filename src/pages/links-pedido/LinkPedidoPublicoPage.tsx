@@ -117,7 +117,10 @@ export default function LinkPedidoPublicoPage() {
           <li key={item.id} className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-line">
             <FotosTenisCarrossel fotos={item.fotos} fotoPrincipal={item.foto} />
             <div className="space-y-2 p-4">
-              <h2 className="font-numeric text-base font-semibold">{item.sku}</h2>
+              <h2 className="font-numeric text-base font-semibold">
+                <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">COD.</span>
+                {item.sku}
+              </h2>
               <p className="text-sm text-ink-soft">{numeracaoVisivel(item) || "Sem numeração"}</p>
               <div className="flex items-center justify-between gap-3">
                 <span className="font-numeric text-lg font-semibold">{formatarMoeda(Number(item.preco), item.moeda)}</span>
@@ -221,7 +224,10 @@ export default function LinkPedidoPublicoPage() {
                           ) : null}
                         </FotosTenisCarrossel>
                         <div className="space-y-2 p-4">
-                          <h2 className="font-numeric text-base font-semibold">{item.sku}</h2>
+                          <h2 className="font-numeric text-base font-semibold">
+                            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">COD.</span>
+                            {item.sku}
+                          </h2>
                           <p className="text-sm text-ink-soft">{numeracaoVisivel(item)}</p>
                           <div className="flex items-center justify-between gap-3">
                             <span className="font-numeric text-lg font-semibold">{formatarMoeda(Number(item.preco), item.moeda)}</span>

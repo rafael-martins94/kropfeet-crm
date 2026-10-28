@@ -498,7 +498,7 @@ export default function LinkPedidoFormPage() {
                           Aplicar {formatarMoeda(convertido, moeda.moeda)}
                         </button>
                       ) : null}
-                      {sugestao != null ? (
+                      {sugestao != null && sugestao !== precoValido(item.preco) ? (
                         <button type="button" className="text-xs font-semibold text-ink-soft hover:underline" onClick={() => definirPreco(sugestao.toFixed(2))}>
                           Reaplicar {formatarMoeda(sugestao, moeda.moeda)}
                         </button>
