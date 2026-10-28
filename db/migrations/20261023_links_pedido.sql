@@ -507,6 +507,26 @@ BEGIN
   JOIN public.itens_estoque ie ON ie.id = (t.item->>'id')::uuid
   ORDER BY t.ord;
 
+  PERFORM public.atualizar_preco_venda_item(
+    ie.id,
+    round((t.item->>'preco')::numeric, 2),
+    v_moeda,
+    'link_pedido',
+    v_usuario
+  )
+  FROM jsonb_array_elements(p_itens) AS t(item)
+  JOIN public.itens_estoque ie ON ie.id = (t.item->>'id')::uuid
+  LEFT JOIN public.locais_estoque le ON le.id = ie.id_local_estoque
+  WHERE CASE upper(btrim(coalesce(public.moeda_venda_item_estoque(ie.moeda_venda, le.tipo_regiao), '')))
+      WHEN 'EUR' THEN 'EUR'
+      WHEN 'EURO' THEN 'EUR'
+      WHEN '€' THEN 'EUR'
+      WHEN 'BRL' THEN 'BRL'
+      WHEN 'R$' THEN 'BRL'
+      WHEN 'REAL' THEN 'BRL'
+    END = v_moeda
+    AND round(ie.preco_venda, 2) IS DISTINCT FROM round((t.item->>'preco')::numeric, 2);
+
   INSERT INTO public.historico_preco_destino (id_modelo_produto, moeda, preco, id_usuario)
   SELECT DISTINCT ON (ie.id_modelo_produto)
     ie.id_modelo_produto,

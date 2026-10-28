@@ -10,6 +10,7 @@ const ROTULOS_ORIGEM: Record<string, string> = {
   manual: "Manual",
   vitrine_correspondencias: "Vitrine — correspondências",
   cadastro_inicial: "Cadastro inicial",
+  link_pedido: "Link de pedido",
 };
 
 export function rotuloOrigemPreco(origem: string): string {

@@ -28,10 +28,6 @@ const ETAPAS_BASE = [
 
 type EtapaLink = (typeof ETAPAS_BASE)[number]["id"];
 
-function etapasVisiveis(mostrarPreco: boolean) {
-  return ETAPAS_BASE.filter((item) => mostrarPreco || item.id !== "preco");
-}
-
 function EtapasLink({
   etapa,
   etapas,
@@ -114,9 +110,8 @@ export default function LinkPedidoFormPage() {
     () => selecionados.map((item) => ({ item, valor: precoValido(item.preco) })),
     [selecionados],
   );
-  const precisaPreco = selecionados.some((item) => !itemTemPrecoNaMoeda(item, moeda.moeda));
-  const bloqueado = precos.some((linha) => !itemTemPrecoNaMoeda(linha.item, moeda.moeda) && linha.valor == null);
-  const etapas = etapasVisiveis(precisaPreco || etapa === "preco");
+  const bloqueado = precos.some((linha) => linha.valor == null);
+  const etapas = [...ETAPAS_BASE];
   const [historico, setHistorico] = useState<Record<string, number>>({});
   const cotacao = useAsync(async () => {
     if (etapa !== "preco") return null;
@@ -165,7 +160,7 @@ export default function LinkPedidoFormPage() {
         mensagemCompartilhar: mensagem,
         itens: precos.map((linha) => ({
           id: linha.item.id,
-          preco: linha.valor ?? (itemTemPrecoNaMoeda(linha.item, moeda.moeda) ? Number(linha.item.precoOriginal) : 0),
+          preco: linha.valor ?? 0,
         })),
       });
       setCriado({ id: resultado.id, token: resultado.token });
@@ -398,10 +393,10 @@ export default function LinkPedidoFormPage() {
                 disabled={selecionados.length === 0}
                 onClick={() => {
                   setErro(null);
-                  setEtapa(precisaPreco ? "preco" : "revisao");
+                  setEtapa("preco");
                 }}
               >
-                {precisaPreco ? "Definir preços" : "Revisar"}
+                Definir preços
               </PrimaryButton>
             }
           />
@@ -422,7 +417,7 @@ export default function LinkPedidoFormPage() {
                 : cotacao.loading
                   ? "Buscando a cotação de hoje…"
                   : mensagemCotacaoIndisponivel(new Date().toISOString().slice(0, 10))}
-              {" "}O preço original do estoque não muda.
+              {" "}Pares na moeda {moeda.moeda === "EUR" ? "euro" : "real"} atualizam o preço do estoque; os convertidos não.
             </p>
           }
         >
@@ -434,7 +429,7 @@ export default function LinkPedidoFormPage() {
               <span>Câmbio</span>
             </div>
             <ul className="divide-y divide-line">
-            {precos.filter(({ item }) => !itemTemPrecoNaMoeda(item, moeda.moeda)).map(({ item }) => {
+            {precos.map(({ item }) => {
               const sugestao = historico[item.idModelo];
               const origem = normalizarMoeda(item.moedaOriginal);
               const taxa =
@@ -469,11 +464,15 @@ export default function LinkPedidoFormPage() {
                     </p>
                   </div>
                   <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Cotação</span>
-                    <p className="font-numeric text-xl font-semibold text-ink">
-                      {cotacao.data?.eurParaBrl != null ? formatarMoeda(cotacao.data.eurParaBrl, "BRL") : "—"}
-                    </p>
-                    <p className="text-xs text-ink-soft">1 EUR</p>
+                    {origem === moeda.moeda ? null : (
+                      <>
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Cotação</span>
+                        <p className="font-numeric text-xl font-semibold text-ink">
+                          {cotacao.data?.eurParaBrl != null ? formatarMoeda(cotacao.data.eurParaBrl, "BRL") : "—"}
+                        </p>
+                        <p className="text-xs text-ink-soft">1 EUR</p>
+                      </>
+                    )}
                   </div>
                   <div>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Câmbio</span>
@@ -488,6 +487,11 @@ export default function LinkPedidoFormPage() {
                         className="w-full bg-transparent font-numeric text-2xl font-semibold text-ink outline-none"
                       />
                     </span>
+                    {origem === moeda.moeda && precoValido(item.preco) != null && precoValido(item.preco) !== Number(item.precoOriginal) ? (
+                      <p className="mt-1 text-xs font-medium text-amber-800">
+                        O preço do estoque passa a ser {formatarMoeda(precoValido(item.preco), moeda.moeda)}.
+                      </p>
+                    ) : null}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {convertido != null ? (
                         <button type="button" className="text-xs font-semibold text-brand-700 hover:underline" onClick={() => definirPreco(convertido.toFixed(2))}>
@@ -596,7 +600,7 @@ export default function LinkPedidoFormPage() {
           {bloqueado ? <p className="shrink-0 text-sm text-red-700">Há item sem preço ou com valor inválido.</p> : null}
           {erro ? <p className="shrink-0 text-sm text-red-700">{erro}</p> : null}
           <div className="flex shrink-0 justify-between gap-3">
-            <SecondaryButton type="button" onClick={() => setEtapa(precisaPreco ? "preco" : "tenis")}>Voltar</SecondaryButton>
+            <SecondaryButton type="button" onClick={() => setEtapa("preco")}>Voltar</SecondaryButton>
             <PrimaryButton type="button" loading={gerando} disabled={bloqueado} onClick={() => void gerar()}>
               Gerar link
             </PrimaryButton>
@@ -607,7 +611,7 @@ export default function LinkPedidoFormPage() {
       {etapa === "pronto" && criado ? (
         <SectionCard
           title="Mensagem para copiar"
-          description={`${instagramVisivel} · ${selecionados.length} ${selecionados.length === 1 ? "par" : "pares"} · ${formatarMoeda(total, moeda.moeda)} · ${validadeHoras} h após a abertura. O preço do estoque não mudou.`}
+          description={`${instagramVisivel} · ${selecionados.length} ${selecionados.length === 1 ? "par" : "pares"} · ${formatarMoeda(total, moeda.moeda)} · ${validadeHoras} h após a abertura.`}
           actions={
             <PrimaryButton
               type="button"
