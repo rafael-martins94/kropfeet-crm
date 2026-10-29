@@ -83,9 +83,17 @@ AS $$
   SELECT coalesce((
     SELECT jsonb_build_object(
       'encontrado', true,
+      'id_modelo', CASE WHEN public.is_admin() THEN m.id END,
       'fotos', coalesce((
         SELECT jsonb_agg(
-          coalesce(nullif(btrim(im.caminho_arquivo), ''), nullif(btrim(im.url_origem), ''))
+          CASE
+            WHEN public.is_admin() THEN jsonb_build_object(
+              'id', im.id,
+              'arquivo', coalesce(nullif(btrim(im.caminho_arquivo), ''), nullif(btrim(im.url_origem), '')),
+              'caminho', nullif(btrim(im.caminho_arquivo), '')
+            )
+            ELSE to_jsonb(coalesce(nullif(btrim(im.caminho_arquivo), ''), nullif(btrim(im.url_origem), '')))
+          END
           ORDER BY im.imagem_principal DESC, im.ordem_exibicao, im.criado_em
         )
         FROM public.imagens_modelo_produto im

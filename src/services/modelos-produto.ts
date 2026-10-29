@@ -182,14 +182,45 @@ export const modelosProdutoService = {
     return data;
   },
 
-  abrirFotosPublicas: async (token: string): Promise<{ encontrado: boolean; fotos: string[] }> => {
+  abrirFotosPublicas: async (token: string): Promise<{
+    encontrado: boolean;
+    idModelo: string | null;
+    fotos: FotoPublicaModelo[];
+  }> => {
     const { data, error } = await supabase.rpc("modelo_fotos_publico", { p_token: token });
     if (error) throw error;
-    const json = (data ?? {}) as { encontrado?: boolean; fotos?: unknown };
-    const fotos = Array.isArray(json.fotos) ? json.fotos.filter((foto): foto is string => typeof foto === "string") : [];
-    return { encontrado: Boolean(json.encontrado), fotos };
+    const json = (data ?? {}) as { encontrado?: boolean; id_modelo?: unknown; fotos?: unknown };
+    const fotos = Array.isArray(json.fotos) ? json.fotos.flatMap((foto) => {
+      const lida = lerFotoPublica(foto);
+      return lida ? [lida] : [];
+    }) : [];
+    return {
+      encontrado: Boolean(json.encontrado),
+      idModelo: typeof json.id_modelo === "string" ? json.id_modelo : null,
+      fotos,
+    };
   },
 };
+
+export type FotoPublicaModelo = {
+  id: string | null;
+  arquivo: string;
+  caminho: string | null;
+};
+
+function lerFotoPublica(valor: unknown): FotoPublicaModelo | null {
+  if (typeof valor === "string" && valor.trim()) {
+    return { id: null, arquivo: valor, caminho: null };
+  }
+  if (!valor || typeof valor !== "object") return null;
+  const item = valor as { id?: unknown; arquivo?: unknown; caminho?: unknown };
+  if (typeof item.arquivo !== "string" || !item.arquivo.trim()) return null;
+  return {
+    id: typeof item.id === "string" ? item.id : null,
+    arquivo: item.arquivo,
+    caminho: typeof item.caminho === "string" ? item.caminho : null,
+  };
+}
 
 export function urlFotosModelo(token: string): string {
   return `${DOMINIO_PUBLICO_LINK}/fotos/${token}`;
