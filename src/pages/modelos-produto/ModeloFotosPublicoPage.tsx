@@ -49,6 +49,7 @@ export default function ModeloFotosPublicoPage() {
   const [lista, setLista] = useState<FotoVisivel[]>([]);
   const [aberta, setAberta] = useState<number | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [ordenando, setOrdenando] = useState(false);
   const arrastou = useRef(false);
 
   useEffect(() => {
@@ -169,7 +170,21 @@ export default function ModeloFotosPublicoPage() {
           lista.length > 0 ? (
             <>
               {podeGerir ? (
-                <p className="mb-4 text-sm text-ink-soft">Arraste as fotos para mudar a ordem. A primeira é a principal.</p>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <p className="text-sm text-ink-soft">
+                    {ordenando ? "Arraste as fotos. A primeira é a principal." : "A primeira foto é a principal."}
+                  </p>
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded-full px-4 py-2 text-sm font-semibold",
+                      ordenando ? "bg-brand-700 text-white" : "bg-surface text-ink ring-1 ring-line",
+                    )}
+                    onClick={() => setOrdenando((atual) => !atual)}
+                  >
+                    {ordenando ? "Concluir" : "Ordenar"}
+                  </button>
+                </div>
               ) : null}
               {podeGerir ? (
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={aoSoltar}>
@@ -181,6 +196,7 @@ export default function ModeloFotosPublicoPage() {
                           foto={foto}
                           indice={indice}
                           ocupado={ocupado}
+                          ordenando={ordenando}
                           onAbrir={() => abrir(indice)}
                           onExcluir={() => void excluir(indice)}
                         />
@@ -222,18 +238,21 @@ function FotoArrastavel({
   foto,
   indice,
   ocupado,
+  ordenando,
   onAbrir,
   onExcluir,
 }: {
   foto: FotoVisivel;
   indice: number;
   ocupado: boolean;
+  ordenando: boolean;
   onAbrir: () => void;
   onExcluir: () => void;
 }) {
+  const arrastar = ordenando && !ocupado;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: foto.chave,
-    disabled: ocupado,
+    disabled: !arrastar,
   });
 
   return (
@@ -247,10 +266,10 @@ function FotoArrastavel({
       }}
       className={cn(
         "relative overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-line",
-        !ocupado && "cursor-grab touch-none active:cursor-grabbing",
+        arrastar && "cursor-grab touch-none active:cursor-grabbing",
       )}
-      {...attributes}
-      {...listeners}
+      {...(arrastar ? attributes : {})}
+      {...(arrastar ? listeners : {})}
     >
       <button type="button" className="block w-full" aria-label={`Abrir foto ${indice + 1}`} onClick={onAbrir}>
         <img src={foto.url} alt="" draggable={false} className="pointer-events-none aspect-square w-full bg-surface-subtle object-contain" />
