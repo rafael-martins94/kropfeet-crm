@@ -13,7 +13,7 @@ import { RowActionsDotsMenu } from "../../components/RowActionsDotsMenu";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusItemFilterDropdown } from "../../components/StatusItemFilterDropdown";
-import { IconArrowUpRight, IconArrows, IconEdit, IconEye, IconEyeOff, IconPlus, IconTrash } from "../../components/Icons";
+import { IconArrowUpRight, IconArrows, IconEdit, IconEye, IconEyeOff, IconImage, IconPlus, IconTrash } from "../../components/Icons";
 import { MovimentacoesStatusModal } from "../../components/itens-estoque/MovimentacoesStatusModal";
 import {
   itensEstoqueService,
@@ -21,7 +21,7 @@ import {
   type ColunaOrdemItemEstoque,
   type ItemEstoqueDetalhado,
 } from "../../services/itens-estoque";
-import { modelosProdutoService } from "../../services/modelos-produto";
+import { modelosProdutoService, urlFotosModelo } from "../../services/modelos-produto";
 import { useAsync } from "../../hooks/useAsync";
 import { useItensEstoqueFiltros } from "../../hooks/useItensEstoqueFiltros";
 import { useListDetailNavigation } from "../../hooks/useListDetailNavigation";
@@ -567,6 +567,22 @@ export default function ItensEstoqueListPage() {
                 label: "Editar",
                 icon: <IconEdit width={16} height={16} />,
                 onClick: () => navigate(editar.to, editar.options),
+              },
+              {
+                key: "fotos",
+                label: "Link Fotos",
+                icon: <IconImage width={16} height={16} />,
+                onClick: () => {
+                  if (!it.id_modelo_produto) {
+                    toast.erro("Este item não tem modelo.");
+                    return;
+                  }
+                  void modelosProdutoService
+                    .garantirLinkFotos(it.id_modelo_produto)
+                    .then((token) => navigator.clipboard.writeText(urlFotosModelo(token)))
+                    .then(() => toast.sucesso("Link das fotos copiado."))
+                    .catch((erro) => toast.erro(mensagemErro(erro)));
+                },
               },
             ]}
           />
