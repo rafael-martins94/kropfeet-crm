@@ -151,15 +151,20 @@ export default function ModeloFotosPublicoPage() {
   const carregando = auth.loading || pagina.loading;
 
   return (
-    <main className="min-h-screen bg-surface-muted text-ink">
+    <main className="flex min-h-screen flex-col bg-surface-muted text-ink">
       <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+        <div className="mx-auto grid h-16 max-w-5xl grid-cols-[1fr_auto_1fr] items-center px-4">
+          <span />
           <BrandLogo size="md" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Fotos</span>
+          <span className="justify-self-end text-xs font-semibold uppercase tracking-wide text-ink-soft">Fotos</span>
         </div>
       </header>
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        {carregando ? <InlineLoader label="Abrindo as fotos…" /> : null}
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6">
+        {carregando ? (
+          <div className="flex flex-1 items-center justify-center">
+            <InlineLoader label="Abrindo as fotos…" />
+          </div>
+        ) : null}
         {!carregando && pagina.error ? (
           <p className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{pagina.error.message}</p>
         ) : null}
