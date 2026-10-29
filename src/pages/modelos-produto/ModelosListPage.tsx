@@ -9,8 +9,10 @@ import { SearchableSelectDropdown } from "../../components/SearchableSelectDropd
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import { IconEdit, IconEye, IconPlus } from "../../components/Icons";
-import { modelosProdutoService, type ModeloProdutoDetalhado } from "../../services/modelos-produto";
+import { IconEdit, IconEye, IconImage, IconPlus } from "../../components/Icons";
+import { useToast } from "../../contexts/ToastContext";
+import { modelosProdutoService, urlFotosModelo, type ModeloProdutoDetalhado } from "../../services/modelos-produto";
+import { mensagemErro } from "../../utils/errors";
 import { useAsync } from "../../hooks/useAsync";
 import { useListDetailNavigation } from "../../hooks/useListDetailNavigation";
 import { useModelosProdutoFiltros } from "../../hooks/useModelosProdutoFiltros";
@@ -19,6 +21,7 @@ import { cn } from "../../utils/cn";
 
 export default function ModelosListPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const filtros = useModelosProdutoFiltros();
   const { toDetail } = useListDetailNavigation();
   const linkModelo = (path: string) => toDetail(path);
@@ -118,13 +121,28 @@ export default function ModelosListPage() {
     {
       key: "acoes",
       header: <span className="sr-only">Ações</span>,
-      width: "96px",
+      width: "132px",
       className: "text-right",
       render: (m) => {
         const detalhe = linkModelo(`/modelos-produto/${m.id}`);
         const editar = linkModelo(`/modelos-produto/${m.id}/editar`);
         return (
         <div className="flex justify-end gap-1">
+          <button
+            type="button"
+            className="btn-ghost h-8 w-8 p-0"
+            title="Copiar link das fotos"
+            onClick={(evento) => {
+              evento.stopPropagation();
+              void modelosProdutoService
+                .garantirLinkFotos(m.id)
+                .then((token) => navigator.clipboard.writeText(urlFotosModelo(token)))
+                .then(() => toast.sucesso("Link das fotos copiado."))
+                .catch((erro) => toast.erro(mensagemErro(erro)));
+            }}
+          >
+            <IconImage width={16} height={16} />
+          </button>
           <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(detalhe.to, detalhe.options)}><IconEye width={16} height={16} /></button>
           <button className="btn-ghost h-8 w-8 p-0" onClick={() => navigate(editar.to, editar.options)}><IconEdit width={16} height={16} /></button>
         </div>

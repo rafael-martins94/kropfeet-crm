@@ -30,6 +30,7 @@ import LocalEstoqueDetailPage from "./pages/locais-estoque/LocalEstoqueDetailPag
 import ModelosListPage from "./pages/modelos-produto/ModelosListPage";
 import ModeloFormPage from "./pages/modelos-produto/ModeloFormPage";
 import ModeloDetailPage from "./pages/modelos-produto/ModeloDetailPage";
+import ModeloFotosPublicoPage from "./pages/modelos-produto/ModeloFotosPublicoPage";
 
 import ConferenciasListPage from "./pages/conferencia-estoque/ConferenciasListPage";
 import ConferenciaEstoquePage from "./pages/conferencia-estoque/ConferenciaEstoquePage";
@@ -98,6 +99,7 @@ export default function App() {
       <ToastProvider>
       <Routes>
         <Route path="/p/:token" element={<LinkPedidoPublicoPage />} />
+        <Route path="/fotos/:token" element={<ModeloFotosPublicoPage />} />
         <Route path="/catalogo-kropcafe/entrar" element={<CatalogoLoginPage />} />
         <Route element={<CatalogoRoute />}>
           <Route path="/catalogo-kropcafe" element={<CatalogoKropCafePage />} />

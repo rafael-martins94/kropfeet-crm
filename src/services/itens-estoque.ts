@@ -12,7 +12,7 @@ import {
   type DisplaySizeSystem,
 } from "../utils/sizeConversion";
 import { compareNatural } from "../utils/naturalSort";
-import { padraoIlikePostgrest } from "../utils/postgrestFilter";
+import { padraoIlikePostgrest, valorFiltroPostgrest } from "../utils/postgrestFilter";
 import { atualizar, deletar, inserir, obterPorId } from "./base";
 import { conferenciasEstoqueService, type SituacaoConferenciaFiltro } from "./conferencias-estoque";
 
@@ -193,6 +193,19 @@ function compararTextoOrdenacao(
   if (!textoB) return -1;
   const cmp = textoA.localeCompare(textoB, "pt-BR", { numeric: true, sensitivity: "base" });
   return ascendente ? cmp : -cmp;
+}
+
+function colocarBuscaExataPrimeiro<T extends { sku: string; nome_produto?: string | null }>(
+  itens: T[],
+  termo: string,
+): T[] {
+  const busca = termo.trim().toLocaleLowerCase();
+  const peso = (item: T) => {
+    if (item.sku.trim().toLocaleLowerCase() === busca) return 0;
+    if ((item.nome_produto ?? "").trim().toLocaleLowerCase() === busca) return 1;
+    return 2;
+  };
+  return [...itens].sort((a, b) => peso(a) - peso(b));
 }
 
 function ordenarPorLocalNome<T extends { id: string; id_modelo_produto: string; local?: { nome?: string | null } | null }>(
@@ -456,6 +469,7 @@ export const itensEstoqueService = {
     const page = params?.page ?? 1;
     const pageSize = params?.pageSize ?? 20;
     const termo = params?.search?.trim();
+    const termoLimpo = termo?.replace(/%/g, "").replace(/,/g, " ").trim() ?? "";
 
     const coluna = params?.ordenacao?.coluna ?? "atualizado_em";
     const ascendente = params?.ordenacao?.ascendente ?? false;
@@ -471,6 +485,7 @@ export const itensEstoqueService = {
     const idConferencia = params?.idConferencia;
     const ordenarSkuEmMemoria = coluna === "sku";
     const ordenarLocalEmMemoria = coluna === "local_nome";
+    const priorizarExato = Boolean(termoLimpo) && coluna === "atualizado_em";
     const processarEmMemoria = Boolean(filtroNumeracao) || ordenarSkuEmMemoria || ordenarLocalEmMemoria;
 
     const idsConferidosNaSessao =
@@ -491,7 +506,7 @@ export const itensEstoqueService = {
         ? "conferencias_estoque!inner(id, id_conferencia)"
         : null;
 
-    const buildQuery = () => {
+    const buildQuery = (modoBusca: "contem" | "exato" | "parcial" = "contem") => {
       const relacoes = [
         "*",
         modeloEmbed,
@@ -559,11 +574,18 @@ export const itensEstoqueService = {
         query = query.not("id", "in", `(${idsConferidosNaSessao.join(",")})`);
       }
 
-      if (termo) {
-        const padrao = padraoIlikePostgrest(termo);
-        query = query.or(
-          `sku.ilike.${padrao},nome_produto.ilike.${padrao}`,
-        );
+      if (termoLimpo) {
+        const padrao = padraoIlikePostgrest(termoLimpo);
+        const exato = valorFiltroPostgrest(termoLimpo);
+        if (modoBusca === "exato") {
+          query = query.or(`sku.ilike.${exato},nome_produto.ilike.${exato}`);
+        } else if (modoBusca === "parcial") {
+          query = query.or(`sku.ilike.${padrao},nome_produto.ilike.${padrao}`);
+          query = query.not("sku", "ilike", termoLimpo);
+          query = query.or(`nome_produto.is.null,nome_produto.not.ilike.${exato}`);
+        } else {
+          query = query.or(`sku.ilike.${padrao},nome_produto.ilike.${padrao}`);
+        }
       }
 
       /** Desempate estável entre páginas */
@@ -631,12 +653,52 @@ export const itensEstoqueService = {
         filtrados = ordenarPorLocalNome(filtrados, ascendente);
       }
 
+      if (priorizarExato) {
+        filtrados = colocarBuscaExataPrimeiro(filtrados, termoLimpo);
+      }
+
       return {
         data: filtrados.slice(from, to + 1),
         total: filtrados.length,
         page,
         pageSize,
       };
+    }
+
+    if (priorizarExato) {
+      const [contagemExata, contagemParcial] = await Promise.all([
+        buildQuery("exato").range(0, 0),
+        buildQuery("parcial").range(0, 0),
+      ]);
+      if (contagemExata.error) throw contagemExata.error;
+      if (contagemParcial.error) throw contagemParcial.error;
+
+      const totalExatos = contagemExata.count ?? 0;
+      const total = totalExatos + (contagemParcial.count ?? 0);
+      let linhas: ItemEstoqueDetalhado[] = [];
+
+      if (to < totalExatos) {
+        const exatos = await buildQuery("exato").range(from, to);
+        if (exatos.error) throw exatos.error;
+        linhas = (exatos.data ?? []) as unknown as ItemEstoqueDetalhado[];
+      } else if (from >= totalExatos) {
+        const parciais = await buildQuery("parcial").range(from - totalExatos, to - totalExatos);
+        if (parciais.error) throw parciais.error;
+        linhas = (parciais.data ?? []) as unknown as ItemEstoqueDetalhado[];
+      } else {
+        const [exatos, parciais] = await Promise.all([
+          buildQuery("exato").range(from, Math.max(from, totalExatos - 1)),
+          buildQuery("parcial").range(0, to - totalExatos),
+        ]);
+        if (exatos.error) throw exatos.error;
+        if (parciais.error) throw parciais.error;
+        linhas = [
+          ...((exatos.data ?? []) as unknown as ItemEstoqueDetalhado[]),
+          ...((parciais.data ?? []) as unknown as ItemEstoqueDetalhado[]),
+        ];
+      }
+
+      return { data: linhas, total, page, pageSize };
     }
 
     const { data, error, count } = await buildQuery().range(from, to);
@@ -1001,32 +1063,63 @@ export const itensEstoqueService = {
       if (idsLocaisRegiao.length === 0) return [];
     }
 
-    let query = supabase
-      .from("itens_estoque")
-      .select(
-        "id, sku, nome_produto, preco_venda, moeda_venda, numeracao_br, status_item, local:locais_estoque(id, tipo_regiao)",
-      )
-      .eq("status_item", "em_estoque")
-      .order("atualizado_em", { ascending: false })
-      .limit(limite);
+    const montarBase = () => {
+      let query = supabase
+        .from("itens_estoque")
+        .select(
+          "id, sku, nome_produto, preco_venda, moeda_venda, numeracao_br, status_item, local:locais_estoque(id, tipo_regiao)",
+        )
+        .eq("status_item", "em_estoque");
 
-    if (idsLocaisRegiao) {
-      query = query.in("id_local_estoque", idsLocaisRegiao);
+      if (idsLocaisRegiao) {
+        query = query.in("id_local_estoque", idsLocaisRegiao);
+      }
+
+      if (idsExcluidos.length > 0) {
+        query = query.not("id", "in", `(${idsExcluidos.join(",")})`);
+      }
+
+      return query;
+    };
+
+    const termoLimpo = termo.replace(/%/g, "").replace(/,/g, " ").trim();
+    let linhas: Array<{
+      id: string;
+      sku: string;
+      nome_produto: string;
+      preco_venda: number | null;
+      moeda_venda: string | null;
+      numeracao_br: number | null;
+      status_item: StatusItem;
+    }> = [];
+
+    if (termoLimpo) {
+      const padrao = padraoIlikePostgrest(termoLimpo);
+      const exato = valorFiltroPostgrest(termoLimpo);
+      const [exatosRes, parciaisRes] = await Promise.all([
+        montarBase()
+          .or(`sku.ilike.${exato},nome_produto.ilike.${exato}`)
+          .order("atualizado_em", { ascending: false })
+          .limit(limite),
+        montarBase()
+          .or(`sku.ilike.${padrao},nome_produto.ilike.${padrao}`)
+          .not("sku", "ilike", termoLimpo)
+          .or(`nome_produto.is.null,nome_produto.not.ilike.${exato}`)
+          .order("atualizado_em", { ascending: false })
+          .limit(limite),
+      ]);
+      if (exatosRes.error) throw exatosRes.error;
+      if (parciaisRes.error) throw parciaisRes.error;
+      const exatos = colocarBuscaExataPrimeiro(exatosRes.data ?? [], termoLimpo);
+      const idsExatos = new Set(exatos.map((item) => item.id));
+      linhas = [...exatos, ...(parciaisRes.data ?? []).filter((item) => !idsExatos.has(item.id))].slice(0, limite);
+    } else {
+      const { data, error } = await montarBase().order("atualizado_em", { ascending: false }).limit(limite);
+      if (error) throw error;
+      linhas = data ?? [];
     }
 
-    if (idsExcluidos.length > 0) {
-      query = query.not("id", "in", `(${idsExcluidos.join(",")})`);
-    }
-
-    if (termo) {
-      const padrao = padraoIlikePostgrest(termo);
-      query = query.or(`sku.ilike.${padrao},nome_produto.ilike.${padrao}`);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return (data ?? []).map((row) => ({
+    return linhas.map((row) => ({
       id: row.id,
       sku: row.sku,
       nome_produto: row.nome_produto,

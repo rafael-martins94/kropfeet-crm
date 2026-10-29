@@ -955,6 +955,7 @@ export type Database = {
           nome_modelo: string
           origem_cadastro: Database["public"]["Enums"]["origem_cadastro_enum"]
           slug: string
+          token_fotos: string | null
         }
         Insert: {
           ativo?: boolean
@@ -971,6 +972,7 @@ export type Database = {
           nome_modelo: string
           origem_cadastro?: Database["public"]["Enums"]["origem_cadastro_enum"]
           slug: string
+          token_fotos?: string | null
         }
         Update: {
           ativo?: boolean
@@ -987,6 +989,7 @@ export type Database = {
           nome_modelo?: string
           origem_cadastro?: Database["public"]["Enums"]["origem_cadastro_enum"]
           slug?: string
+          token_fotos?: string | null
         }
         Relationships: []
       }
@@ -1851,6 +1854,8 @@ export type Database = {
       link_pedido_desativar: { Args: { p_id: string }; Returns: undefined }
       link_pedido_reativar: { Args: { p_id: string }; Returns: undefined }
       link_pedido_publico: { Args: { p_token: string }; Returns: Json }
+      modelo_fotos_garantir_link: { Args: { p_id: string }; Returns: string }
+      modelo_fotos_publico: { Args: { p_token: string }; Returns: Json }
       link_pedido_status_checkout: {
         Args: { p_token: string; p_id_checkout: string }
         Returns: Json

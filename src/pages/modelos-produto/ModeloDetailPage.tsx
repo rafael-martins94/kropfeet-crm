@@ -9,7 +9,10 @@ import { SearchInput } from "../../components/SearchInput";
 import { ScrollableListShell } from "../../components/ScrollableListShell";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import { IconEdit, IconEye, IconImage, IconTrash } from "../../components/Icons";
+import { IconEdit, IconEye, IconImage, IconLink, IconTrash } from "../../components/Icons";
+import { useToast } from "../../contexts/ToastContext";
+import { mensagemErro } from "../../utils/errors";
+import { urlFotosModelo } from "../../services/modelos-produto";
 import { EmptyState } from "../../components/EmptyState";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { marcasService } from "../../services/marcas";
@@ -27,6 +30,8 @@ export default function ModeloDetailPage() {
   const returnToLista = useListReturnTo("/modelos-produto");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [copiandoLink, setCopiandoLink] = useState(false);
+  const toast = useToast();
   const searchDebounced = useDebounce(search, 300);
 
   const modelo = useAsync(
@@ -125,6 +130,20 @@ export default function ModeloDetailPage() {
     },
   ];
 
+  const copiarLinkFotos = async () => {
+    if (!id || copiandoLink) return;
+    setCopiandoLink(true);
+    try {
+      const token = await modelosProdutoService.garantirLinkFotos(id);
+      await navigator.clipboard.writeText(urlFotosModelo(token));
+      toast.sucesso("Link das fotos copiado.");
+    } catch (erro) {
+      toast.erro(mensagemErro(erro));
+    } finally {
+      setCopiandoLink(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!id || !modelo.data) return;
     if (!window.confirm(`Excluir modelo "${modelo.data.nome_modelo}"?`)) return;
@@ -149,6 +168,13 @@ export default function ModeloDetailPage() {
         actions={
           modelo.data ? (
             <>
+              <SecondaryButton
+                icon={<IconLink width={16} height={16} />}
+                disabled={copiandoLink}
+                onClick={() => void copiarLinkFotos()}
+              >
+                {copiandoLink ? "Copiando…" : "Link das fotos"}
+              </SecondaryButton>
               <SecondaryButton
                 icon={<IconEdit width={16} height={16} />}
                 onClick={() =>

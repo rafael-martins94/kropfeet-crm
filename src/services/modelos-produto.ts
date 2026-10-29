@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { urlImagemModelo } from "../utils/imagemModelo";
+import { DOMINIO_PUBLICO_LINK } from "../utils/linkPedido";
 import { padraoIlikePostgrest } from "../utils/postgrestFilter";
 import type {
   ImagemModeloProduto,
@@ -173,4 +174,23 @@ export const modelosProdutoService = {
     }
     return map;
   },
+
+  garantirLinkFotos: async (id: string): Promise<string> => {
+    const { data, error } = await supabase.rpc("modelo_fotos_garantir_link", { p_id: id });
+    if (error) throw error;
+    if (!data) throw new Error("Não foi possível gerar o link das fotos.");
+    return data;
+  },
+
+  abrirFotosPublicas: async (token: string): Promise<{ encontrado: boolean; fotos: string[] }> => {
+    const { data, error } = await supabase.rpc("modelo_fotos_publico", { p_token: token });
+    if (error) throw error;
+    const json = (data ?? {}) as { encontrado?: boolean; fotos?: unknown };
+    const fotos = Array.isArray(json.fotos) ? json.fotos.filter((foto): foto is string => typeof foto === "string") : [];
+    return { encontrado: Boolean(json.encontrado), fotos };
+  },
 };
+
+export function urlFotosModelo(token: string): string {
+  return `${DOMINIO_PUBLICO_LINK}/fotos/${token}`;
+}

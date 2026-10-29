@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FieldWrapper } from "../FormField";
 import { IconPlus, IconSearch, IconTrash } from "../Icons";
 import { itensEstoqueService } from "../../services/itens-estoque";
 import { useDebounce } from "../../hooks/useDebounce";
+import { usePopoverAnchorRect } from "../../hooks/usePopoverAnchorRect";
 import { formatarMoeda } from "../../utils/format";
 import type { TipoRegiao } from "../../types/entities";
 
@@ -47,8 +49,10 @@ export function totalItensVenda(itens: ItemVendaFormLinha[]): number {
 export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaEditorProps) {
   const listId = useId();
   const painelRef = useRef<HTMLDivElement | null>(null);
+  const listaRef = useRef<HTMLDivElement | null>(null);
   const [busca, setBusca] = useState("");
   const [aberto, setAberto] = useState(false);
+  const posicaoLista = usePopoverAnchorRect(painelRef, aberto);
   const [buscando, setBuscando] = useState(false);
   const [resultados, setResultados] = useState<ResultadoBusca[]>([]);
   const buscaDebounced = useDebounce(busca, 300);
@@ -87,7 +91,9 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
   useEffect(() => {
     if (!aberto) return;
     const onDoc = (e: MouseEvent) => {
-      if (!painelRef.current?.contains(e.target as Node)) setAberto(false);
+      const alvo = e.target as Node;
+      if (painelRef.current?.contains(alvo) || listaRef.current?.contains(alvo)) return;
+      setAberto(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -155,8 +161,19 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
           </div>
         </FieldWrapper>
 
-        {aberto ? (
-          <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-line bg-surface shadow-elevated">
+        {aberto
+          ? createPortal(
+          <div
+            ref={listaRef}
+            style={{
+              position: "fixed",
+              top: posicaoLista.top,
+              left: posicaoLista.left,
+              width: posicaoLista.width,
+              zIndex: 10000,
+            }}
+            className="max-h-80 overflow-y-auto rounded-xl border border-line bg-surface shadow-elevated"
+          >
             {buscando ? (
               <p className="px-3 py-3 text-sm text-ink-soft">Buscando…</p>
             ) : resultados.length === 0 ? (
@@ -198,8 +215,10 @@ export function ItensVendaEditor({ value, onChange, regiao, moeda }: ItensVendaE
                 ))}
               </ul>
             )}
-          </div>
-        ) : null}
+          </div>,
+          document.body,
+        )
+          : null}
       </div>
 
       {value.length === 0 ? (
