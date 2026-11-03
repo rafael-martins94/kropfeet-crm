@@ -20,6 +20,7 @@ import {
   type ImagemDetalhada,
 } from "../../services/imagens";
 import { Modal } from "../../components/Modal";
+import { IconArrowUpRight } from "../../components/Icons";
 import { StatusBadge } from "../../components/StatusBadge";
 import { SecondaryButton } from "../../components/PrimaryButton";
 import { formatarPrecoVendaItem } from "../../utils/moedaItemEstoque";
@@ -419,10 +420,13 @@ export default function ImagensListPage() {
             {detalhes ? (
               <Link
                 to={`/modelos-produto/${detalhes.idModelo}`}
-                state={stateComOrigem()}
-                className="mr-auto text-sm font-semibold text-brand-700 hover:text-brand-800 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Abre o modelo em uma nova aba"
+                className="mr-auto inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:text-brand-800 hover:underline"
               >
                 Ver modelo
+                <IconArrowUpRight width={13} height={13} aria-hidden />
               </Link>
             ) : null}
             <SecondaryButton type="button" onClick={() => setDetalhes(null)}>
