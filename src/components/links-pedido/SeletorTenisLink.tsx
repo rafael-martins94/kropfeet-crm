@@ -109,6 +109,7 @@ export function SeletorTenisLink({
           regiaoEstoque={filtros.regiaoEstoque}
           onRegiaoEstoqueChange={filtros.setRegiaoEstoque}
           variant="link"
+          recolherNoCelular
           categoriaIds={filtros.categoriaIds}
           onCategoriaIdsChange={filtros.setCategoriaIds}
           displaySizeSystem={padrao}
@@ -133,7 +134,7 @@ export function SeletorTenisLink({
         ) : (lista.data?.data.length ?? 0) === 0 ? (
           <EmptyState title="Nenhum tênis em estoque" description="Ajuste a categoria, a numeração, a região ou o nome." />
         ) : (
-          <ul className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3 ">
+          <ul className="grid grid-cols-1 gap-2.5 p-3 sm:grid-cols-2 sm:gap-3 sm:p-4 xl:grid-cols-3">
             {lista.data?.data.map((item) => {
               const ativo = ids.has(item.id);
               const foto = thumbs.data?.[item.id_modelo_produto] ?? null;

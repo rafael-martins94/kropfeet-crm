@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAsync } from "../../hooks/useAsync";
 import { useNavigate } from "react-router-dom";
 import { FormInput, FormTextarea } from "../../components/FormField";
@@ -39,7 +39,7 @@ function EtapasLink({
 }) {
   const atual = etapas.findIndex((item) => item.id === etapa);
   return (
-    <ol className="flex flex-wrap items-center justify-end gap-1.5" aria-label="Etapas do link">
+    <ol className="hidden flex-wrap items-center justify-end gap-1.5 lg:flex" aria-label="Etapas do link">
       {etapas.map((item, indice) => {
         const concluida = indice < atual;
         const corrente = indice === atual;
@@ -66,6 +66,47 @@ function EtapasLink({
         );
       })}
     </ol>
+  );
+}
+
+/** No celular: "Etapa 2 de 5 · Tênis" com barra de progresso no lugar dos chips. */
+function EtapasLinkCompacto({
+  etapa,
+  etapas,
+}: {
+  etapa: EtapaLink;
+  etapas: Array<(typeof ETAPAS_BASE)[number]>;
+}) {
+  const atual = etapas.findIndex((item) => item.id === etapa);
+  return (
+    <div className="lg:hidden">
+      <p className="text-xs font-semibold text-ink-muted">
+        Etapa {atual + 1} de {etapas.length} · <span className="text-ink">{etapas[atual]?.label}</span>
+      </p>
+      <div className="mt-1.5 flex gap-1" aria-hidden>
+        {etapas.map((item, indice) => (
+          <span
+            key={item.id}
+            className={cn("h-1 flex-1 rounded-full", indice <= atual ? "bg-brand-600" : "bg-line")}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Ações da etapa. No celular ficam presas no rodapé para não sumirem na rolagem. */
+function BarraAcoesEtapa({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={cn(
+        "sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-2 rounded-xl border border-line bg-surface/95 p-2.5 shadow-lg backdrop-blur",
+        "lg:static lg:z-auto lg:gap-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none",
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -208,7 +249,7 @@ export default function LinkPedidoFormPage() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto max-lg:[&>*]:shrink-0 max-lg:[&>*]:basis-auto">
       <PageHeader
         title={etapa === "pronto" ? "Link pronto" : "Criar novo link"}
         titleAccessory={
@@ -223,7 +264,7 @@ export default function LinkPedidoFormPage() {
           <div className="flex flex-wrap items-center justify-end gap-3">
             <EtapasLink etapa={etapa} etapas={etapas} onVoltar={setEtapa} />
             {etapa === "tenis" ? (
-              <SecondaryButton type="button" disabled={selecionados.length === 0} onClick={() => setVerSelecionados(true)} className="whitespace-nowrap">
+              <SecondaryButton type="button" disabled={selecionados.length === 0} onClick={() => setVerSelecionados(true)} className="hidden whitespace-nowrap lg:inline-flex">
                 Ver selecionados
                 <span
                   className={cn(
@@ -238,6 +279,8 @@ export default function LinkPedidoFormPage() {
           </div>
         }
       />
+
+      <EtapasLinkCompacto etapa={etapa} etapas={etapas} />
 
       <Modal
         open={verSelecionados}
@@ -254,7 +297,7 @@ export default function LinkPedidoFormPage() {
         {selecionados.length === 0 ? (
           <p className="text-sm text-ink-soft">Escolha os pares na lista para vê-los aqui.</p>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             {selecionados.map((item) => {
               const preco = precoValido(item.preco);
               return (
@@ -301,7 +344,16 @@ export default function LinkPedidoFormPage() {
       {etapa === "dados" ? (
         <SectionCard title="Para quem é o link">
           <div className="grid gap-4 md:grid-cols-2">
-            <FormInput label="Instagram" required value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@cliente" />
+            <FormInput
+              label="Instagram"
+              required
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+              placeholder="@cliente"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
             <FormInput label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Opcional" />
             <div className="space-y-1">
               <span className="label-base">Destino</span>
@@ -321,11 +373,19 @@ export default function LinkPedidoFormPage() {
                       );
                     }}
                     className={cn(
-                      "min-h-10 flex-1 rounded-lg border px-3 text-sm font-semibold",
+                      "flex min-h-12 flex-1 flex-col items-center justify-center rounded-lg border px-3 py-1.5 text-sm font-semibold leading-tight",
                       destino === opcao ? "border-brand-600 bg-brand-600 text-white" : "border-line bg-surface text-ink",
                     )}
                   >
-                    {opcao === "brasil" ? "Brasil · BRL · SumUp Brasil" : "Europa · EUR · SumUp Portugal"}
+                    <span>{opcao === "brasil" ? "Brasil · BRL" : "Europa · EUR"}</span>
+                    <span
+                      className={cn(
+                        "text-[11px] font-medium",
+                        destino === opcao ? "text-white/80" : "text-ink-soft",
+                      )}
+                    >
+                      {opcao === "brasil" ? "SumUp Brasil" : "SumUp Portugal"}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -357,23 +417,27 @@ export default function LinkPedidoFormPage() {
               rows={12}
             />
           </div>
-          <div className="mt-5 flex justify-end">
-            <PrimaryButton
-              type="button"
-              onClick={() => {
-                if (!instagram.trim()) {
-                  setErro("Informe o @ do Instagram.");
-                  return;
-                }
-                setErro(null);
-                setEtapa("tenis");
-              }}
-            >
-              Escolher tênis
-            </PrimaryButton>
-          </div>
           {erro ? <p className="mt-3 text-sm text-red-700">{erro}</p> : null}
         </SectionCard>
+      ) : null}
+
+      {etapa === "dados" ? (
+        <BarraAcoesEtapa className="justify-end">
+          <PrimaryButton
+            type="button"
+            className="flex-1 lg:flex-none"
+            onClick={() => {
+              if (!instagram.trim()) {
+                setErro("Informe o @ do Instagram.");
+                return;
+              }
+              setErro(null);
+              setEtapa("tenis");
+            }}
+          >
+            Escolher tênis
+          </PrimaryButton>
+        </BarraAcoesEtapa>
       ) : null}
 
       {etapa === "tenis" ? (
@@ -383,13 +447,14 @@ export default function LinkPedidoFormPage() {
             selecionados={selecionados}
             onChange={setSelecionados}
             acaoVoltar={
-              <SecondaryButton type="button" onClick={() => setEtapa("dados")}>
+              <SecondaryButton type="button" className="hidden lg:inline-flex" onClick={() => setEtapa("dados")}>
                 Voltar
               </SecondaryButton>
             }
             acaoAvancar={
               <PrimaryButton
                 type="button"
+                className="hidden lg:inline-flex"
                 disabled={selecionados.length === 0}
                 onClick={() => {
                   setErro(null);
@@ -404,6 +469,41 @@ export default function LinkPedidoFormPage() {
         </div>
       ) : null}
 
+      {etapa === "tenis" ? (
+        <BarraAcoesEtapa className="lg:hidden">
+          <SecondaryButton type="button" className="px-3" onClick={() => setEtapa("dados")}>
+            Voltar
+          </SecondaryButton>
+          <SecondaryButton
+            type="button"
+            className="px-3"
+            disabled={selecionados.length === 0}
+            onClick={() => setVerSelecionados(true)}
+          >
+            Pares
+            <span
+              className={cn(
+                "ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums",
+                selecionados.length > 0 ? "bg-brand-700 text-white" : "bg-surface-subtle text-ink-muted",
+              )}
+            >
+              {selecionados.length}
+            </span>
+          </SecondaryButton>
+          <PrimaryButton
+            type="button"
+            className="flex-1 px-3"
+            disabled={selecionados.length === 0}
+            onClick={() => {
+              setErro(null);
+              setEtapa("preco");
+            }}
+          >
+            Definir preços
+          </PrimaryButton>
+        </BarraAcoesEtapa>
+      ) : null}
+
       {etapa === "preco" ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
         <SectionCard
@@ -411,7 +511,7 @@ export default function LinkPedidoFormPage() {
           className="flex min-h-0 flex-1 flex-col"
           bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
           actions={
-            <p className="text-right text-sm text-ink-soft">
+            <p className="text-sm text-ink-soft sm:text-right">
               {cotacao.data?.eurParaBrl != null
                 ? `Cotação de hoje: 1 EUR = ${formatarMoeda(cotacao.data.eurParaBrl, "BRL")}.`
                 : cotacao.loading
@@ -512,10 +612,11 @@ export default function LinkPedidoFormPage() {
           </div>
         </SectionCard>
           {erro ? <p className="shrink-0 text-sm text-red-700">{erro}</p> : null}
-          <div className="flex shrink-0 justify-between gap-3">
+          <BarraAcoesEtapa>
             <SecondaryButton type="button" onClick={() => setEtapa("tenis")}>Voltar</SecondaryButton>
             <PrimaryButton
               type="button"
+              className="flex-1 lg:flex-none"
               disabled={bloqueado}
               onClick={() => {
                 if (bloqueado) {
@@ -528,7 +629,7 @@ export default function LinkPedidoFormPage() {
             >
               Revisar
             </PrimaryButton>
-          </div>
+          </BarraAcoesEtapa>
         </div>
       ) : null}
 
@@ -539,8 +640,8 @@ export default function LinkPedidoFormPage() {
           className="flex min-h-0 flex-1 flex-col"
           bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
             <div className="rounded-xl border border-line bg-surface-muted px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">Pessoa</p>
               <p className="mt-1 truncate text-sm font-semibold text-ink">@{instagram.replace(/^@+/, "")}</p>
@@ -558,16 +659,16 @@ export default function LinkPedidoFormPage() {
               <p className="mt-1 text-sm font-semibold text-ink">{validadeHoras} horas</p>
               <p className="text-xs text-ink-soft">depois da abertura</p>
             </div>
-            <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
+            <div className="col-span-2 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 xl:col-span-1">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-700">Total</p>
               <p className="mt-1 font-numeric text-2xl font-semibold text-brand-800">{formatarMoeda(total, moeda.moeda)}</p>
               <p className="text-xs text-brand-700">{selecionados.length} {selecionados.length === 1 ? "par" : "pares"}</p>
             </div>
           </div>
-          <ul className="mt-5 grid gap-4 sm:grid-cols-2">
+          <ul className="mt-4 grid grid-cols-1 gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-4">
             {precos.map(({ item, valor }) => (
-              <li key={item.id} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
-                <span className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-subtle">
+              <li key={item.id} className="flex gap-3 rounded-xl border border-line bg-surface p-3 sm:gap-4 sm:p-4">
+                <span className="flex h-20 w-20 shrink-0 sm:h-24 sm:w-24 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-subtle">
                   {item.foto ? <img src={item.foto} alt="" className="h-full w-full object-contain" /> : null}
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col">
@@ -599,12 +700,12 @@ export default function LinkPedidoFormPage() {
         </SectionCard>
           {bloqueado ? <p className="shrink-0 text-sm text-red-700">Há item sem preço ou com valor inválido.</p> : null}
           {erro ? <p className="shrink-0 text-sm text-red-700">{erro}</p> : null}
-          <div className="flex shrink-0 justify-between gap-3">
+          <BarraAcoesEtapa>
             <SecondaryButton type="button" onClick={() => setEtapa("preco")}>Voltar</SecondaryButton>
-            <PrimaryButton type="button" loading={gerando} disabled={bloqueado} onClick={() => void gerar()}>
+            <PrimaryButton type="button" className="flex-1 lg:flex-none" loading={gerando} disabled={bloqueado} onClick={() => void gerar()}>
               Gerar link
             </PrimaryButton>
-          </div>
+          </BarraAcoesEtapa>
         </div>
       ) : null}
 

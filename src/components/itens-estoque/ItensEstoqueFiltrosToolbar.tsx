@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { SearchInput } from "../SearchInput";
 import { SearchableSelectDropdown } from "../SearchableSelectDropdown";
 import { StatusItemFilterDropdown } from "../StatusItemFilterDropdown";
@@ -36,6 +37,8 @@ interface ItensEstoqueFiltrosToolbarProps {
   onDisplaySizeSystemChange?: (value: DisplaySizeSystem | "") => void;
   /** Na conferência, troca categoria por situação da conferência. No link, troca o local pela região. */
   variant?: "default" | "conferencia" | "link";
+  /** No celular mostra só a busca e um botão "Filtros" que abre o restante. */
+  recolherNoCelular?: boolean;
 }
 
 export function ItensEstoqueFiltrosToolbar({
@@ -60,7 +63,18 @@ export function ItensEstoqueFiltrosToolbar({
   onRegiaoEstoqueChange,
   displaySizeSystem = "",
   onDisplaySizeSystemChange,
+  recolherNoCelular = false,
 }: ItensEstoqueFiltrosToolbarProps) {
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const filtrosAtivos =
+    (localEstoqueIds.length > 0 ? 1 : 0) +
+    (categoriaIds.length > 0 ? 1 : 0) +
+    (situacaoConferencia ? 1 : 0) +
+    (regiaoEstoque ? 1 : 0) +
+    (displaySizeSystem ? 1 : 0) +
+    (numeracaoFiltro.trim() ? 1 : 0);
+  // Filtros além da busca: escondidos no celular enquanto recolhidos.
+  const extra = recolherNoCelular && !filtrosAbertos ? "max-lg:hidden" : "";
   const gridClass =
     variant === "conferencia"
       ? cn(
@@ -82,15 +96,37 @@ export function ItensEstoqueFiltrosToolbar({
           );
 
   return (
-    <div className="border-b border-line px-5 py-4">
+    <div className={cn("border-b border-line py-4", recolherNoCelular ? "px-4 lg:px-5" : "px-5")}>
       <div className={gridClass}>
-        <SearchInput
-          placeholder="Buscar por SKU ou nome do produto…"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          wrapperClassName="min-w-0 w-full"
-        />
-        <div className="flex min-w-0 w-full flex-col gap-1.5">
+        <div className="flex min-w-0 w-full items-center gap-2">
+          <SearchInput
+            placeholder="Buscar por SKU ou nome do produto…"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            wrapperClassName="min-w-0 w-full"
+          />
+          {recolherNoCelular ? (
+            <button
+              type="button"
+              onClick={() => setFiltrosAbertos((aberto) => !aberto)}
+              aria-expanded={filtrosAbertos}
+              className={cn(
+                "flex h-10 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm font-semibold lg:hidden",
+                filtrosAbertos || filtrosAtivos > 0
+                  ? "border-brand-500 bg-brand-50 text-brand-700"
+                  : "border-line bg-surface text-ink",
+              )}
+            >
+              Filtros
+              {filtrosAtivos > 0 ? (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-brand-700 px-1.5 text-xs text-white tabular-nums">
+                  {filtrosAtivos}
+                </span>
+              ) : null}
+            </button>
+          ) : null}
+        </div>
+        <div className={cn("flex min-w-0 w-full flex-col gap-1.5", extra, variant === "link" && recolherNoCelular && "max-lg:hidden")}>
           <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
             Status
           </span>
@@ -104,7 +140,7 @@ export function ItensEstoqueFiltrosToolbar({
           />
         </div>
         {variant === "link" ? (
-          <div className="flex min-w-0 w-full flex-col gap-1.5">
+          <div className={cn("flex min-w-0 w-full flex-col gap-1.5", extra)}>
             <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
               Região
             </span>
@@ -130,14 +166,14 @@ export function ItensEstoqueFiltrosToolbar({
             searchPlaceholder="Buscar local…"
             triggerClassName="w-full min-w-0"
             onChange={onLocalEstoqueIdsChange}
-            className="min-w-0 w-full"
+            className={cn("min-w-0 w-full", extra)}
           />
         )}
         {variant === "conferencia" ? (
           <SituacaoConferenciaFilterDropdown
             value={situacaoConferencia}
             onChange={(v) => onSituacaoConferenciaChange?.(v)}
-            className="min-w-0 w-full"
+            className={cn("min-w-0 w-full", extra)}
           />
         ) : (
           <SearchableSelectDropdown
@@ -150,11 +186,11 @@ export function ItensEstoqueFiltrosToolbar({
             searchPlaceholder="Buscar categoria…"
             triggerClassName="w-full min-w-0"
             onChange={onCategoriaIdsChange ?? (() => {})}
-            className="min-w-0 w-full"
+            className={cn("min-w-0 w-full", extra)}
           />
         )}
         {variant === "link" ? (
-          <div className="flex min-w-0 w-full flex-col gap-1.5">
+          <div className={cn("flex min-w-0 w-full flex-col gap-1.5", extra)}>
             <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
               Padrão
             </span>
@@ -171,7 +207,7 @@ export function ItensEstoqueFiltrosToolbar({
             />
           </div>
         ) : null}
-        <div className="flex min-w-0 w-full flex-col gap-1.5">
+        <div className={cn("flex min-w-0 w-full flex-col gap-1.5", extra)}>
           <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
             Numeração
           </span>
