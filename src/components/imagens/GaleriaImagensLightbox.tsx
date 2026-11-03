@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { IconX } from "../Icons";
@@ -11,6 +11,8 @@ type GaleriaImagensLightboxProps = {
   indice: number;
   onClose: () => void;
   onIndiceChange: (indice: number) => void;
+  /** Esconde o atalho "Ver modelo" (ex.: dentro de um assistente que perderia o que foi preenchido). */
+  semLinkModelo?: boolean;
 };
 
 function ChevronBtn({
@@ -46,7 +48,9 @@ export function GaleriaImagensLightbox({
   indice,
   onClose,
   onIndiceChange,
+  semLinkModelo = false,
 }: GaleriaImagensLightboxProps) {
+  const toqueInicioX = useRef<number | null>(null);
   const total = imagens.length;
   const atual = total > 0 ? imagens[Math.min(Math.max(indice, 0), total - 1)]! : null;
   const src = urlImagemModelo(atual);
@@ -75,7 +79,7 @@ export function GaleriaImagensLightbox({
   if (!atual) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/95">
+    <div className="fixed inset-0 z-[70] flex flex-col bg-black/95">
       <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 text-white">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{nome}</p>
@@ -98,7 +102,22 @@ export function GaleriaImagensLightbox({
         </button>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center px-14 py-2">
+      <div
+        className="relative flex min-h-0 flex-1 items-center justify-center px-1 py-2 sm:px-14"
+        onTouchStart={(e) => {
+          toqueInicioX.current = e.touches[0]?.clientX ?? null;
+        }}
+        onTouchEnd={(e) => {
+          const inicio = toqueInicioX.current;
+          toqueInicioX.current = null;
+          const fim = e.changedTouches[0]?.clientX;
+          if (inicio == null || fim == null || total <= 1) return;
+          const delta = fim - inicio;
+          if (Math.abs(delta) < 40) return;
+          if (delta > 0) irAnterior();
+          else irProxima();
+        }}
+      >
         {src ? (
           <img
             src={src}
@@ -128,7 +147,7 @@ export function GaleriaImagensLightbox({
       </div>
 
       <div className="flex shrink-0 items-center justify-center gap-4 border-t border-white/10 px-4 py-3">
-        {atual.modelo ? (
+        {atual.modelo && !semLinkModelo ? (
           <Link
             to={`/modelos-produto/${atual.modelo.id}`}
             className="text-xs font-medium text-brand-300 transition hover:text-brand-200"

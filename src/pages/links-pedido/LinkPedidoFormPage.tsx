@@ -3,6 +3,7 @@ import { useAsync } from "../../hooks/useAsync";
 import { useNavigate } from "react-router-dom";
 import { FormInput, FormTextarea } from "../../components/FormField";
 import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
+import { GaleriaImagensLightbox } from "../../components/imagens/GaleriaImagensLightbox";
 import { IconCheck, IconCopy, IconEye, IconLink } from "../../components/Icons";
 import { Modal } from "../../components/Modal";
 import { PageHeader } from "../../components/PageHeader";
@@ -12,6 +13,8 @@ import { StatusBadge } from "../../components/StatusBadge";
 import { SeletorTenisLink, type TenisDoLink } from "../../components/links-pedido/SeletorTenisLink";
 import { useToast } from "../../contexts/ToastContext";
 import { linksPedidoService, type DestinoLink } from "../../services/links-pedido";
+import { modelosProdutoService } from "../../services/modelos-produto";
+import type { ImagemDetalhada } from "../../services/imagens";
 import { formatarMoeda } from "../../utils/format";
 import { mensagemErro } from "../../utils/errors";
 import { calcularValoresCompra, mensagemCotacaoIndisponivel } from "../../services/cambio-compra";
@@ -144,6 +147,8 @@ export default function LinkPedidoFormPage() {
   const [criado, setCriado] = useState<{ id: string; token: string } | null>(null);
   const [copiado, setCopiado] = useState<"link" | "mensagem" | null>(null);
   const [verSelecionados, setVerSelecionados] = useState(false);
+  const [galeria, setGaleria] = useState<{ imagens: ImagemDetalhada[]; indice: number } | null>(null);
+  const [abrindoGaleria, setAbrindoGaleria] = useState<string | null>(null);
   const copiarTimer = useRef<number | null>(null);
 
   const moeda = destinoPorMoeda(destino);
@@ -214,6 +219,41 @@ export default function LinkPedidoFormPage() {
     }
   };
 
+  const abrirFotos = async (item: TenisDoLink) => {
+    setAbrindoGaleria(item.id);
+    try {
+      const fotos = await modelosProdutoService.obterImagens(item.idModelo);
+      const modelo = { id: item.idModelo, nome_modelo: item.nome, slug: "", categoria: null };
+      const imagens: ImagemDetalhada[] =
+        fotos.length > 0
+          ? fotos.map((foto) => ({ ...foto, modelo }) as ImagemDetalhada)
+          : item.foto
+            ? [
+                {
+                  id: item.id,
+                  id_modelo_produto: item.idModelo,
+                  url_origem: item.foto,
+                  caminho_arquivo: null,
+                  ordem_exibicao: 0,
+                  imagem_principal: true,
+                  tipo_origem: "url",
+                  criado_em: "",
+                  modelo,
+                },
+              ]
+            : [];
+      if (imagens.length === 0) {
+        toast.erro("Este modelo não tem fotos.");
+        return;
+      }
+      setGaleria({ imagens, indice: 0 });
+    } catch (falha) {
+      toast.erro(mensagemErro(falha));
+    } finally {
+      setAbrindoGaleria(null);
+    }
+  };
+
   const enderecoLink = criado ? urlDoLink(criado.token) : "";
   const instagramVisivel = `@${instagram.replace(/^@+/, "")}`;
   const texto = criado
@@ -281,6 +321,16 @@ export default function LinkPedidoFormPage() {
       />
 
       <EtapasLinkCompacto etapa={etapa} etapas={etapas} />
+
+      {galeria ? (
+        <GaleriaImagensLightbox
+          imagens={galeria.imagens}
+          indice={galeria.indice}
+          onClose={() => setGaleria(null)}
+          onIndiceChange={(indice) => setGaleria((atual) => (atual ? { ...atual, indice } : atual))}
+          semLinkModelo
+        />
+      ) : null}
 
       <Modal
         open={verSelecionados}
@@ -668,9 +718,26 @@ export default function LinkPedidoFormPage() {
           <ul className="mt-4 grid grid-cols-1 gap-3 sm:mt-5 sm:grid-cols-2 sm:gap-4">
             {precos.map(({ item, valor }) => (
               <li key={item.id} className="flex gap-3 rounded-xl border border-line bg-surface p-3 sm:gap-4 sm:p-4">
-                <span className="flex h-20 w-20 shrink-0 sm:h-24 sm:w-24 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-subtle">
+                <button
+                  type="button"
+                  onClick={() => void abrirFotos(item)}
+                  disabled={abrindoGaleria === item.id}
+                  aria-label={`Ver fotos de ${item.nome}`}
+                  title="Ver fotos ampliadas"
+                  className="group relative flex h-20 w-20 shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-lg border border-line bg-surface-subtle transition hover:border-brand-400 sm:h-24 sm:w-24"
+                >
                   {item.foto ? <img src={item.foto} alt="" className="h-full w-full object-contain" /> : null}
-                </span>
+                  <span className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white transition group-hover:bg-black/75">
+                    {abrindoGaleria === item.id ? (
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    ) : (
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <circle cx="11" cy="11" r="6" />
+                        <path d="M20 20l-4.5-4.5M11 8.5v5M8.5 11h5" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <p className="truncate text-base font-semibold text-ink">{item.nome}</p>
                   <p className="mt-0.5 truncate text-xs text-ink-soft">{item.sku}</p>
