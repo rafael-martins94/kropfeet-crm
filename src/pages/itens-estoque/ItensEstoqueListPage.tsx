@@ -614,13 +614,15 @@ export default function ItensEstoqueListPage() {
               icon={<IconArrows width={16} height={16} />}
               onClick={() => setModalMovimentacoesAberto(true)}
             >
-              Movimentações de status
+              <span className="sm:hidden">Movimentações</span>
+              <span className="hidden sm:inline">Movimentações de status</span>
             </SecondaryButton>
             <PrimaryButton
               icon={<IconPlus width={16} height={16} />}
               onClick={() => navigate("/ordens-compra/novo")}
             >
-              Nova ordem de compra
+              <span className="sm:hidden">Nova compra</span>
+              <span className="hidden sm:inline">Nova ordem de compra</span>
             </PrimaryButton>
           </div>
         }

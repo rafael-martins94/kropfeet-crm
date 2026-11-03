@@ -38,12 +38,12 @@ export function PageHeader({
       className={
         compacto
           ? "mb-0 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
-          : "mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+          : "mb-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between lg:mb-6"
       }
     >
-      <div>
+      <div className="min-w-0">
         {breadcrumbs && breadcrumbs.length > 0 ? (
-          <nav className={`${compacto ? "mb-1" : "mb-2"} flex flex-wrap items-center gap-1.5 text-xs text-ink-soft`}>
+          <nav className={`${compacto ? "mb-1" : "mb-2"} hidden flex-wrap items-center gap-1.5 text-xs text-ink-soft lg:flex`}>
             {breadcrumbs.map((c, i) => (
               <span key={`${c.label}-${i}`} className="flex items-center gap-1.5">
                 {c.to ? (
@@ -60,23 +60,23 @@ export function PageHeader({
             ))}
           </nav>
         ) : null}
-        <div className="flex items-center gap-3">
+        <div className="flex min-h-10 items-center gap-2 max-lg:pl-12 lg:gap-3">
           {backTo ? (
             <Link
               to={voltarPara!}
               state={voltarState}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink-muted transition hover:border-brand-400 hover:text-brand-700"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-ink-muted transition hover:border-brand-400 hover:text-brand-700"
               aria-label="Voltar"
             >
               <IconChevronLeft />
             </Link>
           ) : null}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 lg:gap-3">
             <h1
               className={
                 compacto
-                  ? "font-display text-xl font-semibold whitespace-nowrap text-brand-700 sm:text-2xl"
-                  : "font-display text-2xl font-semibold whitespace-nowrap text-brand-700 sm:text-3xl"
+                  ? "min-w-0 max-w-full truncate font-display text-xl font-semibold text-brand-700 sm:text-2xl"
+                  : "min-w-0 max-w-full truncate font-display text-xl font-semibold text-brand-700 sm:text-2xl lg:text-3xl"
               }
             >
               {title}

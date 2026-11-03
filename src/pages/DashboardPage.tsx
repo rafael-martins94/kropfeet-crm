@@ -118,7 +118,7 @@ export default function DashboardPage() {
   return (
     <ValoresVisiveisContext.Provider value={valoresVisiveis}>
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <header className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
+      <header className="mb-4 flex items-center justify-between gap-3 max-lg:pl-12 sm:mb-5">
         <div className="min-w-0">
           <p className="text-xs capitalize text-ink-soft">
             {formatarData(new Date().toISOString(), { weekday: "long", day: "numeric", month: "long" })}
@@ -129,7 +129,7 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div className="flex flex-shrink-0 items-center gap-2">
-          <Link to="/itens-estoque" className="btn-secondary !px-3 !py-2" aria-label="Ver estoque">
+          <Link to="/itens-estoque" className="btn-secondary !hidden !px-3 !py-2 sm:!inline-flex" aria-label="Ver estoque">
             <IconBox />
             <span className="hidden sm:inline">Estoque</span>
           </Link>
