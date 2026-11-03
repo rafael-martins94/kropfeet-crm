@@ -8,7 +8,7 @@ import {
   ETIQUETA_GAP_MM,
   ETIQUETA_LARGURA_MM,
   ETIQUETA_PADDING_MM,
-  calcularTamanhoFonteSkuPreview,
+  calcularTamanhoFonteSkuMm,
   gerarBarcodeSvg,
   imprimirEtiquetaItem,
 } from "../../utils/etiquetaItem";
@@ -41,7 +41,7 @@ export function EtiquetaItemModal({ open, onClose, sku }: EtiquetaItemModalProps
   const escala = previewWidth / ETIQUETA_LARGURA_MM;
   const paddingPx = Math.round(ETIQUETA_PADDING_MM * escala);
   const gapPx = Math.round(ETIQUETA_GAP_MM * escala);
-  const fonteSkuPx = calcularTamanhoFonteSkuPreview(sku, previewHeight);
+  const fonteSkuPx = calcularTamanhoFonteSkuMm(sku) * escala;
   const colunaLarguraPx = Math.round((previewWidth - paddingPx * 2 - gapPx) / 2);
   const barcodeAlturaPx = Math.round(ETIQUETA_BARCODE_ALTURA_MM * escala);
 
@@ -85,9 +85,10 @@ export function EtiquetaItemModal({ open, onClose, sku }: EtiquetaItemModalProps
               style={{ width: `${colunaLarguraPx}px` }}
             >
               <span
-                className="text-center font-bold leading-tight"
+                className="text-center font-bold leading-none"
                 style={{
                   fontSize: `${fonteSkuPx}px`,
+                  fontFamily: "Arial, Helvetica, sans-serif",
                   wordBreak: "break-all",
                 }}
               >

@@ -6,6 +6,8 @@ export const ETIQUETA_ALTURA_MM = 29;
 export const ETIQUETA_PADDING_MM = 1.5;
 export const ETIQUETA_GAP_MM = 1;
 export const ETIQUETA_BARCODE_ALTURA_MM = 17;
+/** Teto da fonte do SKU (~31pt): SKUs de 3–4 dígitos saem neste tamanho. */
+export const ETIQUETA_SKU_FONTE_MAX_MM = 11;
 
 const estilosColunaEtiqueta = `
     .coluna {
@@ -18,7 +20,7 @@ const estilosColunaEtiqueta = `
     }
     .sku {
       font-weight: 700;
-      line-height: 1.1;
+      line-height: 1;
       text-align: center;
       word-break: break-all;
       color: #000;
@@ -31,22 +33,23 @@ const estilosColunaEtiqueta = `
       max-height: ${ETIQUETA_BARCODE_ALTURA_MM}mm;
     }`;
 
-export function calcularTamanhoFonteSku(sku: string): string {
-  const n = sku.trim().length;
-  if (n <= 4) return "11pt";
-  if (n <= 7) return "9.5pt";
-  if (n <= 10) return "8.5pt";
-  if (n <= 14) return "8pt";
-  return "7.5pt";
-}
+/** Maior fonte do SKU (em mm) que cabe na coluna esquerda; até 2 linhas se for longo. */
+export function calcularTamanhoFonteSkuMm(sku: string): number {
+  const texto = sku.trim();
+  const n = Math.max(texto.length, 1);
+  // Largura média do caractere em Arial bold: dígitos ~0,56em; letras chegam a ~0,72em.
+  const larguraCaractere = /^[0-9]+$/.test(texto) ? 0.58 : 0.72;
+  const larguraColuna =
+    (ETIQUETA_LARGURA_MM - ETIQUETA_PADDING_MM * 2 - ETIQUETA_GAP_MM) / 2;
+  const larguraUtil = larguraColuna * 0.92;
+  const alturaUtil = ETIQUETA_ALTURA_MM - ETIQUETA_PADDING_MM * 2;
 
-export function calcularTamanhoFonteSkuPreview(sku: string, alturaPx: number): number {
-  const n = sku.trim().length;
-  if (n <= 4) return Math.round(alturaPx * 0.26);
-  if (n <= 7) return Math.round(alturaPx * 0.22);
-  if (n <= 10) return Math.round(alturaPx * 0.19);
-  if (n <= 14) return Math.round(alturaPx * 0.16);
-  return Math.round(alturaPx * 0.14);
+  let fonte = larguraUtil / (n * larguraCaractere);
+  if (fonte < 4) {
+    const porLinha = Math.ceil(n / 2);
+    fonte = Math.min(larguraUtil / (porLinha * larguraCaractere), alturaUtil / (2 * 1.1));
+  }
+  return Math.round(Math.min(fonte, ETIQUETA_SKU_FONTE_MAX_MM) * 10) / 10;
 }
 
 export function gerarBarcodeSvg(sku: string): string {
@@ -67,7 +70,7 @@ function montarHtmlEtiqueta(sku: string, barcodeSvg: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-  const fonteSku = calcularTamanhoFonteSku(sku);
+  const fonteSku = `${calcularTamanhoFonteSkuMm(sku)}mm`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
