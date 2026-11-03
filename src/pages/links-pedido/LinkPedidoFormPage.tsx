@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { FormInput, FormTextarea } from "../../components/FormField";
 import { FotoThumbnailHover } from "../../components/FotoThumbnailHover";
 import { GaleriaImagensLightbox } from "../../components/imagens/GaleriaImagensLightbox";
-import { IconCheck, IconCopy, IconEye, IconLink } from "../../components/Icons";
+import { IconActivity, IconCheck, IconCopy, IconEye, IconLink } from "../../components/Icons";
 import { Modal } from "../../components/Modal";
 import { PageHeader } from "../../components/PageHeader";
 import { PrimaryButton, SecondaryButton } from "../../components/PrimaryButton";
@@ -12,10 +12,10 @@ import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { SeletorTenisLink, type TenisDoLink } from "../../components/links-pedido/SeletorTenisLink";
 import { useToast } from "../../contexts/ToastContext";
-import { linksPedidoService, type DestinoLink } from "../../services/links-pedido";
+import { linksPedidoService, type CompraDoTenis, type DestinoLink } from "../../services/links-pedido";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import type { ImagemDetalhada } from "../../services/imagens";
-import { formatarMoeda } from "../../utils/format";
+import { formatarData, formatarMoeda, formatarNumero } from "../../utils/format";
 import { mensagemErro } from "../../utils/errors";
 import { calcularValoresCompra, mensagemCotacaoIndisponivel } from "../../services/cambio-compra";
 import { BOAS_VINDAS_LINK_PADRAO, destinoPorMoeda, itemTemPrecoNaMoeda, mensagemDoLink, MENSAGEM_LINK_PADRAO, normalizarMoeda, prazoDaMensagemLink, urlDoLink, type ValidadeHorasLink } from "../../utils/linkPedido";
@@ -125,6 +125,15 @@ function textoCampoMoeda(valor: string): string {
   return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numero);
 }
 
+/** Cotação usada na conversão do custo, sempre lida como "1 EUR = R$ x" quando envolve real e euro. */
+function textoCotacaoCompra(compra: CompraDoTenis): string | null {
+  if (!compra.cotacao || !compra.moedaOriginal) return null;
+  if (compra.moedaOriginal === "BRL" && compra.moeda === "EUR") {
+    return `1 EUR = ${formatarMoeda(1 / compra.cotacao.valor, "BRL")}`;
+  }
+  return `1 ${compra.moedaOriginal} = ${formatarMoeda(compra.cotacao.valor, compra.moeda)}`;
+}
+
 function precoValido(valor: string): number | null {
   const numero = Number(valor.replace(",", "."));
   if (!Number.isFinite(numero) || numero <= 0 || numero > 999999.99) return null;
@@ -147,6 +156,11 @@ export default function LinkPedidoFormPage() {
   const [criado, setCriado] = useState<{ id: string; token: string } | null>(null);
   const [copiado, setCopiado] = useState<"link" | "mensagem" | null>(null);
   const [verSelecionados, setVerSelecionados] = useState(false);
+  const [historicoDe, setHistoricoDe] = useState<TenisDoLink | null>(null);
+  const historicoPrecos = useAsync(
+    async () => (historicoDe ? linksPedidoService.historicoPrecosModelo(historicoDe.idModelo) : []),
+    [historicoDe?.idModelo],
+  );
   const [galeria, setGaleria] = useState<{ imagens: ImagemDetalhada[]; indice: number } | null>(null);
   const [abrindoGaleria, setAbrindoGaleria] = useState<string | null>(null);
   const copiarTimer = useRef<number | null>(null);
@@ -169,6 +183,14 @@ export default function LinkPedidoFormPage() {
   }, [etapa]);
 
   const modelosSelecionados = selecionados.map((item) => item.idModelo).join("|");
+  const idsSelecionados = selecionados.map((item) => item.id).join("|");
+  const compras = useAsync(
+    async () =>
+      etapa === "preco" && idsSelecionados !== ""
+        ? linksPedidoService.comprasDosTenis(moeda.moeda, idsSelecionados.split("|"))
+        : ({} as Record<string, CompraDoTenis>),
+    [etapa, moeda.moeda, idsSelecionados],
+  );
 
   useEffect(() => {
     if (etapa !== "preco" || modelosSelecionados === "") return;
@@ -331,6 +353,75 @@ export default function LinkPedidoFormPage() {
           semLinkModelo
         />
       ) : null}
+
+      <Modal
+        open={historicoDe != null}
+        onClose={() => setHistoricoDe(null)}
+        title="Histórico de preços em links"
+        description={historicoDe ? `${historicoDe.nome} · todas as numerações deste modelo.` : undefined}
+        size="lg"
+        footer={<SecondaryButton type="button" onClick={() => setHistoricoDe(null)}>Fechar</SecondaryButton>}
+      >
+        {historicoPrecos.loading ? (
+          <p className="text-sm text-ink-soft">Buscando o histórico…</p>
+        ) : historicoPrecos.error ? (
+          <p className="text-sm text-red-700">Erro ao buscar o histórico: {historicoPrecos.error.message}</p>
+        ) : (historicoPrecos.data?.length ?? 0) === 0 ? (
+          <p className="text-sm text-ink-soft">Este modelo ainda não entrou em nenhum link.</p>
+        ) : (
+          <ul className="divide-y divide-line rounded-xl border border-line">
+            {historicoPrecos.data?.map((linha) => {
+              const mesmoPar = linha.idItemEstoque === historicoDe?.id;
+              const mesmaMoeda = linha.moeda === moeda.moeda;
+              return (
+                <li key={`${linha.idLink}-${linha.idItemEstoque}`} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+                      <a
+                        href={`/links-pedido/${linha.idLink}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="truncate hover:underline"
+                      >
+                        {linha.instagram}
+                      </a>
+                      {mesmoPar ? (
+                        <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
+                          Este par
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="truncate text-xs text-ink-soft">
+                      {formatarData(linha.criadoEm)} · {linha.numeracao || "Sem numeração"} · {linha.sku}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-numeric text-base font-semibold text-ink">
+                    {formatarMoeda(linha.preco, linha.moeda)}
+                  </span>
+                  {mesmaMoeda && historicoDe ? (
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs font-semibold text-brand-700 hover:underline"
+                      onClick={() => {
+                        setSelecionados((atual) =>
+                          atual.map((escolhido) =>
+                            escolhido.id === historicoDe.id ? { ...escolhido, preco: linha.preco.toFixed(2) } : escolhido,
+                          ),
+                        );
+                        setHistoricoDe(null);
+                      }}
+                    >
+                      Usar
+                    </button>
+                  ) : (
+                    <span className="w-8 shrink-0" />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Modal>
 
       <Modal
         open={verSelecionados}
@@ -572,15 +663,23 @@ export default function LinkPedidoFormPage() {
           }
         >
           <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-line">
-            <div className="hidden min-w-[760px] grid-cols-[minmax(14rem,1.4fr)_11rem_11rem_16rem] gap-4 border-b border-line bg-surface-muted px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:grid">
+            <div className="hidden min-w-[840px] grid-cols-[minmax(13rem,1.4fr)_10rem_8rem_12rem_6rem_2.5rem] gap-3 border-b border-line bg-surface-muted px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:grid">
               <span>Tênis</span>
-              <span>Valor</span>
-              <span>Cotação</span>
-              <span>Câmbio</span>
+              <span>Valor de compra</span>
+              <span>Valor de venda</span>
+              <span>Preço no link</span>
+              <span>Lucro</span>
+              <span className="sr-only">Histórico</span>
             </div>
             <ul className="divide-y divide-line">
             {precos.map(({ item }) => {
               const sugestao = historico[item.idModelo];
+              const compra = compras.data?.[item.id];
+              const cotacaoCompra = compra ? textoCotacaoCompra(compra) : null;
+              const precoLink = precoValido(item.preco);
+              // Lucro sobre o custo de compra, os dois na moeda do link.
+              const lucro = precoLink != null && compra?.valor != null ? precoLink - compra.valor : null;
+              const lucroPercentual = lucro != null && compra?.valor ? (lucro / compra.valor) * 100 : null;
               const origem = normalizarMoeda(item.moedaOriginal);
               const taxa =
                 origem === "EUR" && moeda.moeda === "BRL"
@@ -597,7 +696,7 @@ export default function LinkPedidoFormPage() {
                   atual.map((escolhido) => (escolhido.id === item.id ? { ...escolhido, preco: valor } : escolhido)),
                 );
               return (
-                <li key={item.id} className="grid gap-4 p-4 lg:min-w-[760px] lg:grid-cols-[minmax(14rem,1.4fr)_11rem_11rem_16rem] lg:items-center">
+                <li key={item.id} className="grid gap-3 px-4 py-3 lg:min-w-[840px] lg:grid-cols-[minmax(13rem,1.4fr)_10rem_8rem_12rem_6rem_2.5rem] lg:items-center">
                   <div className="flex min-w-0 gap-3">
                     <FotoThumbnailHover url={item.foto} alt={item.nome} size="sm" />
                     <div className="min-w-0">
@@ -606,35 +705,46 @@ export default function LinkPedidoFormPage() {
                     </div>
                   </div>
                   <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Valor</span>
-                    <p className="font-numeric text-2xl font-semibold text-ink">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Valor de compra</span>
+                    <p className="font-numeric text-base font-semibold text-ink">
+                      {compras.loading ? "…" : formatarMoeda(compra?.valor, moeda.moeda)}
+                    </p>
+                    {compra?.valorOriginal != null && compra.valor == null ? (
+                      <p className="text-xs text-amber-800">
+                        Sem cotação para converter {formatarMoeda(compra.valorOriginal, compra.moedaOriginal ?? undefined)}.
+                      </p>
+                    ) : null}
+                    {compra?.dataCompra ? (
+                      <p className="text-xs text-ink-soft">Compra em {formatarData(compra.dataCompra)}</p>
+                    ) : null}
+                    {cotacaoCompra ? (
+                      <p className="text-xs text-ink-soft">
+                        {formatarMoeda(compra?.valorOriginal, compra?.moedaOriginal ?? undefined)} · {cotacaoCompra}
+                      </p>
+                    ) : null}
+                    {!compras.loading && compra && compra.valorOriginal == null ? (
+                      <p className="text-xs text-ink-soft">Sem ordem de compra</p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Valor de venda</span>
+                    <p className="font-numeric text-base font-semibold text-ink">
                       {item.precoOriginal != null
                         ? formatarMoeda(item.precoOriginal, item.moedaOriginal ?? moeda.moeda)
                         : "—"}
                     </p>
                   </div>
                   <div>
-                    {origem === moeda.moeda ? null : (
-                      <>
-                        <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Cotação</span>
-                        <p className="font-numeric text-xl font-semibold text-ink">
-                          {cotacao.data?.eurParaBrl != null ? formatarMoeda(cotacao.data.eurParaBrl, "BRL") : "—"}
-                        </p>
-                        <p className="text-xs text-ink-soft">1 EUR</p>
-                      </>
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Câmbio</span>
-                    <span className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 focus-within:border-brand-500">
-                      <span className="font-numeric text-lg font-semibold text-ink-soft">{moeda.moeda === "EUR" ? "€" : "R$"}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Preço no link</span>
+                    <span className="mt-1 flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1.5 focus-within:border-brand-500">
+                      <span className="font-numeric text-sm font-semibold text-ink-soft">{moeda.moeda === "EUR" ? "€" : "R$"}</span>
                       <input
                         value={textoCampoMoeda(item.preco)}
                         inputMode="numeric"
                         placeholder="0,00"
-                        aria-label={`Câmbio em ${moeda.moeda}`}
+                        aria-label={`Preço no link em ${moeda.moeda}`}
                         onChange={(evento) => definirPreco(mascaraMoeda(evento.target.value))}
-                        className="w-full bg-transparent font-numeric text-2xl font-semibold text-ink outline-none"
+                        className="w-full bg-transparent font-numeric text-base font-semibold text-ink outline-none"
                       />
                     </span>
                     {origem === moeda.moeda && precoValido(item.preco) != null && precoValido(item.preco) !== Number(item.precoOriginal) ? (
@@ -642,7 +752,7 @@ export default function LinkPedidoFormPage() {
                         O preço do estoque passa a ser {formatarMoeda(precoValido(item.preco), moeda.moeda)}.
                       </p>
                     ) : null}
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
                       {convertido != null ? (
                         <button type="button" className="text-xs font-semibold text-brand-700 hover:underline" onClick={() => definirPreco(convertido.toFixed(2))}>
                           Aplicar {formatarMoeda(convertido, moeda.moeda)}
@@ -654,6 +764,30 @@ export default function LinkPedidoFormPage() {
                         </button>
                       ) : null}
                     </div>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft lg:hidden">Lucro</span>
+                    {lucroPercentual != null ? (
+                      <>
+                        <p className={cn("font-numeric text-base font-semibold", lucro! < 0 ? "text-red-700" : "text-emerald-700")}>
+                          {formatarNumero(lucroPercentual, 1)}%
+                        </p>
+                        <p className="text-xs text-ink-soft">{formatarMoeda(lucro, moeda.moeda)}</p>
+                      </>
+                    ) : (
+                      <p className="font-numeric text-base font-semibold text-ink-soft">—</p>
+                    )}
+                  </div>
+                  <div>
+                    <button
+                      type="button"
+                      title="Histórico de preços em links"
+                      aria-label="Histórico de preços em links"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-ink-soft hover:border-brand-300 hover:text-brand-700"
+                      onClick={() => setHistoricoDe(item)}
+                    >
+                      <IconActivity className="h-4 w-4" />
+                    </button>
                   </div>
                 </li>
               );

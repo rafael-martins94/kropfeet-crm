@@ -2,6 +2,8 @@ import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@s
 import { supabase } from "../lib/supabase";
 import type { Json } from "../types/database";
 import { padraoIlikePostgrest } from "../utils/postgrestFilter";
+import { resolverCustoItem } from "../utils/custoItem";
+import { converterCusto } from "./cambio-compra";
 
 export type DestinoLink = "brasil" | "europa";
 export type SituacaoFiltroLink = "todos" | "ativo" | "expirado" | "desativado";
@@ -13,6 +15,28 @@ export type VendaDoLink = {
   valor_total: number;
   moeda_venda: string | null;
   status_venda: string;
+};
+
+export type CompraDoTenis = {
+  valor: number | null;
+  moeda: "BRL" | "EUR";
+  valorOriginal: number | null;
+  moedaOriginal: string | null;
+  dataCompra: string | null;
+  /** Presente quando o valor foi convertido da moeda da compra. */
+  cotacao: { valor: number; dataCotacao: string } | null;
+};
+
+export type PrecoEmLink = {
+  idLink: string;
+  instagram: string;
+  nome: string | null;
+  criadoEm: string;
+  idItemEstoque: string;
+  sku: string | null;
+  numeracao: string | null;
+  preco: number;
+  moeda: string;
 };
 
 export type LinkPedidoLista = {
@@ -184,6 +208,68 @@ export const linksPedidoService = {
       if (mapa[linha.id_modelo_produto] == null) mapa[linha.id_modelo_produto] = Number(linha.preco);
     }
     return mapa;
+  },
+
+  /** Preços que os pares deste modelo já receberam em links, do mais recente ao mais antigo. */
+  async historicoPrecosModelo(idModelo: string): Promise<PrecoEmLink[]> {
+    const { data, error } = await supabase
+      .from("links_pedido_itens")
+      .select(
+        `id_item_estoque, preco, moeda,
+         link:links_pedido(id, instagram, nome, criado_em),
+         item:itens_estoque(sku, numeracao_br)`,
+      )
+      .eq("id_modelo_produto", idModelo);
+    if (error) throw error;
+    return (data ?? [])
+      .map((linha) => {
+        const link = linha.link as unknown as { id: string; instagram: string; nome: string | null; criado_em: string };
+        const item = linha.item as unknown as { sku: string | null; numeracao_br: string | null } | null;
+        return {
+          idLink: link.id,
+          instagram: link.instagram,
+          nome: link.nome,
+          criadoEm: link.criado_em,
+          idItemEstoque: linha.id_item_estoque,
+          sku: item?.sku ?? null,
+          numeracao: item?.numeracao_br ?? null,
+          preco: Number(linha.preco),
+          moeda: linha.moeda,
+        };
+      })
+      .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+  },
+
+  /** Custo de compra de cada par na moeda do link, convertido pela cotação do dia da compra. */
+  async comprasDosTenis(moeda: "BRL" | "EUR", ids: string[]): Promise<Record<string, CompraDoTenis>> {
+    if (ids.length === 0) return {};
+    const { data, error } = await supabase
+      .from("itens_estoque")
+      .select(
+        `id, id_ordem_compra,
+         ordem_compra:ordens_compra!itens_estoque_id_ordem_compra_fkey(valor_custo, moeda_compra, data_compra)`,
+      )
+      .in("id", ids);
+    if (error) throw error;
+    const linhas = await Promise.all(
+      (data ?? []).map(async (linha) => {
+        const ordem = linha.ordem_compra as unknown as { valor_custo: number; moeda_compra: string; data_compra: string | null } | null;
+        let custo = resolverCustoItem({ id_ordem_compra: linha.id_ordem_compra, ordem_compra: ordem });
+        if (custo && custo.moedaOriginal !== moeda) custo = await converterCusto(custo, moeda, ordem?.data_compra);
+        const compra: CompraDoTenis = {
+          valor: (moeda === "BRL" ? custo?.valorReal : custo?.valorEuro) ?? null,
+          moeda,
+          valorOriginal: custo?.valorOriginal ?? null,
+          moedaOriginal: custo?.moedaOriginal ?? null,
+          dataCompra: ordem?.data_compra ?? null,
+          cotacao: custo?.cotacaoConversao
+            ? { valor: custo.cotacaoConversao.valor, dataCotacao: custo.cotacaoConversao.dataCotacao }
+            : null,
+        };
+        return [linha.id, compra] as const;
+      }),
+    );
+    return Object.fromEntries(linhas);
   },
 
   async avisosRecentes(): Promise<Array<{ id: string; titulo: string; corpo: string | null; criado_em: string; id_venda: string | null }>> {
