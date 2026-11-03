@@ -6,8 +6,8 @@ export const ETIQUETA_ALTURA_MM = 29;
 export const ETIQUETA_PADDING_MM = 1.5;
 export const ETIQUETA_GAP_MM = 1;
 export const ETIQUETA_BARCODE_ALTURA_MM = 17;
-/** Teto da fonte do SKU (~31pt): SKUs de 3–4 dígitos saem neste tamanho. */
-export const ETIQUETA_SKU_FONTE_MAX_MM = 11;
+/** Teto da fonte do SKU (~28pt): SKUs de 3–4 dígitos saem neste tamanho. */
+export const ETIQUETA_SKU_FONTE_MAX_MM = 10;
 
 const estilosColunaEtiqueta = `
     .coluna {
