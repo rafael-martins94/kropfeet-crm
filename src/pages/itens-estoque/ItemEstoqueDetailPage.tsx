@@ -22,7 +22,12 @@ import { useAsync } from "../../hooks/useAsync";
 import { useListReturnTo } from "../../hooks/useListDetailNavigation";
 import { cn } from "../../utils/cn";
 import { formatarData, formatarDataHora, formatarMoeda, traduzirEnum } from "../../utils/format";
-import { obterCustoPrincipal, resolverCustoItem } from "../../utils/custoItem";
+import {
+  obterCustoPrincipal,
+  precisaConverterCustoParaReal,
+  resolverCustoItem,
+} from "../../utils/custoItem";
+import { converterCustoParaReal } from "../../services/cambio-compra";
 import { resolverMoedaVendaItem } from "../../utils/moedaItemEstoque";
 import {
   formatSizeLabel,
@@ -96,12 +101,26 @@ export default function ItemEstoqueDetailPage() {
   const moedaVendaExibida = item.data
     ? resolverMoedaVendaItem(item.data.moeda_venda, local.data?.tipo_regiao)
     : null;
-  const custoCompra = item.data
-    ? obterCustoPrincipal(
-        resolverCustoItem({ ...item.data, ordem_compra: ordem.data, local: local.data }),
-        local.data?.tipo_regiao,
-      )
+  const custoBase = item.data
+    ? resolverCustoItem({ ...item.data, ordem_compra: ordem.data, local: local.data })
     : null;
+  // Par no Brasil comprado em euro: converte pela cotação do dia da compra.
+  const converteCusto = precisaConverterCustoParaReal(custoBase, local.data?.tipo_regiao);
+  const custoConvertido = useAsync(
+    () =>
+      custoBase && converteCusto
+        ? converterCustoParaReal(custoBase, ordem.data?.data_compra)
+        : Promise.resolve(null),
+    [
+      ordem.data?.valor_custo,
+      ordem.data?.moeda_compra,
+      ordem.data?.data_compra,
+      local.data?.tipo_regiao,
+    ],
+  );
+  const custoItem = custoConvertido.data ?? custoBase;
+  const cotacaoReal = custoConvertido.data?.cotacaoReal ?? null;
+  const custoCompra = obterCustoPrincipal(custoItem, local.data?.tipo_regiao);
 
   const equivalencias = item.data ? getAllSizeEquivalences(item.data) : null;
 
@@ -301,6 +320,23 @@ export default function ItemEstoqueDetailPage() {
                   <F label="Moeda">{ordem.data.moeda_compra}</F>
                   <F label="Valor custo">
                     {formatarMoeda(ordem.data.valor_custo, ordem.data.moeda_compra)}
+                    {cotacaoReal && custoItem?.valorReal != null ? (
+                      <span className="ml-2 text-ink-muted">
+                        ≈ {formatarMoeda(custoItem.valorReal, "BRL")}
+                      </span>
+                    ) : converteCusto && custoConvertido.loading ? (
+                      <span className="ml-2 text-xs text-ink-soft">convertendo…</span>
+                    ) : null}
+                    {cotacaoReal ? (
+                      <div className="mt-0.5 text-xs text-ink-soft">
+                        Cotação {ordem.data.moeda_compra}→BRL{" "}
+                        {cotacaoReal.valor.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 4,
+                          maximumFractionDigits: 4,
+                        })}{" "}
+                        em {formatarData(cotacaoReal.dataCotacao)} · {cotacaoReal.fonte}
+                      </div>
+                    ) : null}
                   </F>
                   <F label="Custo principal">
                     {custoCompra ? formatarMoeda(custoCompra.valor, custoCompra.moeda) : "—"}

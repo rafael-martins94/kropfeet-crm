@@ -1,5 +1,6 @@
 import { cambiosMoedaService } from "./cambios-moeda";
 import { cotacaoApi } from "./cotacao-api";
+import type { CustoItemEstoque } from "../utils/custoItem";
 
 export interface CotacaoCompra {
   moedaOrigem: string;
@@ -115,6 +116,52 @@ export async function calcularValoresCompra(
     cotacaoReal,
     cotacaoEuro,
   };
+}
+
+/** Cadastro manual vale só se for de até 7 dias antes da compra; senão usa a API. */
+const JANELA_COTACAO_CADASTRADA_DIAS = 7;
+
+/** Cotação de uma moeda para real no dia da compra (cadastro manual ou AwesomeAPI). */
+export async function buscarCotacaoParaRealNaData(
+  moedaOrigem: string,
+  dataCompra: string,
+): Promise<{ valor: number; dataCotacao: string; fonte: string } | null> {
+  const origem = moedaOrigem.trim().toUpperCase();
+  const doBanco = await cambiosMoedaService.buscarCotacaoNaData(origem, "BRL", dataCompra);
+  if (doBanco) {
+    const diasAntes =
+      (Date.parse(dataCompra) - Date.parse(doBanco.data_cotacao)) / 86_400_000;
+    if (diasAntes <= JANELA_COTACAO_CADASTRADA_DIAS) {
+      return {
+        valor: Number(doBanco.valor_cotacao),
+        dataCotacao: doBanco.data_cotacao,
+        fonte: doBanco.fonte ?? "cadastro",
+      };
+    }
+  }
+
+  const api = await cotacaoApi.buscarCotacaoHistorica(origem, "BRL", dataCompra);
+  return api ? { valor: api.valor, dataCotacao: api.dataCotacao, fonte: api.fonte } : null;
+}
+
+/** Preenche valorReal do custo com a cotação do dia da compra. Sem cotação, devolve o custo como veio. */
+export async function converterCustoParaReal(
+  custo: CustoItemEstoque,
+  dataCompra: string | null | undefined,
+): Promise<CustoItemEstoque> {
+  if (!dataCompra || custo.valorOriginal == null || !custo.moedaOriginal) return custo;
+  try {
+    const cotacao = await buscarCotacaoParaRealNaData(custo.moedaOriginal, dataCompra);
+    if (!cotacao) return custo;
+    return {
+      ...custo,
+      valorReal: arredondarMoeda(custo.valorOriginal * cotacao.valor),
+      cotacaoReal: cotacao,
+    };
+  } catch (erro) {
+    console.warn("Não foi possível converter o custo para real:", erro);
+    return custo;
+  }
 }
 
 export function mensagemCotacaoIndisponivel(dataCompra: string): string {

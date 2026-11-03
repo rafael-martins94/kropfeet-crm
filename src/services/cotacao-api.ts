@@ -46,7 +46,81 @@ function parseDataAPI(data: string): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export interface CotacaoHistorica {
+  moedaOrigem: string;
+  moedaDestino: string;
+  valor: number;
+  dataCotacao: string;
+  fonte: string;
+}
+
+interface RespostaDiariaAwesomeAPI {
+  bid: string;
+  timestamp: string;
+}
+
+const cacheHistorico = new Map<string, Promise<CotacaoHistorica | null>>();
+
+function dataIsoSemHifen(dataIso: string): string {
+  return dataIso.replace(/-/g, "");
+}
+
+function subtrairDias(dataIso: string, dias: number): string {
+  const [ano, mes, dia] = dataIso.split("-").map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia - dias));
+  return data.toISOString().slice(0, 10);
+}
+
+function dataDoTimestamp(timestamp: string): string {
+  // Fechamento diário vem perto da meia-noite UTC; o dia que vale é o de Brasília.
+  return new Date(Number(timestamp) * 1000).toLocaleDateString("en-CA", {
+    timeZone: "America/Sao_Paulo",
+  });
+}
+
 export const cotacaoApi = {
+  /**
+   * Cotação de fechamento do dia informado. Em fim de semana ou feriado usa o
+   * último dia útil anterior (busca até 7 dias para trás).
+   */
+  buscarCotacaoHistorica(
+    moedaOrigem: string,
+    moedaDestino: string,
+    dataIso: string,
+  ): Promise<CotacaoHistorica | null> {
+    const origem = moedaOrigem.trim().toUpperCase();
+    const destino = moedaDestino.trim().toUpperCase();
+    const chave = `${origem}-${destino}-${dataIso}`;
+    const emCache = cacheHistorico.get(chave);
+    if (emCache) return emCache;
+
+    const busca = (async () => {
+      const inicio = dataIsoSemHifen(subtrairDias(dataIso, 7));
+      const fim = dataIsoSemHifen(dataIso);
+      const url = `https://economia.awesomeapi.com.br/json/daily/${origem}-${destino}/10?start_date=${inicio}&end_date=${fim}`;
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        throw new Error(`Falha ao consultar AwesomeAPI (${resp.status} ${resp.statusText}).`);
+      }
+      const lista = (await resp.json()) as RespostaDiariaAwesomeAPI[];
+      const maisRecente = Array.isArray(lista) ? lista[0] : undefined;
+      if (!maisRecente) return null;
+      const valor = parseNumero(maisRecente.bid);
+      if (!valor) return null;
+      return {
+        moedaOrigem: origem,
+        moedaDestino: destino,
+        valor,
+        dataCotacao: dataDoTimestamp(maisRecente.timestamp),
+        fonte: "AwesomeAPI",
+      };
+    })();
+
+    cacheHistorico.set(chave, busca);
+    busca.catch(() => cacheHistorico.delete(chave));
+    return busca;
+  },
+
   async buscarCotacaoAtual(
     moedaOrigem: string,
     moedaDestino: string,

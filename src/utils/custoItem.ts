@@ -10,6 +10,23 @@ export interface CustoItemEstoque {
   valorEuro: number | null;
   valorOriginal: number | null;
   moedaOriginal: string | null;
+  /** Presente quando valorReal foi convertido de outra moeda. */
+  cotacaoReal?: { valor: number; dataCotacao: string; fonte: string } | null;
+}
+
+/** Item em estoque no Brasil comprado em outra moeda: custo precisa de conversão para real. */
+export function precisaConverterCustoParaReal(
+  custo: CustoItemEstoque | null | undefined,
+  tipoRegiao?: string | null,
+): boolean {
+  return Boolean(
+    custo &&
+      custo.valorReal == null &&
+      custo.valorOriginal != null &&
+      custo.moedaOriginal &&
+      custo.moedaOriginal !== "BRL" &&
+      inferirMoedaVendaPorRegiao(tipoRegiao) === "BRL",
+  );
 }
 
 type ItemComOrdem = Pick<ItemEstoque, "id_ordem_compra"> & {

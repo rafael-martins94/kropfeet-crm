@@ -10,7 +10,13 @@ import type {
   VendaInsert,
   VendaUpdate,
 } from "../types/entities";
-import { calcularLucroVenda, resolverCustoItem, type CustoItemEstoque } from "../utils/custoItem";
+import {
+  calcularLucroVenda,
+  precisaConverterCustoParaReal,
+  resolverCustoItem,
+  type CustoItemEstoque,
+} from "../utils/custoItem";
+import { converterCustoParaReal } from "./cambio-compra";
 import { contaContaComoEmAberto, contaContaComoRecebida } from "../utils/situacaoContaExibida";
 import { atualizar, contar, deletar, inserir, obterPorId } from "./base";
 
@@ -35,6 +41,7 @@ export interface ItemVendaDetalhado {
     ordem_compra?: {
       valor_custo: number;
       moeda_compra: string;
+      data_compra: string | null;
     } | null;
   } | null;
   custo?: CustoItemEstoque | null;
@@ -329,7 +336,7 @@ export const vendasService = {
            id, sku, nome_produto, numeracao_br, id_modelo_produto, id_ordem_compra,
            local:locais_estoque!itens_estoque_id_local_estoque_fkey(tipo_regiao),
            ordem_compra:ordens_compra!itens_estoque_id_ordem_compra_fkey(
-             valor_custo, moeda_compra
+             valor_custo, moeda_compra, data_compra
            )
          )`,
       )
@@ -337,13 +344,19 @@ export const vendasService = {
       .order("criado_em", { ascending: true });
     if (error) throw error;
 
-    return (data ?? []).map((iv) => {
-      const row = iv as unknown as ItemVendaDetalhado;
-      const custo = resolverCustoItem(row.item_estoque ?? null);
-      // Pedidos do Tiny sao em BRL: usa valor_unitario como valor de venda em real.
-      const lucroCalculado = calcularLucroVenda(row.valor_unitario, null, custo);
-      return { ...row, custo, lucroCalculado };
-    });
+    return Promise.all(
+      (data ?? []).map(async (iv) => {
+        const row = iv as unknown as ItemVendaDetalhado;
+        let custo = resolverCustoItem(row.item_estoque ?? null);
+        // Par no Brasil comprado em euro: custo em real pela cotação do dia da compra.
+        if (custo && precisaConverterCustoParaReal(custo, row.item_estoque?.local?.tipo_regiao)) {
+          custo = await converterCustoParaReal(custo, row.item_estoque?.ordem_compra?.data_compra);
+        }
+        // Pedidos do Tiny sao em BRL: usa valor_unitario como valor de venda em real.
+        const lucroCalculado = calcularLucroVenda(row.valor_unitario, null, custo);
+        return { ...row, custo, lucroCalculado };
+      }),
+    );
   },
 
   /** Vendas que incluem o item de estoque (em geral 0 ou 1, por ser par único). */

@@ -465,6 +465,19 @@ export default function VendaDetailPage() {
                             {custoExibido
                               ? formatarMoeda(custoExibido.valor, custoExibido.moeda)
                               : "—"}
+                            {custoExibido?.moeda === "BRL" && iv.custo?.cotacaoReal ? (
+                              <div
+                                className="whitespace-nowrap text-[0.68rem] text-ink-soft"
+                                title={`Cotação ${iv.custo.moedaOriginal}→BRL de ${formatarData(iv.custo.cotacaoReal.dataCotacao)} (${iv.custo.cotacaoReal.fonte})`}
+                              >
+                                {formatarMoeda(iv.custo.valorOriginal, iv.custo.moedaOriginal ?? undefined)}
+                                {" × "}
+                                {iv.custo.cotacaoReal.valor.toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 4,
+                                  maximumFractionDigits: 4,
+                                })}
+                              </div>
+                            ) : null}
                           </td>
                           <td className="text-right font-numeric tabular-nums text-xs">
                             {lucro != null ? formatarMoeda(lucro, moeda) : "—"}
