@@ -235,6 +235,9 @@ async function criarCheckout(
 ) {
   const merchant = await obterMerchantCode(conta);
   const moeda = conta === "br" ? "BRL" : "EUR";
+  const retorno = tokenLink
+    ? `${urlRetornoCheckout()}?token=${encodeURIComponent(tokenLink)}`
+    : urlRetornoCheckout();
   const resposta = await chamarSumup(conta, `${ORIGEM}/v0.1/checkouts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -244,9 +247,10 @@ async function criarCheckout(
       currency: moeda,
       merchant_code: merchant,
       description: (descricao ?? "Galeria KropCafé").slice(0, 140),
-      return_url: tokenLink
-        ? `${urlRetornoCheckout()}?token=${encodeURIComponent(tokenLink)}`
-        : urlRetornoCheckout(),
+      // return_url: aviso servidor a servidor (POST). redirect_url: para onde o
+      // cliente volta depois de pagar; o GET desta função leva ao pedido (/p/:token).
+      return_url: retorno,
+      ...(tokenLink ? { redirect_url: retorno } : {}),
       hosted_checkout: { enabled: true },
     }),
   });
