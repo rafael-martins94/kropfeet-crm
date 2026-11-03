@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { IconX } from "../Icons";
@@ -13,6 +13,8 @@ type GaleriaImagensLightboxProps = {
   onIndiceChange: (indice: number) => void;
   /** Esconde o atalho "Ver modelo" (ex.: dentro de um assistente que perderia o que foi preenchido). */
   semLinkModelo?: boolean;
+  /** Ações extras no rodapé para a imagem atual (ex.: abrir os itens de estoque). */
+  acoesRodape?: (imagem: ImagemDetalhada) => ReactNode;
 };
 
 function ChevronBtn({
@@ -49,6 +51,7 @@ export function GaleriaImagensLightbox({
   onClose,
   onIndiceChange,
   semLinkModelo = false,
+  acoesRodape,
 }: GaleriaImagensLightboxProps) {
   const toqueInicioX = useRef<number | null>(null);
   const total = imagens.length;
@@ -146,7 +149,8 @@ export function GaleriaImagensLightbox({
         ) : null}
       </div>
 
-      <div className="flex shrink-0 items-center justify-center gap-4 border-t border-white/10 px-4 py-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-white/10 px-4 py-3">
+        {acoesRodape?.(atual)}
         {atual.modelo && !semLinkModelo ? (
           <Link
             to={`/modelos-produto/${atual.modelo.id}`}
