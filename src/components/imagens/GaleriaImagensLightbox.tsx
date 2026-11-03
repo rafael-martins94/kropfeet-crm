@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { IconX } from "../Icons";
@@ -60,6 +60,36 @@ export function GaleriaImagensLightbox({
   const total = imagens.length;
   const atual = total > 0 ? imagens[Math.min(Math.max(indice, 0), total - 1)]! : null;
   const src = urlImagemModelo(atual);
+  const [carregadas, setCarregadas] = useState<Set<string>>(() => new Set());
+  const carregando = Boolean(src) && !carregadas.has(src!);
+
+  // As fotos são grandes (até ~2 MB): baixa todas ao abrir, começando pela atual e
+  // pelas vizinhas, para a navegação não esperar o download de cada uma.
+  useEffect(() => {
+    if (imagens.length === 0) return;
+    let cancelado = false;
+    const inicio = Math.min(Math.max(indice, 0), imagens.length - 1);
+    const ordem: number[] = [];
+    for (let d = 0; d < imagens.length; d += 1) {
+      for (const i of [inicio + d, inicio - d]) {
+        const pos = (i + imagens.length) % imagens.length;
+        if (!ordem.includes(pos)) ordem.push(pos);
+      }
+    }
+    for (const pos of ordem) {
+      const url = urlImagemModelo(imagens[pos]);
+      if (!url) continue;
+      const img = new Image();
+      img.onload = () => {
+        if (!cancelado) setCarregadas((atuais) => new Set(atuais).add(url));
+      };
+      img.src = url;
+    }
+    return () => {
+      cancelado = true;
+    };
+    // Só ao trocar o conjunto de fotos; a navegação usa o que já foi baixado.
+  }, [imagens]);
   const nome = atual?.modelo?.nome_modelo ?? "—";
   const categoria = atual?.modelo?.categoria?.nome;
 
@@ -127,13 +157,23 @@ export function GaleriaImagensLightbox({
       >
         {src ? (
           <img
+            key={src}
             src={src}
             alt={nome}
-            className="max-h-full max-w-full object-contain"
+            onLoad={() => setCarregadas((atuais) => new Set(atuais).add(src))}
+            className={cn(
+              "max-h-full max-w-full object-contain transition-opacity duration-150",
+              carregando ? "opacity-0" : "opacity-100",
+            )}
           />
         ) : (
           <p className="text-sm text-white/50">Imagem indisponível</p>
         )}
+        {carregando ? (
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-label="Carregando foto">
+            <span className="h-9 w-9 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+          </span>
+        ) : null}
 
         {atual.imagem_principal ? (
           <span className="absolute left-4 top-2 rounded-full bg-brand-700/90 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
