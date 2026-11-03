@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { useOrigemNavegacao } from "../hooks/useListDetailNavigation";
 import { IconChevronLeft } from "./Icons";
 
 interface Crumb {
@@ -27,6 +28,11 @@ export function PageHeader({
   backState,
   compacto = false,
 }: PageHeaderProps) {
+  // Aberta a partir de outro registro: voltar retorna para ele.
+  const origem = useOrigemNavegacao();
+  const voltarPara = origem ? origem.path : backTo;
+  const voltarState = origem ? origem.state : backState;
+
   return (
     <div
       className={
@@ -57,8 +63,8 @@ export function PageHeader({
         <div className="flex items-center gap-3">
           {backTo ? (
             <Link
-              to={backTo}
-              state={backState}
+              to={voltarPara!}
+              state={voltarState}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink-muted transition hover:border-brand-400 hover:text-brand-700"
               aria-label="Voltar"
             >

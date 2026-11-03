@@ -8,6 +8,7 @@ import { SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
 import { useAsync } from "../../hooks/useAsync";
+import { useStateComOrigem } from "../../hooks/useListDetailNavigation";
 import { modelosProdutoService } from "../../services/modelos-produto";
 import { ordensCompraService } from "../../services/ordens-compra";
 import { cn } from "../../utils/cn";
@@ -43,6 +44,7 @@ function ChipNumeracao({ label, valor }: { label: string; valor: string }) {
 export default function OrdemCompraDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const stateComOrigem = useStateComOrigem();
 
   const ordem = useAsync(
     () => (id ? ordensCompraService.obter(id) : Promise.resolve(null)),
@@ -96,7 +98,7 @@ export default function OrdemCompraDetailPage() {
               {item ? (
                 <SecondaryButton
                   icon={<IconBox width={16} height={16} />}
-                  onClick={() => navigate(`/itens-estoque/${item.id}`)}
+                  onClick={() => navigate(`/itens-estoque/${item.id}`, { state: stateComOrigem() })}
                 >
                   Ver item
                 </SecondaryButton>
@@ -209,7 +211,7 @@ export default function OrdemCompraDetailPage() {
                 <SecondaryButton
                   className="shrink-0 self-start"
                   icon={<IconBox width={16} height={16} />}
-                  onClick={() => navigate(`/itens-estoque/${item.id}`)}
+                  onClick={() => navigate(`/itens-estoque/${item.id}`, { state: stateComOrigem() })}
                 >
                   Abrir item
                 </SecondaryButton>

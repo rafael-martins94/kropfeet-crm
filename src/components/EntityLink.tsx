@@ -1,6 +1,7 @@
 import { Link, type LinkProps } from "react-router-dom";
 import type { ReactNode } from "react";
 import { cn } from "../utils/cn";
+import { useStateComOrigem } from "../hooks/useListDetailNavigation";
 import { IconArrowUpRight } from "./Icons";
 
 type EntityLinkProps = {
@@ -30,11 +31,13 @@ export function EntityLink({
   rel,
   appearance = "nav",
 }: EntityLinkProps) {
+  // O voltar da tela aberta retorna para esta, não para a lista dela.
+  const stateComOrigem = useStateComOrigem()(state);
   if (appearance === "plain") {
     return (
       <Link
         to={to}
-        state={state}
+        state={stateComOrigem}
         target={target}
         rel={rel}
         title={title}
@@ -52,7 +55,7 @@ export function EntityLink({
   return (
     <Link
       to={to}
-      state={state}
+      state={stateComOrigem}
       target={target}
       rel={rel}
       title={title}
