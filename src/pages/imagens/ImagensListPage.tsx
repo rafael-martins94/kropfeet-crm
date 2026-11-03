@@ -266,7 +266,14 @@ export default function ImagensListPage() {
                 placeholder={EXEMPLO_NUMERACAO[padraoNumeracao]}
                 value={numeracao}
                 onChange={(e) => {
-                  setNumeracao(e.target.value);
+                  // "BR", "EU" ou "US" no começo escolhe a tabela no seletor e sai do campo.
+                  const prefixo = e.target.value.match(/^\s*(br|eu|us)\s*/i);
+                  if (prefixo) {
+                    setPadraoNumeracao(prefixo[1]!.toLowerCase() as DisplaySizeSystem);
+                    setNumeracao(e.target.value.slice(prefixo[0].length));
+                  } else {
+                    setNumeracao(e.target.value);
+                  }
                   resetPage();
                 }}
                 wrapperClassName="w-full min-w-0"
