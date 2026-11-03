@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { FILTRO_CATEGORIA_SEM } from "./itens-estoque";
+import { compareNatural } from "../utils/naturalSort";
 import type { PaginationParams, StatusItem } from "../types/entities";
 import {
   formatSizeLabel,
@@ -137,6 +138,24 @@ function montarConsultaImagens(params: ParamsListagemImagens | undefined, contar
   return query;
 }
 
+/** Item do modelo para o modal "Ver detalhes" da galeria. */
+export interface ItemDetalheModelo {
+  id: string;
+  sku: string;
+  numeracao: string;
+  status: StatusItem;
+  precoVenda: number | null;
+  moedaVenda: string | null;
+  local: string | null;
+  regiao: string | null;
+}
+
+type ItemModeloBruto = ParEmEstoque & {
+  preco_venda: number | null;
+  moeda_venda: string | null;
+  local: { tipo_regiao: string | null; nome: string | null } | null;
+};
+
 function compararImagens(a: ImagemDetalhada, b: ImagemDetalhada): number {
   if (a.imagem_principal !== b.imagem_principal) return a.imagem_principal ? -1 : 1;
   return b.criado_em.localeCompare(a.criado_em);
@@ -163,6 +182,47 @@ export interface ImagemDetalhada {
 }
 
 export const imagensService = {
+  /** Itens de um modelo com os mesmos filtros de status, região e numeração da galeria. */
+  itensDoModelo: async (
+    idModelo: string,
+    filtros: {
+      status?: StatusItem[];
+      regiao?: FiltroRegiaoImagens;
+      numeracao?: string;
+      padraoNumeracao?: DisplaySizeSystem;
+    },
+  ): Promise<ItemDetalheModelo[]> => {
+    const status = filtros.status ?? [];
+    const regiao = filtros.regiao ?? "";
+    const numeracao = filtros.numeracao?.trim() ?? "";
+    const padrao = filtros.padraoNumeracao ?? "br";
+
+    let consulta = supabase
+      .from("itens_estoque")
+      .select(
+        "id, sku, id_modelo_produto, numeracao_br, numeracao_eu, numeracao_us, nome_produto, status_item, preco_venda, moeda_venda, local:locais_estoque(nome, tipo_regiao)",
+      )
+      .eq("id_modelo_produto", idModelo);
+    if (status.length > 0) consulta = consulta.in("status_item", status);
+    const { data, error } = await consulta;
+    if (error) throw error;
+
+    return ((data ?? []) as unknown as ItemModeloBruto[])
+      .filter((item) => !regiao || item.local?.tipo_regiao === regiao)
+      .filter((item) => !numeracao || matchesSizeFilter(item, padrao, numeracao))
+      .map((item) => ({
+        id: item.id,
+        sku: item.sku,
+        numeracao: rotuloNumeracao(item, padrao),
+        status: item.status_item,
+        precoVenda: item.preco_venda,
+        moedaVenda: item.moeda_venda,
+        local: item.local?.nome ?? null,
+        regiao: item.local?.tipo_regiao ?? null,
+      }))
+      .sort((a, b) => compareNatural(a.sku, b.sku));
+  },
+
   listar: async (params?: ParamsListagemImagens) => {
     const page = params?.page ?? 1;
     const pageSize = params?.pageSize ?? 24;

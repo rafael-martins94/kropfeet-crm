@@ -13,6 +13,8 @@ interface ModalProps {
   size?: "sm" | "md" | "lg" | "xl";
   closeOnBackdropClick?: boolean;
   className?: string;
+  /** Abre acima de outras sobreposições (ex.: visualizador de fotos). */
+  acimaDeSobreposicoes?: boolean;
 }
 
 const sizeClass: Record<NonNullable<ModalProps["size"]>, string> = {
@@ -32,6 +34,7 @@ export function Modal({
   size = "md",
   closeOnBackdropClick = true,
   className,
+  acimaDeSobreposicoes = false,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -50,7 +53,12 @@ export function Modal({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className={cn(
+        "fixed inset-0 flex items-center justify-center p-4",
+        acimaDeSobreposicoes ? "z-[80]" : "z-50",
+      )}
+    >
       <div
         className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
         onClick={closeOnBackdropClick ? onClose : undefined}

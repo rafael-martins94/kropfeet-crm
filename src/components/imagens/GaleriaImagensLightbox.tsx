@@ -15,6 +15,8 @@ type GaleriaImagensLightboxProps = {
   semLinkModelo?: boolean;
   /** Ações extras no rodapé para a imagem atual (ex.: abrir os itens de estoque). */
   acoesRodape?: (imagem: ImagemDetalhada) => ReactNode;
+  /** Desliga Esc e setas (ex.: com um modal aberto por cima). */
+  teclasPausadas?: boolean;
 };
 
 function ChevronBtn({
@@ -52,6 +54,7 @@ export function GaleriaImagensLightbox({
   onIndiceChange,
   semLinkModelo = false,
   acoesRodape,
+  teclasPausadas = false,
 }: GaleriaImagensLightboxProps) {
   const toqueInicioX = useRef<number | null>(null);
   const total = imagens.length;
@@ -65,6 +68,7 @@ export function GaleriaImagensLightbox({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (teclasPausadas) return;
       if (e.key === "Escape") onClose();
       if (total <= 1) return;
       if (e.key === "ArrowLeft") onIndiceChange(indice <= 0 ? total - 1 : indice - 1);
@@ -77,7 +81,7 @@ export function GaleriaImagensLightbox({
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [indice, total, onClose, onIndiceChange]);
+  }, [indice, total, onClose, onIndiceChange, teclasPausadas]);
 
   if (!atual) return null;
 

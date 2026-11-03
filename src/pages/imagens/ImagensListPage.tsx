@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { EmptyState } from "../../components/EmptyState";
 import { GaleriaImagensLightbox } from "../../components/imagens/GaleriaImagensLightbox";
 import { LoadingState } from "../../components/LoadingState";
@@ -19,6 +19,10 @@ import {
   type FiltroRegiaoImagens,
   type ImagemDetalhada,
 } from "../../services/imagens";
+import { Modal } from "../../components/Modal";
+import { StatusBadge } from "../../components/StatusBadge";
+import { SecondaryButton } from "../../components/PrimaryButton";
+import { formatarPrecoVendaItem } from "../../utils/moedaItemEstoque";
 import { StatusItemFilterDropdown } from "../../components/StatusItemFilterDropdown";
 import { statusOpcoesFiltro } from "../../components/itens-estoque/itensEstoqueFiltrosConstants";
 import type { StatusItem } from "../../types/entities";
@@ -38,20 +42,47 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { urlImagemModelo } from "../../utils/imagemModelo";
 
 export default function ImagensListPage() {
-  const [page, setPage] = useState(1);
+  // Os filtros vivem na URL: ao abrir um item ou modelo e voltar, a galeria volta igual.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(() => Math.max(1, Number(searchParams.get("p")) || 1));
   // Um card por modelo (só a foto principal).
   const apenasPrincipais = true;
-  const [search, setSearch] = useState("");
-  const [categoriaIds, setCategoriaIds] = useState<string[]>([]);
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+  const [categoriaIds, setCategoriaIds] = useState<string[]>(
+    () => searchParams.get("cat")?.split(",").filter(Boolean) ?? [],
+  );
   // Começa em "Em estoque": é o que dá para mostrar a um cliente.
-  const [statusFiltro, setStatusFiltro] = useState<StatusItem | "">("em_estoque");
+  const [statusFiltro, setStatusFiltro] = useState<StatusItem | "">(() => {
+    const valor = searchParams.get("status");
+    if (valor === "todos") return "";
+    return (valor as StatusItem | null) ?? "em_estoque";
+  });
   const status = useMemo<StatusItem[]>(() => (statusFiltro ? [statusFiltro] : []), [statusFiltro]);
-  const [regiao, setRegiao] = useState<FiltroRegiaoImagens>("");
-  const [numeracao, setNumeracao] = useState("");
-  const [padraoNumeracao, setPadraoNumeracao] = useState<DisplaySizeSystem>("br");
+  const [regiao, setRegiao] = useState<FiltroRegiaoImagens>(
+    () => (searchParams.get("regiao") as FiltroRegiaoImagens | null) ?? "",
+  );
+  const [numeracao, setNumeracao] = useState(() => searchParams.get("num") ?? "");
+  const [padraoNumeracao, setPadraoNumeracao] = useState<DisplaySizeSystem>(
+    () => (searchParams.get("padrao") as DisplaySizeSystem | null) ?? "br",
+  );
   const stateComOrigem = useStateComOrigem();
   // Fotos do modelo clicado: o visualizador navega entre elas, não entre os modelos.
-  const [galeria, setGaleria] = useState<{ imagens: ImagemDetalhada[]; indice: number } | null>(null);
+  const [galeria, setGaleria] = useState<{
+    idModelo: string;
+    imagens: ImagemDetalhada[];
+    indice: number;
+  } | null>(null);
+  // Modal "Ver detalhes": itens do modelo (SKU, preço, estoque e região).
+  const [detalhes, setDetalhes] = useState<{ idModelo: string; nome: string } | null>(() => {
+    const idModelo = searchParams.get("det");
+    return idModelo ? { idModelo, nome: "" } : null;
+  });
+  // Visualizador aberto ao sair para um item ou modelo: reabre ao voltar.
+  const reabrirGaleria = useRef(
+    searchParams.get("ver")
+      ? { idModelo: searchParams.get("ver")!, foto: Math.max(0, Number(searchParams.get("foto")) || 0) }
+      : null,
+  );
   const [abrindoModelo, setAbrindoModelo] = useState<string | null>(null);
   const toast = useToast();
 
@@ -59,6 +90,38 @@ export default function ImagensListPage() {
   const numeracaoDebounced = useDebounce(numeracao, 400);
   const filtroEstoqueAtivo = Boolean(status.length > 0 || regiao || numeracaoDebounced.trim());
   const soEmEstoque = status.length === 1 && status[0] === "em_estoque";
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchDebounced.trim()) params.set("q", searchDebounced.trim());
+    if (categoriaIds.length > 0) params.set("cat", categoriaIds.join(","));
+    if (statusFiltro !== "em_estoque") params.set("status", statusFiltro || "todos");
+    if (regiao) params.set("regiao", regiao);
+    if (numeracaoDebounced.trim()) params.set("num", numeracaoDebounced.trim());
+    if (padraoNumeracao !== "br") params.set("padrao", padraoNumeracao);
+    if (page > 1) params.set("p", String(page));
+    if (galeria) {
+      params.set("ver", galeria.idModelo);
+      if (galeria.indice > 0) params.set("foto", String(galeria.indice));
+    } else if (reabrirGaleria.current) {
+      // Ainda reabrindo: mantém o que veio na URL.
+      params.set("ver", reabrirGaleria.current.idModelo);
+      if (reabrirGaleria.current.foto > 0) params.set("foto", String(reabrirGaleria.current.foto));
+    }
+    if (detalhes) params.set("det", detalhes.idModelo);
+    setSearchParams(params, { replace: true });
+  }, [
+    galeria,
+    detalhes,
+    searchDebounced,
+    categoriaIds,
+    statusFiltro,
+    regiao,
+    numeracaoDebounced,
+    padraoNumeracao,
+    page,
+    setSearchParams,
+  ]);
 
   const categoriasLista = useAsync(() => categoriasService.listarTodas(), []);
 
@@ -86,7 +149,7 @@ export default function ImagensListPage() {
     [page, apenasPrincipais, searchDebounced, categoriaIds, status, regiao, numeracaoDebounced, padraoNumeracao],
   );
 
-  const abrirFotosDoModelo = async (img: ImagemDetalhada) => {
+  const abrirFotosDoModelo = async (img: ImagemDetalhada, fotoInicial?: number) => {
     setAbrindoModelo(img.id);
     try {
       const fotos = await modelosProdutoService.obterImagens(img.id_modelo_produto);
@@ -94,8 +157,11 @@ export default function ImagensListPage() {
         fotos.length > 0
           ? fotos.map((foto) => ({ ...foto, modelo: img.modelo, itensEstoque: img.itensEstoque }) as ImagemDetalhada)
           : [img];
-      const indice = Math.max(0, imagens.findIndex((foto) => foto.id === img.id));
-      setGaleria({ imagens, indice });
+      const indice =
+        fotoInicial != null
+          ? Math.min(fotoInicial, imagens.length - 1)
+          : Math.max(0, imagens.findIndex((foto) => foto.id === img.id));
+      setGaleria({ idModelo: img.id_modelo_produto, imagens, indice });
     } catch (falha) {
       toast.erro(mensagemErro(falha));
     } finally {
@@ -103,36 +169,36 @@ export default function ImagensListPage() {
     }
   };
 
-  /** Links para o estoque da imagem: o item (ou os itens) que atendem ao filtro, senão o modelo. */
-  const linksEstoque = (img: ImagemDetalhada, tema: "claro" | "escuro") => {
-    const classeLink =
-      tema === "escuro"
-        ? "rounded-full border border-white/20 px-2.5 py-1 text-xs font-medium text-white/90 transition hover:border-brand-300 hover:text-brand-200"
-        : "text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline";
-    const itens = img.itensEstoque;
-    if (!itens) {
-      return img.modelo ? (
-        <Link to={`/modelos-produto/${img.modelo.id}`} state={stateComOrigem()} className={classeLink}>
-          Ver itens do modelo
-        </Link>
-      ) : null;
-    }
-    return itens.map((item) => (
-      <Link
-        key={item.id}
-        to={`/itens-estoque/${item.id}`}
-        state={stateComOrigem()}
-        className={classeLink}
-        title={`Abrir o item SKU ${item.sku}`}
-      >
-        {tema === "escuro"
-          ? `SKU ${item.sku} · ${item.numeracao}${item.regiao ? ` · ${NOME_REGIAO[item.regiao] ?? item.regiao}` : ""}${soEmEstoque ? "" : ` · ${traduzirEnum(item.status)}`}`
-          : `Ver item ${item.sku}`}
-      </Link>
-    ));
-  };
+  const verDetalhes = (img: ImagemDetalhada) =>
+    setDetalhes({ idModelo: img.id_modelo_produto, nome: img.modelo?.nome_modelo ?? "" });
+
+  const itensDetalhes = useAsync(
+    () =>
+      detalhes
+        ? imagensService.itensDoModelo(detalhes.idModelo, {
+            status,
+            regiao,
+            numeracao: numeracaoDebounced,
+            padraoNumeracao,
+          })
+        : Promise.resolve([]),
+    [detalhes?.idModelo, status, regiao, numeracaoDebounced, padraoNumeracao],
+  );
+  const nomeDetalhes =
+    detalhes?.nome ||
+    data?.data.find((img) => img.id_modelo_produto === detalhes?.idModelo)?.modelo?.nome_modelo ||
+    "Detalhes do modelo";
 
   const resetPage = () => setPage(1);
+
+  useEffect(() => {
+    const pendente = reabrirGaleria.current;
+    if (!pendente || !data) return;
+    reabrirGaleria.current = null;
+    const img = data.data.find((item) => item.id_modelo_produto === pendente.idModelo);
+    // Só depende de data: reabre uma vez, quando a lista chega.
+    if (img) void abrirFotosDoModelo(img, pendente.foto);
+  }, [data]);
 
   useEffect(() => {
     setGaleria(null);
@@ -278,18 +344,14 @@ export default function ImagensListPage() {
                         </p>
                       ) : null}
                     </button>
-                    <div className="mt-auto flex flex-wrap gap-x-3 gap-y-0.5 px-2 pb-2 pt-1">
-                      {itens && itens.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => void abrirFotosDoModelo(img)}
-                          className="text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline"
-                        >
-                          Ver os {itens.length} itens
-                        </button>
-                      ) : (
-                        linksEstoque(img, "claro")
-                      )}
+                    <div className="mt-auto px-2 pb-2 pt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => verDetalhes(img)}
+                        className="w-full rounded-lg border border-line bg-surface px-2 py-1.5 text-xs font-semibold text-brand-700 transition hover:border-brand-400 hover:bg-brand-50"
+                      >
+                        Ver detalhes
+                      </button>
                     </div>
                     </div>
                   );
@@ -314,9 +376,107 @@ export default function ImagensListPage() {
           indice={galeria.indice}
           onClose={() => setGaleria(null)}
           onIndiceChange={(indice) => setGaleria((atual) => (atual ? { ...atual, indice } : atual))}
-          acoesRodape={(img) => linksEstoque(img, "escuro")}
+          semLinkModelo
+          teclasPausadas={Boolean(detalhes)}
+          acoesRodape={(img) => (
+            <>
+              <button
+                type="button"
+                onClick={() => verDetalhes(img)}
+                className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-ink transition hover:bg-brand-50"
+              >
+                Ver detalhes
+              </button>
+            </>
+          )}
         />
       ) : null}
+
+      <Modal
+        open={Boolean(detalhes)}
+        onClose={() => setDetalhes(null)}
+        acimaDeSobreposicoes
+        size="lg"
+        title={nomeDetalhes}
+        description={
+          itensDetalhes.loading
+            ? "Carregando itens…"
+            : `${itensDetalhes.data?.length ?? 0} ${(itensDetalhes.data?.length ?? 0) === 1 ? "item" : "itens"}${
+                statusFiltro ? ` · ${traduzirEnum(statusFiltro)}` : ""
+              }${regiao ? ` · ${NOME_REGIAO[regiao]}` : ""}${
+                numeracaoDebounced.trim() ? ` · ${padraoNumeracao.toUpperCase()} ${numeracaoDebounced.trim()}` : ""
+              }`
+        }
+        footer={
+          <>
+            {detalhes ? (
+              <Link
+                to={`/modelos-produto/${detalhes.idModelo}`}
+                state={stateComOrigem()}
+                className="mr-auto text-sm font-semibold text-brand-700 hover:text-brand-800 hover:underline"
+              >
+                Ver modelo
+              </Link>
+            ) : null}
+            <SecondaryButton type="button" onClick={() => setDetalhes(null)}>
+              Fechar
+            </SecondaryButton>
+          </>
+        }
+      >
+        {itensDetalhes.loading ? (
+          <LoadingState />
+        ) : itensDetalhes.error ? (
+          <p className="text-sm text-red-700">Erro: {itensDetalhes.error.message}</p>
+        ) : (itensDetalhes.data ?? []).length === 0 ? (
+          <p className="text-sm text-ink-soft">Nenhum item deste modelo com os filtros atuais.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            <li className="hidden grid-cols-[5rem_5.5rem_7rem_minmax(0,1fr)_6rem_auto] gap-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-soft sm:grid">
+              <span>SKU</span>
+              <span>Numeração</span>
+              <span>Preço</span>
+              <span>Estoque</span>
+              <span>Região</span>
+              <span className="sr-only">Abrir</span>
+            </li>
+            {(itensDetalhes.data ?? []).map((item) => (
+              <li
+                key={item.id}
+                className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 sm:grid-cols-[5rem_5.5rem_7rem_minmax(0,1fr)_6rem_auto]"
+              >
+                <span className="font-numeric text-sm font-semibold tabular-nums text-ink">
+                  SKU {item.sku}
+                  <span className="ml-2 font-normal text-ink-soft sm:hidden">{item.numeracao}</span>
+                </span>
+                <span className="hidden font-numeric text-sm tabular-nums text-ink sm:block">{item.numeracao}</span>
+                <span className="font-numeric text-sm font-semibold tabular-nums text-ink sm:order-none">
+                  {formatarPrecoVendaItem(item.precoVenda, item.moedaVenda, item.regiao) ?? "Sem preço"}
+                </span>
+                <span className="col-span-2 min-w-0 text-sm text-ink sm:col-span-1">
+                  <span className="block truncate" title={item.local ?? undefined}>
+                    {item.local ?? "Sem local"}
+                  </span>
+                  {soEmEstoque ? null : (
+                    <StatusBadge value={item.status} label={traduzirEnum(item.status)} className="mt-0.5" />
+                  )}
+                </span>
+                <span className="text-sm text-ink-soft">
+                  {item.regiao ? NOME_REGIAO[item.regiao] ?? item.regiao : "—"}
+                </span>
+                <Link
+                  to={`/itens-estoque/${item.id}`}
+                  state={stateComOrigem()}
+                  className="justify-self-end whitespace-nowrap rounded-lg border border-line px-2.5 py-1 text-xs font-semibold text-brand-700 transition hover:border-brand-400 hover:bg-brand-50"
+                  title={`Abrir o item SKU ${item.sku} no estoque`}
+                >
+                  Ver no estoque
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
     </div>
   );
 }
