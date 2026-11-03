@@ -121,13 +121,14 @@ export async function calcularValoresCompra(
 /** Cadastro manual vale só se for de até 7 dias antes da compra; senão usa a API. */
 const JANELA_COTACAO_CADASTRADA_DIAS = 7;
 
-/** Cotação de uma moeda para real no dia da compra (cadastro manual ou AwesomeAPI). */
-export async function buscarCotacaoParaRealNaData(
+/** Cotação entre duas moedas no dia da compra (cadastro manual ou AwesomeAPI). */
+export async function buscarCotacaoConversaoNaData(
   moedaOrigem: string,
+  moedaDestino: "BRL" | "EUR",
   dataCompra: string,
 ): Promise<{ valor: number; dataCotacao: string; fonte: string } | null> {
   const origem = moedaOrigem.trim().toUpperCase();
-  const doBanco = await cambiosMoedaService.buscarCotacaoNaData(origem, "BRL", dataCompra);
+  const doBanco = await cambiosMoedaService.buscarCotacaoNaData(origem, moedaDestino, dataCompra);
   if (doBanco) {
     const diasAntes =
       (Date.parse(dataCompra) - Date.parse(doBanco.data_cotacao)) / 86_400_000;
@@ -140,26 +141,31 @@ export async function buscarCotacaoParaRealNaData(
     }
   }
 
-  const api = await cotacaoApi.buscarCotacaoHistorica(origem, "BRL", dataCompra);
+  const api = await cotacaoApi.buscarCotacaoHistorica(origem, moedaDestino, dataCompra);
   return api ? { valor: api.valor, dataCotacao: api.dataCotacao, fonte: api.fonte } : null;
 }
 
-/** Preenche valorReal do custo com a cotação do dia da compra. Sem cotação, devolve o custo como veio. */
-export async function converterCustoParaReal(
+/**
+ * Preenche valorReal ou valorEuro do custo com a cotação do dia da compra.
+ * Sem cotação, devolve o custo como veio.
+ */
+export async function converterCusto(
   custo: CustoItemEstoque,
+  moedaDestino: "BRL" | "EUR",
   dataCompra: string | null | undefined,
 ): Promise<CustoItemEstoque> {
   if (!dataCompra || custo.valorOriginal == null || !custo.moedaOriginal) return custo;
   try {
-    const cotacao = await buscarCotacaoParaRealNaData(custo.moedaOriginal, dataCompra);
+    const cotacao = await buscarCotacaoConversaoNaData(custo.moedaOriginal, moedaDestino, dataCompra);
     if (!cotacao) return custo;
+    const convertido = arredondarMoeda(custo.valorOriginal * cotacao.valor);
     return {
       ...custo,
-      valorReal: arredondarMoeda(custo.valorOriginal * cotacao.valor),
-      cotacaoReal: cotacao,
+      ...(moedaDestino === "BRL" ? { valorReal: convertido } : { valorEuro: convertido }),
+      cotacaoConversao: { moedaDestino, ...cotacao },
     };
   } catch (erro) {
-    console.warn("Não foi possível converter o custo para real:", erro);
+    console.warn(`Não foi possível converter o custo para ${moedaDestino}:`, erro);
     return custo;
   }
 }

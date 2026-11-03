@@ -10,23 +10,30 @@ export interface CustoItemEstoque {
   valorEuro: number | null;
   valorOriginal: number | null;
   moedaOriginal: string | null;
-  /** Presente quando valorReal foi convertido de outra moeda. */
-  cotacaoReal?: { valor: number; dataCotacao: string; fonte: string } | null;
+  /** Presente quando valorReal ou valorEuro foi convertido da moeda da compra. */
+  cotacaoConversao?: CotacaoConversaoCusto | null;
 }
 
-/** Item em estoque no Brasil comprado em outra moeda: custo precisa de conversão para real. */
-export function precisaConverterCustoParaReal(
+export interface CotacaoConversaoCusto {
+  moedaDestino: "BRL" | "EUR";
+  valor: number;
+  dataCotacao: string;
+  fonte: string;
+}
+
+/**
+ * Moeda para a qual o custo precisa ser convertido: a da região do estoque,
+ * quando a compra foi em outra moeda (ex.: comprado em euro, estoque no Brasil).
+ */
+export function moedaParaConverterCusto(
   custo: CustoItemEstoque | null | undefined,
   tipoRegiao?: string | null,
-): boolean {
-  return Boolean(
-    custo &&
-      custo.valorReal == null &&
-      custo.valorOriginal != null &&
-      custo.moedaOriginal &&
-      custo.moedaOriginal !== "BRL" &&
-      inferirMoedaVendaPorRegiao(tipoRegiao) === "BRL",
-  );
+): "BRL" | "EUR" | null {
+  const destino = inferirMoedaVendaPorRegiao(tipoRegiao);
+  if (!custo || !destino || custo.valorOriginal == null || !custo.moedaOriginal) return null;
+  if (custo.moedaOriginal === destino) return null;
+  const jaConvertido = destino === "BRL" ? custo.valorReal : custo.valorEuro;
+  return jaConvertido == null ? destino : null;
 }
 
 type ItemComOrdem = Pick<ItemEstoque, "id_ordem_compra"> & {

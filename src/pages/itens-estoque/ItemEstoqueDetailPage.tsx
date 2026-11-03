@@ -24,10 +24,10 @@ import { cn } from "../../utils/cn";
 import { formatarData, formatarDataHora, formatarMoeda, traduzirEnum } from "../../utils/format";
 import {
   obterCustoPrincipal,
-  precisaConverterCustoParaReal,
+  moedaParaConverterCusto,
   resolverCustoItem,
 } from "../../utils/custoItem";
-import { converterCustoParaReal } from "../../services/cambio-compra";
+import { converterCusto } from "../../services/cambio-compra";
 import { resolverMoedaVendaItem } from "../../utils/moedaItemEstoque";
 import {
   formatSizeLabel,
@@ -104,12 +104,13 @@ export default function ItemEstoqueDetailPage() {
   const custoBase = item.data
     ? resolverCustoItem({ ...item.data, ordem_compra: ordem.data, local: local.data })
     : null;
-  // Par no Brasil comprado em euro: converte pela cotação do dia da compra.
-  const converteCusto = precisaConverterCustoParaReal(custoBase, local.data?.tipo_regiao);
+  // Comprado numa moeda e em estoque na região da outra: converte pela cotação do dia da compra.
+  const moedaConversao = moedaParaConverterCusto(custoBase, local.data?.tipo_regiao);
+  const converteCusto = moedaConversao != null;
   const custoConvertido = useAsync(
     () =>
-      custoBase && converteCusto
-        ? converterCustoParaReal(custoBase, ordem.data?.data_compra)
+      custoBase && moedaConversao
+        ? converterCusto(custoBase, moedaConversao, ordem.data?.data_compra)
         : Promise.resolve(null),
     [
       ordem.data?.valor_custo,
@@ -119,7 +120,9 @@ export default function ItemEstoqueDetailPage() {
     ],
   );
   const custoItem = custoConvertido.data ?? custoBase;
-  const cotacaoReal = custoConvertido.data?.cotacaoReal ?? null;
+  const cotacaoConversao = custoConvertido.data?.cotacaoConversao ?? null;
+  const valorConvertido =
+    cotacaoConversao?.moedaDestino === "EUR" ? custoItem?.valorEuro : custoItem?.valorReal;
   const custoCompra = obterCustoPrincipal(custoItem, local.data?.tipo_regiao);
 
   const equivalencias = item.data ? getAllSizeEquivalences(item.data) : null;
@@ -320,21 +323,21 @@ export default function ItemEstoqueDetailPage() {
                   <F label="Moeda">{ordem.data.moeda_compra}</F>
                   <F label="Valor custo">
                     {formatarMoeda(ordem.data.valor_custo, ordem.data.moeda_compra)}
-                    {cotacaoReal && custoItem?.valorReal != null ? (
+                    {cotacaoConversao && valorConvertido != null ? (
                       <span className="ml-2 text-ink-muted">
-                        ≈ {formatarMoeda(custoItem.valorReal, "BRL")}
+                        ≈ {formatarMoeda(valorConvertido, cotacaoConversao.moedaDestino)}
                       </span>
                     ) : converteCusto && custoConvertido.loading ? (
                       <span className="ml-2 text-xs text-ink-soft">convertendo…</span>
                     ) : null}
-                    {cotacaoReal ? (
+                    {cotacaoConversao ? (
                       <div className="mt-0.5 text-xs text-ink-soft">
-                        Cotação {ordem.data.moeda_compra}→BRL{" "}
-                        {cotacaoReal.valor.toLocaleString("pt-BR", {
+                        Cotação {ordem.data.moeda_compra}→{cotacaoConversao.moedaDestino}{" "}
+                        {cotacaoConversao.valor.toLocaleString("pt-BR", {
                           minimumFractionDigits: 4,
                           maximumFractionDigits: 4,
                         })}{" "}
-                        em {formatarData(cotacaoReal.dataCotacao)} · {cotacaoReal.fonte}
+                        em {formatarData(cotacaoConversao.dataCotacao)} · {cotacaoConversao.fonte}
                       </div>
                     ) : null}
                   </F>

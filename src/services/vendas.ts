@@ -12,11 +12,11 @@ import type {
 } from "../types/entities";
 import {
   calcularLucroVenda,
-  precisaConverterCustoParaReal,
+  moedaParaConverterCusto,
   resolverCustoItem,
   type CustoItemEstoque,
 } from "../utils/custoItem";
-import { converterCustoParaReal } from "./cambio-compra";
+import { converterCusto } from "./cambio-compra";
 import { contaContaComoEmAberto, contaContaComoRecebida } from "../utils/situacaoContaExibida";
 import { atualizar, contar, deletar, inserir, obterPorId } from "./base";
 
@@ -348,12 +348,13 @@ export const vendasService = {
       (data ?? []).map(async (iv) => {
         const row = iv as unknown as ItemVendaDetalhado;
         let custo = resolverCustoItem(row.item_estoque ?? null);
-        // Par no Brasil comprado em euro: custo em real pela cotação do dia da compra.
-        if (custo && precisaConverterCustoParaReal(custo, row.item_estoque?.local?.tipo_regiao)) {
-          custo = await converterCustoParaReal(custo, row.item_estoque?.ordem_compra?.data_compra);
+        // Comprado numa moeda e em estoque na região da outra: converte pela cotação do dia da compra.
+        const destino = moedaParaConverterCusto(custo, row.item_estoque?.local?.tipo_regiao);
+        if (custo && destino) {
+          custo = await converterCusto(custo, destino, row.item_estoque?.ordem_compra?.data_compra);
         }
-        // Pedidos do Tiny sao em BRL: usa valor_unitario como valor de venda em real.
-        const lucroCalculado = calcularLucroVenda(row.valor_unitario, null, custo);
+        // valor_unitario está na moeda da venda; a tela escolhe o lucro dessa moeda.
+        const lucroCalculado = calcularLucroVenda(row.valor_unitario, row.valor_unitario, custo);
         return { ...row, custo, lucroCalculado };
       }),
     );

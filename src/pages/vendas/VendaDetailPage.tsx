@@ -419,7 +419,8 @@ export default function VendaDetailPage() {
                     {(itens.data ?? []).map((iv) => {
                       const tipoRegiao = iv.item_estoque?.local?.tipo_regiao;
                       const custoExibido = obterCustoPrincipal(iv.custo, tipoRegiao);
-                      const lucro = iv.lucroCalculado?.lucroReal;
+                      const lucro =
+                        moeda === "EUR" ? iv.lucroCalculado?.lucroEuro : iv.lucroCalculado?.lucroReal;
                       const idModelo = iv.item_estoque?.id_modelo_produto;
                       const fotoUrl = idModelo ? thumbs.data?.[idModelo] : null;
 
@@ -465,14 +466,15 @@ export default function VendaDetailPage() {
                             {custoExibido
                               ? formatarMoeda(custoExibido.valor, custoExibido.moeda)
                               : "—"}
-                            {custoExibido?.moeda === "BRL" && iv.custo?.cotacaoReal ? (
+                            {iv.custo?.cotacaoConversao &&
+                            custoExibido?.moeda === iv.custo.cotacaoConversao.moedaDestino ? (
                               <div
                                 className="whitespace-nowrap text-[0.68rem] text-ink-soft"
-                                title={`Cotação ${iv.custo.moedaOriginal}→BRL de ${formatarData(iv.custo.cotacaoReal.dataCotacao)} (${iv.custo.cotacaoReal.fonte})`}
+                                title={`Cotação ${iv.custo.moedaOriginal}→${iv.custo.cotacaoConversao.moedaDestino} de ${formatarData(iv.custo.cotacaoConversao.dataCotacao)} (${iv.custo.cotacaoConversao.fonte})`}
                               >
                                 {formatarMoeda(iv.custo.valorOriginal, iv.custo.moedaOriginal ?? undefined)}
                                 {" × "}
-                                {iv.custo.cotacaoReal.valor.toLocaleString("pt-BR", {
+                                {iv.custo.cotacaoConversao.valor.toLocaleString("pt-BR", {
                                   minimumFractionDigits: 4,
                                   maximumFractionDigits: 4,
                                 })}
