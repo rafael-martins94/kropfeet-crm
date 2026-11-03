@@ -11,6 +11,9 @@ import { SearchableSelectDropdown } from "../../components/SearchableSelectDropd
 import { SectionCard } from "../../components/SectionCard";
 import { StatusSelectDropdown } from "../../components/StatusSelectDropdown";
 import { categoriasService } from "../../services/categorias";
+import { modelosProdutoService } from "../../services/modelos-produto";
+import { useToast } from "../../contexts/ToastContext";
+import { mensagemErro } from "../../utils/errors";
 import {
   imagensService,
   type FiltroRegiaoImagens,
@@ -47,7 +50,10 @@ export default function ImagensListPage() {
   const [numeracao, setNumeracao] = useState("");
   const [padraoNumeracao, setPadraoNumeracao] = useState<DisplaySizeSystem>("br");
   const stateComOrigem = useStateComOrigem();
-  const [lightboxIndice, setLightboxIndice] = useState<number | null>(null);
+  // Fotos do modelo clicado: o visualizador navega entre elas, não entre os modelos.
+  const [galeria, setGaleria] = useState<{ imagens: ImagemDetalhada[]; indice: number } | null>(null);
+  const [abrindoModelo, setAbrindoModelo] = useState<string | null>(null);
+  const toast = useToast();
 
   const searchDebounced = useDebounce(search, 400);
   const numeracaoDebounced = useDebounce(numeracao, 400);
@@ -79,6 +85,23 @@ export default function ImagensListPage() {
       }),
     [page, apenasPrincipais, searchDebounced, categoriaIds, status, regiao, numeracaoDebounced, padraoNumeracao],
   );
+
+  const abrirFotosDoModelo = async (img: ImagemDetalhada) => {
+    setAbrindoModelo(img.id);
+    try {
+      const fotos = await modelosProdutoService.obterImagens(img.id_modelo_produto);
+      const imagens: ImagemDetalhada[] =
+        fotos.length > 0
+          ? fotos.map((foto) => ({ ...foto, modelo: img.modelo, itensEstoque: img.itensEstoque }) as ImagemDetalhada)
+          : [img];
+      const indice = Math.max(0, imagens.findIndex((foto) => foto.id === img.id));
+      setGaleria({ imagens, indice });
+    } catch (falha) {
+      toast.erro(mensagemErro(falha));
+    } finally {
+      setAbrindoModelo(null);
+    }
+  };
 
   /** Links para o estoque da imagem: o item (ou os itens) que atendem ao filtro, senão o modelo. */
   const linksEstoque = (img: ImagemDetalhada, tema: "claro" | "escuro") => {
@@ -112,7 +135,7 @@ export default function ImagensListPage() {
   const resetPage = () => setPage(1);
 
   useEffect(() => {
-    setLightboxIndice(null);
+    setGaleria(null);
   }, [page, searchDebounced, categoriaIds, apenasPrincipais, status, regiao, numeracaoDebounced, padraoNumeracao]);
 
   return (
@@ -210,7 +233,7 @@ export default function ImagensListPage() {
           <ScrollableListShell
             body={
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                {data.data.map((img, index) => {
+                {data.data.map((img) => {
                   const src = urlImagemModelo(img) ?? "";
                   const nome = img.modelo?.nome_modelo ?? "—";
                   const itens = img.itensEstoque;
@@ -221,8 +244,9 @@ export default function ImagensListPage() {
                     >
                     <button
                       type="button"
-                      onClick={() => setLightboxIndice(index)}
-                      className="group flex flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                      onClick={() => void abrirFotosDoModelo(img)}
+                      aria-busy={abrindoModelo === img.id}
+                      className={`group flex flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${abrindoModelo === img.id ? "cursor-wait opacity-60" : ""}`}
                     >
                       <div className="relative aspect-square overflow-hidden bg-surface-subtle">
                         {src ? (
@@ -258,7 +282,7 @@ export default function ImagensListPage() {
                       {itens && itens.length > 1 ? (
                         <button
                           type="button"
-                          onClick={() => setLightboxIndice(index)}
+                          onClick={() => void abrirFotosDoModelo(img)}
                           className="text-[11px] font-semibold text-brand-700 hover:text-brand-800 hover:underline"
                         >
                           Ver os {itens.length} itens
@@ -284,12 +308,12 @@ export default function ImagensListPage() {
         )}
       </SectionCard>
 
-      {lightboxIndice !== null && data ? (
+      {galeria ? (
         <GaleriaImagensLightbox
-          imagens={data.data}
-          indice={lightboxIndice}
-          onClose={() => setLightboxIndice(null)}
-          onIndiceChange={setLightboxIndice}
+          imagens={galeria.imagens}
+          indice={galeria.indice}
+          onClose={() => setGaleria(null)}
+          onIndiceChange={(indice) => setGaleria((atual) => (atual ? { ...atual, indice } : atual))}
           acoesRodape={(img) => linksEstoque(img, "escuro")}
         />
       ) : null}
