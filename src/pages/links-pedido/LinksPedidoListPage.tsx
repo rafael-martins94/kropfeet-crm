@@ -23,12 +23,13 @@ import {
 import { formatarDataHora, formatarMoeda } from "../../utils/format";
 import { mensagemDoLink, prazoDaMensagemLink, rotuloSituacaoLink, situacaoLink, urlDoLink } from "../../utils/linkPedido";
 import { mensagemErro } from "../../utils/errors";
+import { cn } from "../../utils/cn";
 
-const situacoes: StatusSelectOption[] = [
-  { value: "todos", label: "Todas as situações", tom: "neutro" },
-  { value: "ativo", label: "Ativos", tom: "sucesso" },
-  { value: "expirado", label: "Expirados", tom: "aviso" },
-  { value: "desativado", label: "Desativados", tom: "neutro" },
+const abas: Array<{ valor: SituacaoFiltroLink; rotulo: string }> = [
+  { valor: "ativo", rotulo: "Ativos" },
+  { valor: "expirado", rotulo: "Expirados" },
+  { valor: "desativado", rotulo: "Desativados" },
+  { valor: "todos", rotulo: "Todos" },
 ];
 
 const vendas: StatusSelectOption[] = [
@@ -42,7 +43,7 @@ export default function LinksPedidoListPage() {
   const toast = useToast();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [situacao, setSituacao] = useState<SituacaoFiltroLink>("todos");
+  const [situacao, setSituacao] = useState<SituacaoFiltroLink>("ativo");
   const [venda, setVenda] = useState<VendaFiltroLink>("todas");
   const busca = useDebounce(search, 300);
 
@@ -238,7 +239,31 @@ export default function LinksPedidoListPage() {
       <SectionCard noPadding className="flex min-h-0 flex-1 flex-col overflow-hidden" bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ScrollableListShell
           toolbar={
-            <div className="flex flex-col gap-2 border-b border-line px-5 py-3 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-2 border-b border-line px-5 py-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <div
+                className="inline-flex w-fit max-w-full overflow-x-auto rounded-lg border border-line bg-surface-subtle p-0.5"
+                role="tablist"
+                aria-label="Situação dos links"
+              >
+                {abas.map(({ valor, rotulo }) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    role="tab"
+                    aria-selected={situacao === valor}
+                    className={cn(
+                      "whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition",
+                      situacao === valor ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink",
+                    )}
+                    onClick={() => {
+                      setSituacao(valor);
+                      setPage(1);
+                    }}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
               <SearchInput
                 placeholder="Buscar por @ ou nome…"
                 value={search}
@@ -247,15 +272,6 @@ export default function LinksPedidoListPage() {
                   setPage(1);
                 }}
                 wrapperClassName="w-full sm:w-72"
-              />
-              <StatusSelectDropdown
-                value={situacao}
-                options={situacoes}
-                onChange={(valor) => {
-                  setSituacao(valor as SituacaoFiltroLink);
-                  setPage(1);
-                }}
-                className="w-full sm:w-52"
               />
               <StatusSelectDropdown
                 value={venda}
@@ -279,10 +295,22 @@ export default function LinksPedidoListPage() {
                 loading={lista.loading}
                 onRowClick={(row) => navigate(`/links-pedido/${row.id}`)}
                 tableClassName="table-fixed"
-                emptyTitle={busca ? "Nenhum link encontrado" : "Nenhum link gerado"}
-                emptyDescription={busca ? "Tente outro @ ou nome." : "Crie um link para enviar uma seleção fechada de tênis."}
+                emptyTitle={
+                  busca
+                    ? "Nenhum link encontrado"
+                    : situacao === "todos"
+                      ? "Nenhum link gerado"
+                      : `Nenhum link ${abas.find((aba) => aba.valor === situacao)?.rotulo.toLowerCase().replace(/s$/, "")}`
+                }
+                emptyDescription={
+                  busca
+                    ? "Tente outro @ ou nome."
+                    : situacao === "todos" || situacao === "ativo"
+                      ? "Crie um link para enviar uma seleção fechada de tênis."
+                      : "Veja as outras abas."
+                }
                 emptyAction={
-                  busca ? undefined : (
+                  busca || (situacao !== "todos" && situacao !== "ativo") ? undefined : (
                     <PrimaryButton type="button" onClick={() => navigate("/links-pedido/novo")}>
                       Criar novo link
                     </PrimaryButton>
