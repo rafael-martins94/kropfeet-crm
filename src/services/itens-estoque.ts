@@ -614,6 +614,16 @@ export const itensEstoqueService = {
           // Ordenação natural (100, 103, 1003) feita em memória após buscar os registros.
           query = comDesempate(query.order("id", { ascending: true }));
           break;
+        case "nome_produto":
+          // Pares do mesmo modelo ficam juntos, em ordem de numeração.
+          query = comDesempate(
+            query
+              .order("nome_produto", { ascending: ascendente })
+              .order("id_modelo_produto", { ascending: true })
+              .order("numeracao_br", { ascending: true, nullsFirst: false })
+              .order("numeracao_eu", { ascending: true, nullsFirst: false }),
+          );
+          break;
         default:
           query = comDesempate(query.order(coluna, { ascending: ascendente }));
       }

@@ -21,6 +21,9 @@ import { calcularValoresCompra, mensagemCotacaoIndisponivel } from "../../servic
 import { BOAS_VINDAS_LINK_PADRAO, destinoPorMoeda, itemTemPrecoNaMoeda, mensagemDoLink, MENSAGEM_LINK_PADRAO, normalizarMoeda, prazoDaMensagemLink, urlDoLink, type ValidadeHorasLink } from "../../utils/linkPedido";
 import { cn } from "../../utils/cn";
 
+/** Igual ao limite das funções `link_pedido_criar` e `link_pedido_preparar_pagamento`. */
+const LIMITE_TENIS_LINK = 50;
+
 const ETAPAS_BASE = [
   { id: "dados", label: "Dados" },
   { id: "tenis", label: "Tênis" },
@@ -207,7 +210,7 @@ export default function LinkPedidoFormPage() {
   }, [etapa, moeda.moeda, modelosSelecionados]);
 
   useEffect(() => {
-    if (etapa === "preco" && selecionados.length === 0) setEtapa("tenis");
+    if ((etapa === "preco" || etapa === "revisao") && selecionados.length === 0) setEtapa("tenis");
   }, [etapa, selecionados.length]);
   const total = precos.reduce((soma, linha) => soma + (linha.valor ?? 0), 0);
 
@@ -586,6 +589,8 @@ export default function LinkPedidoFormPage() {
           <SeletorTenisLink
             moedaDestino={moeda.moeda}
             selecionados={selecionados}
+            limite={LIMITE_TENIS_LINK}
+            onLimiteAtingido={() => toast.erro(`O link aceita até ${LIMITE_TENIS_LINK} tênis.`)}
             onChange={setSelecionados}
             acaoVoltar={
               <SecondaryButton type="button" className="hidden lg:inline-flex" onClick={() => setEtapa("dados")}>
@@ -873,7 +878,17 @@ export default function LinkPedidoFormPage() {
                   </span>
                 </button>
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <p className="truncate text-base font-semibold text-ink">{item.nome}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-base font-semibold text-ink">{item.nome}</p>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold text-ink-muted transition hover:bg-red-50 hover:text-red-700"
+                      aria-label={`Remover ${item.nome} ${item.numeracao}`}
+                      onClick={() => setSelecionados((atual) => atual.filter((escolhido) => escolhido.id !== item.id))}
+                    >
+                      Remover
+                    </button>
+                  </div>
                   <p className="mt-0.5 truncate text-xs text-ink-soft">{item.sku}</p>
                   <p className="truncate text-xs text-ink-soft">{item.numeracao || "Sem numeração"}</p>
                   <div className="mt-auto flex items-end justify-between gap-3 pt-3">
@@ -902,7 +917,22 @@ export default function LinkPedidoFormPage() {
           {bloqueado ? <p className="shrink-0 text-sm text-red-700">Há item sem preço ou com valor inválido.</p> : null}
           {erro ? <p className="shrink-0 text-sm text-red-700">{erro}</p> : null}
           <BarraAcoesEtapa>
-            <SecondaryButton type="button" onClick={() => setEtapa("preco")}>Voltar</SecondaryButton>
+            <div className="flex min-w-0 items-center gap-2 lg:gap-3">
+              <SecondaryButton type="button" onClick={() => setEtapa("preco")}>Voltar</SecondaryButton>
+              <SecondaryButton
+                type="button"
+                className="whitespace-nowrap"
+                disabled={selecionados.length >= LIMITE_TENIS_LINK}
+                title={selecionados.length >= LIMITE_TENIS_LINK ? `O link aceita até ${LIMITE_TENIS_LINK} tênis.` : undefined}
+                onClick={() => {
+                  setErro(null);
+                  setEtapa("tenis");
+                }}
+              >
+                <span className="sm:hidden">+ Tênis</span>
+                <span className="hidden sm:inline">Adicionar mais tênis</span>
+              </SecondaryButton>
+            </div>
             <PrimaryButton type="button" className="flex-1 lg:flex-none" loading={gerando} disabled={bloqueado} onClick={() => void gerar()}>
               Gerar link
             </PrimaryButton>

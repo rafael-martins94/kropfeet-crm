@@ -14,6 +14,7 @@ import { formatarMoeda } from "../../utils/format";
 import { itemTemPrecoNaMoeda, normalizarMoeda, numeracaoVisivel } from "../../utils/linkPedido";
 import type { DisplaySizeSystem } from "../../utils/sizeConversion";
 import { cn } from "../../utils/cn";
+import { compareNatural } from "../../utils/naturalSort";
 
 export type TenisDoLink = {
   id: string;
@@ -28,6 +29,17 @@ export type TenisDoLink = {
   preco: string;
 };
 
+/** Agrupa os pares do mesmo modelo e ordena pela numeração. */
+function ordenarPorModelo(itens: TenisDoLink[]): TenisDoLink[] {
+  return [...itens].sort(
+    (a, b) =>
+      a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" }) ||
+      a.idModelo.localeCompare(b.idModelo) ||
+      compareNatural(a.numeracao, b.numeracao) ||
+      a.id.localeCompare(b.id),
+  );
+}
+
 function origemDoItem(tipo: string | null | undefined, nomeLocal: string | null | undefined): string {
   if (tipo === "brasil") return "Brasil";
   if (tipo === "europa") return "Europa";
@@ -37,12 +49,16 @@ function origemDoItem(tipo: string | null | undefined, nomeLocal: string | null 
 export function SeletorTenisLink({
   moedaDestino,
   selecionados,
+  limite,
+  onLimiteAtingido,
   onChange,
   acaoVoltar,
   acaoAvancar,
 }: {
   moedaDestino: "BRL" | "EUR";
   selecionados: TenisDoLink[];
+  limite?: number;
+  onLimiteAtingido?: () => void;
   onChange: (itens: TenisDoLink[]) => void;
   acaoVoltar?: ReactNode;
   acaoAvancar?: ReactNode;
@@ -60,6 +76,7 @@ export function SeletorTenisLink({
         idLocalEstoque: undefined,
         displaySizeSystem: padrao || filtros.paramsListagem.displaySizeSystem,
         status: ["em_estoque"],
+        ordenacao: { coluna: "nome_produto", ascendente: true },
       }),
     [filtros.page, filtros.paramsListagem, padrao],
   );
@@ -71,12 +88,16 @@ export function SeletorTenisLink({
       onChange(selecionados.filter((atual) => atual.id !== item.id));
       return;
     }
+    if (limite != null && selecionados.length >= limite) {
+      onLimiteAtingido?.();
+      return;
+    }
     const moedaOriginal = normalizarMoeda(item.moeda_venda);
     const compativel = itemTemPrecoNaMoeda(
       { moedaOriginal, precoOriginal: item.preco_venda },
       moedaDestino,
     );
-    onChange([
+    onChange(ordenarPorModelo([
       ...selecionados,
       {
         id: item.id,
@@ -90,7 +111,7 @@ export function SeletorTenisLink({
         moedaOriginal,
         preco: compativel ? String(item.preco_venda) : "",
       },
-    ]);
+    ]));
   };
 
   return (
