@@ -179,14 +179,6 @@ export default function ItemEstoqueDetailPage() {
           item.data ? (
             <div className="flex flex-wrap items-center gap-2">
               <SecondaryButton
-                icon={<IconLink width={16} height={16} />}
-                disabled={!item.data.id_modelo_produto || copiandoLinkFotos}
-                title={item.data.id_modelo_produto ? "Copiar link das fotos do modelo" : "Este item não tem modelo"}
-                onClick={() => void copiarLinkFotos()}
-              >
-                {copiandoLinkFotos ? "Copiando…" : "Link das fotos"}
-              </SecondaryButton>
-              <SecondaryButton
                 icon={<IconPrinter width={16} height={16} />}
                 onClick={() => setEtiquetaAberta(true)}
                 disabled={!item.data.sku?.trim()}
@@ -319,6 +311,19 @@ export default function ItemEstoqueDetailPage() {
                   keyboardNav
                   className="w-full"
                 />
+                {item.data.id_modelo_produto ? (
+                  <div className="mt-3 flex justify-end">
+                    <SecondaryButton
+                      className="gap-1.5 px-3 py-1.5"
+                      icon={<IconLink width={16} height={16} />}
+                      disabled={copiandoLinkFotos}
+                      title="Copiar link das fotos do modelo"
+                      onClick={() => void copiarLinkFotos()}
+                    >
+                      Fotos
+                    </SecondaryButton>
+                  </div>
+                ) : null}
               </div>
             </div>
           </SectionCard>
