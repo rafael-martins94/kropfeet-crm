@@ -19,6 +19,7 @@ services:
         - src/**
         - public/**
         - index.html
+        - p.html
         - package.json
         - package-lock.json
         - tsconfig*.json
@@ -51,6 +52,10 @@ services:
         name: Cache-Control
         value: public, max-age=31536000, immutable
     routes:
+      # Links de pedido usam p.html (mesma SPA, com prévia própria no WhatsApp).
+      - type: rewrite
+        source: /p/*
+        destination: /p.html
       - type: rewrite
         source: /*
         destination: /index.html

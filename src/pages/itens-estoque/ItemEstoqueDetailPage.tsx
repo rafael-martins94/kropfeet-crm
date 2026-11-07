@@ -10,9 +10,11 @@ import { PageHeader } from "../../components/PageHeader";
 import { GhostButton, SecondaryButton } from "../../components/PrimaryButton";
 import { SectionCard } from "../../components/SectionCard";
 import { StatusBadge } from "../../components/StatusBadge";
-import { IconActivity, IconArrows, IconEdit, IconPrinter } from "../../components/Icons";
+import { IconActivity, IconArrows, IconEdit, IconLink, IconPrinter } from "../../components/Icons";
 import { itensEstoqueService } from "../../services/itens-estoque";
-import { modelosProdutoService } from "../../services/modelos-produto";
+import { modelosProdutoService, urlFotosModelo } from "../../services/modelos-produto";
+import { useToast } from "../../contexts/ToastContext";
+import { mensagemErro } from "../../utils/errors";
 import { fornecedoresService } from "../../services/fornecedores";
 import { locaisEstoqueService } from "../../services/locais-estoque";
 import { ordensCompraService } from "../../services/ordens-compra";
@@ -43,6 +45,8 @@ export default function ItemEstoqueDetailPage() {
   const [historicoPrecoAberto, setHistoricoPrecoAberto] = useState(false);
   const [movimentacoesAberto, setMovimentacoesAberto] = useState(false);
   const [etiquetaAberta, setEtiquetaAberta] = useState(false);
+  const [copiandoLinkFotos, setCopiandoLinkFotos] = useState(false);
+  const toast = useToast();
 
   const item = useAsync(
     () => (id ? itensEstoqueService.obter(id) : Promise.resolve(null)),
@@ -127,6 +131,20 @@ export default function ItemEstoqueDetailPage() {
 
   const equivalencias = item.data ? getAllSizeEquivalences(item.data) : null;
 
+  const copiarLinkFotos = async () => {
+    const idModelo = item.data?.id_modelo_produto;
+    if (!idModelo || copiandoLinkFotos) return;
+    setCopiandoLinkFotos(true);
+    try {
+      const token = await modelosProdutoService.garantirLinkFotos(idModelo);
+      await navigator.clipboard.writeText(urlFotosModelo(token));
+      toast.sucesso("Link das fotos copiado.");
+    } catch (erro) {
+      toast.erro(mensagemErro(erro));
+    } finally {
+      setCopiandoLinkFotos(false);
+    }
+  };
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <PageHeader
@@ -160,6 +178,14 @@ export default function ItemEstoqueDetailPage() {
         actions={
           item.data ? (
             <div className="flex flex-wrap items-center gap-2">
+              <SecondaryButton
+                icon={<IconLink width={16} height={16} />}
+                disabled={!item.data.id_modelo_produto || copiandoLinkFotos}
+                title={item.data.id_modelo_produto ? "Copiar link das fotos do modelo" : "Este item não tem modelo"}
+                onClick={() => void copiarLinkFotos()}
+              >
+                {copiandoLinkFotos ? "Copiando…" : "Link das fotos"}
+              </SecondaryButton>
               <SecondaryButton
                 icon={<IconPrinter width={16} height={16} />}
                 onClick={() => setEtiquetaAberta(true)}
